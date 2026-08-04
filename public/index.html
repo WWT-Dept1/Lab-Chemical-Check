@@ -1129,12 +1129,91 @@ function barcodeQrbox(viewfinderWidth, viewfinderHeight){
 var SCAN_CAMERA_SELECTOR = { facingMode: { exact: 'environment' } };
 /* เผื่อไว้กรณีอุปกรณ์ไม่มีกล้องหลังจริงๆ (เช่น iPad บางรุ่น) จะ fallback มาใช้ตัวนี้แทน */
 var SCAN_CAMERA_SELECTOR_FALLBACK = { facingMode: 'environment' };
-/* ลอง start() ด้วยกล้องหลังแบบบังคับก่อน ถ้าเจอ error (ไม่มีกล้องหลัง/ไม่ตรงเงื่อนไข) ค่อย fallback เป็นแบบ ideal อัตโนมัติ */
+
+/* ============================================================
+   แก้บัค "เปิดกล้องหน้าแทนกล้องหลัง" บน iOS Safari/Chrome บางเครื่อง
+   สาเหตุ: constraint facingMode:{exact:'environment'} เป็นแค่ "คำใบ้"
+   เบราว์เซอร์บางตัว/บางเวอร์ชันไม่ยึดตามจริง โดยเฉพาะ WebKit บางเวอร์ชัน
+   วิธีแก้ที่เชื่อถือได้กว่า: เลือกกล้องด้วย deviceId เจาะจงจากรายชื่อกล้องจริง
+   (Html5Qrcode.getCameras() จะขอสิทธิ์กล้องครั้งแรกให้อัตโนมัติ ทำให้ได้ label
+   ของกล้องมาด้วย เช่น "Back Camera" ถึงจะแยกกล้องหน้า/หลังจาก label ได้แม่นยำ)
+   ผลลัพธ์จะถูกแคชไว้ ไม่ต้อง enumerate ใหม่ทุกครั้งที่เปิดกล้อง */
+var _backCameraId = null;
+var _backCameraDetectAttempted = false;
+function detectBackCameraId_(){
+  if(_backCameraDetectAttempted){ return Promise.resolve(_backCameraId); }
+  if(typeof Html5Qrcode === 'undefined' || !Html5Qrcode.getCameras){
+    _backCameraDetectAttempted = true;
+    return Promise.resolve(null);
+  }
+  return Html5Qrcode.getCameras().then(function(cameras){
+    _backCameraDetectAttempted = true;
+    if(!cameras || cameras.length <= 1){ _backCameraId = null; return null; }
+    /* กรณีปกติ: label จะมีคำว่า back/rear/environment ระบุกล้องหลังไว้ชัดเจน */
+    var backCam = cameras.find(function(c){ return /back|rear|environment/i.test(c.label||''); });
+    if(backCam){ _backCameraId = backCam.id; return _backCameraId; }
+    /* ถ้าไม่เจอ label กล้องหลัง แต่เจอ label กล้องหน้าชัดเจน ให้เลือกตัวอื่นที่ไม่ใช่กล้องหน้าแทน */
+    var frontCam = cameras.find(function(c){ return /front|user|selfie|face/i.test(c.label||''); });
+    if(frontCam){
+      var other = cameras.find(function(c){ return c.id !== frontCam.id; });
+      if(other){ _backCameraId = other.id; return _backCameraId; }
+    }
+    /* ไม่มี label ให้อ่านเลย (บางเบราว์เซอร์) — ปกติมือถือมักเรียงกล้องหลังไว้ตัวสุดท้ายในรายการ */
+    _backCameraId = cameras[cameras.length-1].id;
+    return _backCameraId;
+  }).catch(function(){ _backCameraDetectAttempted = false; return null; });
+}
+/* ลอง start() ด้วย deviceId ของกล้องหลังที่ตรวจเจอก่อน (แม่นยำสุด)
+   ถ้าไม่เจอ/ใช้ไม่ได้ (เช่นถอดกล้องออกไปแล้ว) ค่อย fallback เป็น facingMode แบบเดิม */
 function startScannerBackCamera(scannerInstance, scanConfig, onDecode, onFrameMiss){
-  return scannerInstance.start(SCAN_CAMERA_SELECTOR, scanConfig, onDecode, onFrameMiss)
-    .catch(function(){
-      return scannerInstance.start(SCAN_CAMERA_SELECTOR_FALLBACK, scanConfig, onDecode, onFrameMiss);
-    });
+  return detectBackCameraId_().then(function(deviceId){
+    if(deviceId){
+      return scannerInstance.start({ deviceId: { exact: deviceId } }, scanConfig, onDecode, onFrameMiss)
+        .catch(function(){
+          /* deviceId ที่แคชไว้ใช้ไม่ได้แล้ว ล้างแคชแล้วลองใหม่ด้วย facingMode */
+          _backCameraId = null; _backCameraDetectAttempted = false;
+          return scannerInstance.start(SCAN_CAMERA_SELECTOR, scanConfig, onDecode, onFrameMiss)
+            .catch(function(){
+              return scannerInstance.start(SCAN_CAMERA_SELECTOR_FALLBACK, scanConfig, onDecode, onFrameMiss);
+            });
+        });
+    }
+    return scannerInstance.start(SCAN_CAMERA_SELECTOR, scanConfig, onDecode, onFrameMiss)
+      .catch(function(){
+        return scannerInstance.start(SCAN_CAMERA_SELECTOR_FALLBACK, scanConfig, onDecode, onFrameMiss);
+      });
+  });
+}
+
+/* ============================================================
+   แก้ปัญหา "เปิดผ่านไลน์ (LINE in-app browser) แล้วสแกนไม่ได้เลย"
+   สาเหตุ: webview ในตัวแอป LINE (ทั้ง iOS/Android) มักบล็อก/ไม่รองรับ
+   การขอสิทธิ์กล้อง (getUserMedia) ตั้งแต่ต้น ไม่มี prompt ขึ้นด้วยซ้ำ
+   ทางแก้ทางเดียวคือให้ผู้ใช้เปิดหน้านี้ผ่านเบราว์เซอร์ปกติ (Safari/Chrome) แทน
+   จึงตรวจจับ LINE webview ไว้ก่อน แล้วเตือน+ใส่ปุ่มพาออกไปเปิดนอกแอปให้เลย
+   แทนที่จะปล่อยให้ผู้ใช้เจอ error กล้องเปิดไม่ติดแบบไม่รู้สาเหตุ */
+function isLineInAppBrowser(){
+  return /\bLine\//i.test(navigator.userAgent || '');
+}
+/* ต่อท้าย URL ด้วย openExternalBrowser=1 แล้วให้ location ไปที่ URL นั้น
+   เป็นพารามิเตอร์พิเศษที่ LINE รู้จัก จะสั่งให้ LINE เปิดลิงก์นี้ด้วยเบราว์เซอร์เริ่มต้น
+   ของเครื่อง (Safari/Chrome) แทนที่จะเปิดค้างใน webview ของแอป LINE เอง */
+function openInExternalBrowser(){
+  var url = window.location.href;
+  var sep = url.indexOf('?') > -1 ? '&' : '?';
+  window.location.href = url + sep + 'openExternalBrowser=1';
+}
+/* เรียกก่อนเริ่มกล้องทุกครั้ง ถ้ากำลังเปิดผ่าน LINE ให้เตือนทันทีแล้ว return true
+   (ผู้เรียกต้อง return ทันทีเมื่อได้ true ไม่ต้องพยายามเปิดกล้องต่อ) */
+function showLineBrowserWarning(msgElId){
+  if(!isLineInAppBrowser()) return false;
+  var msgEl = document.getElementById(msgElId);
+  if(!msgEl) return true;
+  msgEl.style.color = 'var(--er)';
+  msgEl.innerHTML = '⚠️ เบราว์เซอร์ในแอป LINE ไม่รองรับการเปิดกล้องสแกน<br>'
+    + '<span style="text-decoration:underline;font-weight:800;cursor:pointer;" onclick="openInExternalBrowser()">แตะที่นี่เพื่อเปิดด้วย Safari/Chrome</span>'
+    + ' หรือกดปุ่ม ⋯ มุมขวาบนแล้วเลือก "เปิดด้วยเบราว์เซอร์อื่น"';
+  return true;
 }
 /* resolution ที่ต้องการต้องระบุแยกผ่าน videoConstraints ในพารามิเตอร์ที่สอง (scan config) แทน */
 var SCAN_VIDEO_CONSTRAINTS = {
@@ -1172,6 +1251,7 @@ function startQrScanner(){
       msgEl.textContent='ไม่สามารถโหลดกล้องสแกนได้ กรุณาพิมพ์รหัสด้วยตนเอง';
       return;
     }
+    if(showLineBrowserWarning('qrScanMsg')) return;
     try{
       qrScanner = new Html5Qrcode('qrReaderBox', { formatsToSupport: getScanFormatsToSupport(), verbose: false });
       startScannerBackCamera(
@@ -1265,6 +1345,7 @@ function startContinuousScanner(){
       msgEl.textContent='ไม่สามารถโหลดกล้องสแกนได้ กรุณาพิมพ์รหัสด้วยตนเอง';
       return;
     }
+    if(showLineBrowserWarning('cScanMsg')) return;
     try{
       cScanScanner = new Html5Qrcode('cScanReaderBox', { formatsToSupport: getScanFormatsToSupport(), verbose: false });
       startScannerBackCamera(
@@ -1442,6 +1523,7 @@ function startRscanScanner(){
       msgEl.textContent='ไม่สามารถโหลดกล้องสแกนได้ กรุณาพิมพ์รหัสด้วยตนเอง';
       return;
     }
+    if(showLineBrowserWarning('rscanMsg')) return;
     try{
       RSCAN.scanner = new Html5Qrcode('rscanReaderBox', { formatsToSupport: getScanFormatsToSupport(), verbose: false });
       startScannerBackCamera(
