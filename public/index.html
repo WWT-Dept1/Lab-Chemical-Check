@@ -1125,8 +1125,7 @@ function barcodeQrbox(viewfinderWidth, viewfinderHeight){
 var SCAN_VIDEO_CONSTRAINTS = {
   facingMode: 'environment',
   width: { ideal: 1280 },
-  height: { ideal: 720 },
-  advanced: [{ focusMode: 'continuous' }]
+  height: { ideal: 720 }
 };
 /* จำกัด format ให้ decode เฉพาะ Code128 (รูปแบบบาร์โค้ดจริงที่ใช้บนขวดสารเคมี)
    เดิมไลบรารีจะพยายามถอดรหัสทุก format (QR, EAN, UPC, DataMatrix ฯลฯ) ทุกเฟรม
@@ -1160,7 +1159,7 @@ function startQrScanner(){
       return;
     }
     try{
-      qrScanner = new Html5Qrcode('qrReaderBox', { formatsToSupport: getScanFormatsToSupport(), experimentalFeatures: { useBarCodeDetectorIfSupported: true }, verbose: false });
+      qrScanner = new Html5Qrcode('qrReaderBox', { formatsToSupport: getScanFormatsToSupport(), verbose: false });
       qrScanner.start(
         SCAN_VIDEO_CONSTRAINTS,
         { fps: 15, qrbox: barcodeQrbox },
@@ -1251,7 +1250,7 @@ function startContinuousScanner(){
       return;
     }
     try{
-      cScanScanner = new Html5Qrcode('cScanReaderBox', { formatsToSupport: getScanFormatsToSupport(), experimentalFeatures: { useBarCodeDetectorIfSupported: true }, verbose: false });
+      cScanScanner = new Html5Qrcode('cScanReaderBox', { formatsToSupport: getScanFormatsToSupport(), verbose: false });
       cScanScanner.start(
         SCAN_VIDEO_CONSTRAINTS,
         { fps: 15, qrbox: barcodeQrbox },
@@ -1426,7 +1425,7 @@ function startRscanScanner(){
       return;
     }
     try{
-      RSCAN.scanner = new Html5Qrcode('rscanReaderBox', { formatsToSupport: getScanFormatsToSupport(), experimentalFeatures: { useBarCodeDetectorIfSupported: true }, verbose: false });
+      RSCAN.scanner = new Html5Qrcode('rscanReaderBox', { formatsToSupport: getScanFormatsToSupport(), verbose: false });
       RSCAN.scanner.start(
         SCAN_VIDEO_CONSTRAINTS,
         { fps: 15, qrbox: barcodeQrbox },
