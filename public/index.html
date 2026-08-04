@@ -1,5 +1,3 @@
-
-
 Index · HTML
 <!DOCTYPE html>
 <html lang="th">
@@ -1115,9 +1113,27 @@ document.getElementById('saveSigEmployee').onclick=function(){
 /* กล่องสแกนแบบแถบแนวนอน เหมาะกับบาร์โค้ด 1 มิติ (กว้าง-เตี้ย แทนที่จะเป็นสี่เหลี่ยมจัตุรัส)
    html5-qrcode จะถอดรหัสเฉพาะพื้นที่ในกล่องนี้เท่านั้น ทำให้ต้องเล็งบาร์โค้ดให้อยู่ในแถบก่อนถึงจะสแกนติด */
 function barcodeQrbox(viewfinderWidth, viewfinderHeight){
-  var w = Math.floor(Math.min(viewfinderWidth * 0.9, 340));
-  var h = Math.max(64, Math.floor(w * 0.32));
+  /* กรอบแคบลงจากเดิม เพื่อไม่ให้ครอบโดนบาร์โค้ดแถวข้างๆ เวลาสแกนจากตาราง label ที่พิมพ์ชิดกัน
+     ผู้ใช้ควรเข้าใกล้/ซูมให้บาร์โค้ดเป้าหมายเติมเต็มกรอบก่อนสแกน */
+  var w = Math.floor(Math.min(viewfinderWidth * 0.62, 230));
+  var h = Math.max(56, Math.floor(w * 0.34));
   return { width: w, height: h };
+}
+/* ตั้งค่ากล้องกลาง ใช้ร่วมกันทั้งโหมดสแกนทีละรายการและสแกนต่อเนื่อง
+   - ขอ resolution สูงขึ้น เพื่อให้เส้นบาร์โค้ด Code128 ที่บางและชิดกันคมชัดพอ decode ได้
+   - focusMode: continuous ให้กล้องปรับโฟกัสต่อเนื่องอัตโนมัติ (ไม่ใช่โฟกัสค้างครั้งเดียวตอนเปิดกล้อง) */
+var SCAN_VIDEO_CONSTRAINTS = {
+  facingMode: 'environment',
+  width: { ideal: 1280 },
+  height: { ideal: 720 },
+  advanced: [{ focusMode: 'continuous' }]
+};
+/* จำกัด format ให้ decode เฉพาะ Code128 (รูปแบบบาร์โค้ดจริงที่ใช้บนขวดสารเคมี)
+   เดิมไลบรารีจะพยายามถอดรหัสทุก format (QR, EAN, UPC, DataMatrix ฯลฯ) ทุกเฟรม
+   ทำให้กินแรงประมวลผลเกินจำเป็นและอัตราสแกนติดต่ำลง */
+function getScanFormatsToSupport(){
+  if (typeof Html5QrcodeSupportedFormats === 'undefined') return undefined;
+  return [Html5QrcodeSupportedFormats.CODE_128];
 }
 
 var qrScanner = null;
@@ -1144,10 +1160,10 @@ function startQrScanner(){
       return;
     }
     try{
-      qrScanner = new Html5Qrcode('qrReaderBox');
+      qrScanner = new Html5Qrcode('qrReaderBox', { formatsToSupport: getScanFormatsToSupport(), experimentalFeatures: { useBarCodeDetectorIfSupported: true }, verbose: false });
       qrScanner.start(
-        { facingMode: 'environment' },
-        { fps: 10, qrbox: barcodeQrbox },
+        SCAN_VIDEO_CONSTRAINTS,
+        { fps: 15, qrbox: barcodeQrbox },
         function(decodedText){ handleQrResult(decodedText); },
         function(){ /* ignore per-frame scan misses */ }
       ).catch(function(){
@@ -1235,10 +1251,10 @@ function startContinuousScanner(){
       return;
     }
     try{
-      cScanScanner = new Html5Qrcode('cScanReaderBox');
+      cScanScanner = new Html5Qrcode('cScanReaderBox', { formatsToSupport: getScanFormatsToSupport(), experimentalFeatures: { useBarCodeDetectorIfSupported: true }, verbose: false });
       cScanScanner.start(
-        { facingMode: 'environment' },
-        { fps: 12, qrbox: barcodeQrbox },
+        SCAN_VIDEO_CONSTRAINTS,
+        { fps: 15, qrbox: barcodeQrbox },
         function(decodedText){ handleContinuousScanResult(decodedText); },
         function(){ /* ignore per-frame scan misses */ }
       ).catch(function(){
@@ -1410,10 +1426,10 @@ function startRscanScanner(){
       return;
     }
     try{
-      RSCAN.scanner = new Html5Qrcode('rscanReaderBox');
+      RSCAN.scanner = new Html5Qrcode('rscanReaderBox', { formatsToSupport: getScanFormatsToSupport(), experimentalFeatures: { useBarCodeDetectorIfSupported: true }, verbose: false });
       RSCAN.scanner.start(
-        { facingMode: 'environment' },
-        { fps: 12, qrbox: barcodeQrbox },
+        SCAN_VIDEO_CONSTRAINTS,
+        { fps: 15, qrbox: barcodeQrbox },
         function(decodedText){ handleRscanResult(decodedText); },
         function(){ /* ignore per-frame scan misses */ }
       ).catch(function(){
