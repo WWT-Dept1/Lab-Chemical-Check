@@ -1123,7 +1123,19 @@ function barcodeQrbox(viewfinderWidth, viewfinderHeight){
    - focusMode: continuous ให้กล้องปรับโฟกัสต่อเนื่องอัตโนมัติ (ไม่ใช่โฟกัสค้างครั้งเดียวตอนเปิดกล้อง) */
 /* พารามิเตอร์แรกของ Html5Qrcode.start() (เลือกกล้อง) ต้องมี key เดียวเท่านั้น (facingMode หรือ deviceId)
    ถ้าใส่ width/height ปนเข้าไปด้วย library จะ throw error ทันที ("should have exactly 1 key") */
-var SCAN_CAMERA_SELECTOR = { facingMode: 'environment' };
+/* พารามิเตอร์แรกของ Html5Qrcode.start() (เลือกกล้อง) ต้องมี key เดียวเท่านั้น (facingMode หรือ deviceId)
+   ถ้าใส่ width/height ปนเข้าไปด้วย library จะ throw error ทันที ("should have exactly 1 key")
+   ใช้ exact เพื่อ "บังคับ" กล้องหลัง ไม่งั้นบางเครื่อง/เบราว์เซอร์จะเปิดกล้องหน้าแทน (facingMode แบบ ideal ธรรมดาไม่บังคับ) */
+var SCAN_CAMERA_SELECTOR = { facingMode: { exact: 'environment' } };
+/* เผื่อไว้กรณีอุปกรณ์ไม่มีกล้องหลังจริงๆ (เช่น iPad บางรุ่น) จะ fallback มาใช้ตัวนี้แทน */
+var SCAN_CAMERA_SELECTOR_FALLBACK = { facingMode: 'environment' };
+/* ลอง start() ด้วยกล้องหลังแบบบังคับก่อน ถ้าเจอ error (ไม่มีกล้องหลัง/ไม่ตรงเงื่อนไข) ค่อย fallback เป็นแบบ ideal อัตโนมัติ */
+function startScannerBackCamera(scannerInstance, scanConfig, onDecode, onFrameMiss){
+  return scannerInstance.start(SCAN_CAMERA_SELECTOR, scanConfig, onDecode, onFrameMiss)
+    .catch(function(){
+      return scannerInstance.start(SCAN_CAMERA_SELECTOR_FALLBACK, scanConfig, onDecode, onFrameMiss);
+    });
+}
 /* resolution ที่ต้องการต้องระบุแยกผ่าน videoConstraints ในพารามิเตอร์ที่สอง (scan config) แทน */
 var SCAN_VIDEO_CONSTRAINTS = {
   width: { ideal: 1280 },
@@ -1162,8 +1174,8 @@ function startQrScanner(){
     }
     try{
       qrScanner = new Html5Qrcode('qrReaderBox', { formatsToSupport: getScanFormatsToSupport(), verbose: false });
-      qrScanner.start(
-        SCAN_CAMERA_SELECTOR,
+      startScannerBackCamera(
+        qrScanner,
         { fps: 15, qrbox: barcodeQrbox, videoConstraints: SCAN_VIDEO_CONSTRAINTS },
         function(decodedText){ handleQrResult(decodedText); },
         function(){ /* ignore per-frame scan misses */ }
@@ -1255,8 +1267,8 @@ function startContinuousScanner(){
     }
     try{
       cScanScanner = new Html5Qrcode('cScanReaderBox', { formatsToSupport: getScanFormatsToSupport(), verbose: false });
-      cScanScanner.start(
-        SCAN_CAMERA_SELECTOR,
+      startScannerBackCamera(
+        cScanScanner,
         { fps: 15, qrbox: barcodeQrbox, videoConstraints: SCAN_VIDEO_CONSTRAINTS },
         function(decodedText){ handleContinuousScanResult(decodedText); },
         function(){ /* ignore per-frame scan misses */ }
@@ -1432,8 +1444,8 @@ function startRscanScanner(){
     }
     try{
       RSCAN.scanner = new Html5Qrcode('rscanReaderBox', { formatsToSupport: getScanFormatsToSupport(), verbose: false });
-      RSCAN.scanner.start(
-        SCAN_CAMERA_SELECTOR,
+      startScannerBackCamera(
+        RSCAN.scanner,
         { fps: 15, qrbox: barcodeQrbox, videoConstraints: SCAN_VIDEO_CONSTRAINTS },
         function(decodedText){ handleRscanResult(decodedText); },
         function(){ /* ignore per-frame scan misses */ }
