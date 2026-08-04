@@ -491,7 +491,10 @@ textarea.input{resize:vertical; min-height:64px; line-height:1.5;}
     <button class="modal-close" id="closeQrScan">✕</button>
     <div class="modal-title" id="qrScanTitle">สแกน QR/บาร์โค้ดยืนยัน</div>
     <div class="modal-sub" id="qrScanSub">เล็งกล้องไปที่ QR/บาร์โค้ดบนขวดสารเคมี</div>
-    <div id="qrReaderBox" style="width:100%;border-radius:12px;overflow:hidden;background:#000;margin-top:10px;min-height:220px;"></div>
+    <div style="position:relative;">
+      <div id="qrReaderBox" style="width:100%;border-radius:12px;overflow:hidden;background:#000;margin-top:10px;min-height:220px;"></div>
+      <div id="qrZoomCtrl" style="position:absolute;left:0;right:0;bottom:8px;display:flex;justify-content:center;"></div>
+    </div>
     <div id="qrScanMsg" style="font-size:12.5px;font-weight:600;text-align:center;margin-top:10px;min-height:18px;"></div>
     <div class="modal-sub" style="margin-top:6px;">หรือพิมพ์รหัสด้วยตนเองหากกล้องสแกนไม่ได้</div>
     <div style="display:flex;gap:8px;margin-top:6px;">
@@ -511,8 +514,11 @@ textarea.input{resize:vertical; min-height:64px; line-height:1.5;}
       </div>
       <button class="modal-close" id="closeContinuousScan" style="position:static;">✕</button>
     </div>
-    <div id="cScanReaderBox" style="width:100%;flex:1;min-height:260px;background:#000;overflow:hidden;position:relative;"></div>
-    <div id="cScanFlash" style="position:absolute;inset:0;pointer-events:none;background:rgba(26,156,107,0);transition:background .15s;"></div>
+    <div style="position:relative;flex:1;min-height:260px;">
+      <div id="cScanReaderBox" style="width:100%;height:100%;background:#000;overflow:hidden;position:absolute;inset:0;"></div>
+      <div id="cScanFlash" style="position:absolute;inset:0;pointer-events:none;background:rgba(26,156,107,0);transition:background .15s;"></div>
+      <div id="cScanZoomCtrl" style="position:absolute;left:0;right:0;bottom:8px;display:flex;justify-content:center;z-index:2;"></div>
+    </div>
     <div style="padding:10px 16px;flex-shrink:0;">
       <div id="cScanMsg" style="font-size:14px;font-weight:700;text-align:center;min-height:22px;color:var(--text-soft);">เล็งกล้องไปที่ QR/บาร์โค้ด...</div>
       <div style="display:flex;gap:8px;margin-top:8px;">
@@ -544,6 +550,7 @@ textarea.input{resize:vertical; min-height:64px; line-height:1.5;}
       <div class="rscan-corner bl"></div><div class="rscan-corner br"></div>
       <div class="rscan-scanline"></div>
       <div class="rscan-flash" id="rscanFlash"></div>
+      <div id="rscanZoomCtrl" style="position:absolute;left:0;right:0;bottom:8px;display:flex;justify-content:center;z-index:2;"></div>
     </div>
     <div class="rscan-msg" id="rscanMsg">เล็งกล้องไปที่บาร์โค้ด/QR ของสารเคมี...</div>
     <div class="rscan-manual" style="padding-bottom:14px;">
@@ -1131,57 +1138,140 @@ var SCAN_CAMERA_SELECTOR = { facingMode: { exact: 'environment' } };
 var SCAN_CAMERA_SELECTOR_FALLBACK = { facingMode: 'environment' };
 
 /* ============================================================
-   แก้บัค "เปิดกล้องหน้าแทนกล้องหลัง" บน iOS Safari/Chrome บางเครื่อง
-   สาเหตุ: constraint facingMode:{exact:'environment'} เป็นแค่ "คำใบ้"
-   เบราว์เซอร์บางตัว/บางเวอร์ชันไม่ยึดตามจริง โดยเฉพาะ WebKit บางเวอร์ชัน
-   วิธีแก้ที่เชื่อถือได้กว่า: เลือกกล้องด้วย deviceId เจาะจงจากรายชื่อกล้องจริง
-   (Html5Qrcode.getCameras() จะขอสิทธิ์กล้องครั้งแรกให้อัตโนมัติ ทำให้ได้ label
-   ของกล้องมาด้วย เช่น "Back Camera" ถึงจะแยกกล้องหน้า/หลังจาก label ได้แม่นยำ)
-   ผลลัพธ์จะถูกแคชไว้ ไม่ต้อง enumerate ใหม่ทุกครั้งที่เปิดกล้อง */
-var _backCameraId = null;
-var _backCameraDetectAttempted = false;
-function detectBackCameraId_(){
-  if(_backCameraDetectAttempted){ return Promise.resolve(_backCameraId); }
-  if(typeof Html5Qrcode === 'undefined' || !Html5Qrcode.getCameras){
-    _backCameraDetectAttempted = true;
-    return Promise.resolve(null);
-  }
+   บังคับใช้กล้องหลังเสมอ (ห้ามเปิดกล้องหน้าเด็ดขาด) — ตรวจสอบจริง ไม่ใช่แค่เดา
+   สาเหตุที่บัคเดิมแก้ไม่หาย: facingMode:{exact:'environment'} และการเดาจาก
+   label/ลำดับกล้อง (deviceId) ล้วนเป็นแค่ "คำใบ้" บางเครื่อง/เบราว์เซอร์รายงาน
+   label หรือลำดับกล้องผิดเพี้ยนจากที่คาด ทำให้เดาพลาดได้เสมอ
+   วิธีแก้ที่เชื่อถือได้จริง: หลัง start() สำเร็จ ให้ตรวจ facingMode ที่ track
+   รายงานกลับมาจริง (ไม่ใช่ที่เราขอ) ถ้าเจอว่าเป็น 'user' (กล้องหน้า) จริงๆ
+   จะปิดแล้วลองกล้องตัวถัดไปในเครื่องให้เองทันที วนจนกว่าจะได้กล้องที่ไม่ใช่
+   กล้องหน้า ผู้ใช้ไม่เห็น ไม่ต้องกดอะไรเอง */
+var _cameraList = null;        /* รายชื่อกล้องทั้งหมดในเครื่อง (แคชไว้) */
+var _verifiedBackCameraId = null; /* กล้องหลังที่เคย "ยืนยันแล้วจริง" ว่าไม่ใช่กล้องหน้า ใช้ครั้งต่อไปได้เลยไม่ต้องไล่ใหม่ */
+
+function ensureCameraList_(){
+  if(_cameraList) return Promise.resolve(_cameraList);
+  if(typeof Html5Qrcode === 'undefined' || !Html5Qrcode.getCameras){ return Promise.resolve([]); }
   return Html5Qrcode.getCameras().then(function(cameras){
-    _backCameraDetectAttempted = true;
-    if(!cameras || cameras.length <= 1){ _backCameraId = null; return null; }
-    /* กรณีปกติ: label จะมีคำว่า back/rear/environment ระบุกล้องหลังไว้ชัดเจน */
-    var backCam = cameras.find(function(c){ return /back|rear|environment/i.test(c.label||''); });
-    if(backCam){ _backCameraId = backCam.id; return _backCameraId; }
-    /* ถ้าไม่เจอ label กล้องหลัง แต่เจอ label กล้องหน้าชัดเจน ให้เลือกตัวอื่นที่ไม่ใช่กล้องหน้าแทน */
-    var frontCam = cameras.find(function(c){ return /front|user|selfie|face/i.test(c.label||''); });
-    if(frontCam){
-      var other = cameras.find(function(c){ return c.id !== frontCam.id; });
-      if(other){ _backCameraId = other.id; return _backCameraId; }
-    }
-    /* ไม่มี label ให้อ่านเลย (บางเบราว์เซอร์) — ปกติมือถือมักเรียงกล้องหลังไว้ตัวสุดท้ายในรายการ */
-    _backCameraId = cameras[cameras.length-1].id;
-    return _backCameraId;
-  }).catch(function(){ _backCameraDetectAttempted = false; return null; });
+    _cameraList = cameras || [];
+    return _cameraList;
+  }).catch(function(){ return []; });
 }
-/* ลอง start() ด้วย deviceId ของกล้องหลังที่ตรวจเจอก่อน (แม่นยำสุด)
-   ถ้าไม่เจอ/ใช้ไม่ได้ (เช่นถอดกล้องออกไปแล้ว) ค่อย fallback เป็น facingMode แบบเดิม */
-function startScannerBackCamera(scannerInstance, scanConfig, onDecode, onFrameMiss){
-  return detectBackCameraId_().then(function(deviceId){
-    if(deviceId){
-      return scannerInstance.start({ deviceId: { exact: deviceId } }, scanConfig, onDecode, onFrameMiss)
-        .catch(function(){
-          /* deviceId ที่แคชไว้ใช้ไม่ได้แล้ว ล้างแคชแล้วลองใหม่ด้วย facingMode */
-          _backCameraId = null; _backCameraDetectAttempted = false;
-          return scannerInstance.start(SCAN_CAMERA_SELECTOR, scanConfig, onDecode, onFrameMiss)
-            .catch(function(){
-              return scannerInstance.start(SCAN_CAMERA_SELECTOR_FALLBACK, scanConfig, onDecode, onFrameMiss);
-            });
-        });
+/* จัดลำดับกล้องที่จะลอง: ตัวที่ label ระบุว่าเป็นกล้องหลังชัดเจนมาก่อน, รองมาคือตัวที่ไม่รู้ label
+   (เรียงจากท้ายไปหน้า เพราะปกติมือถือมักเรียงกล้องหลังไว้ท้ายลิสต์), ตัวที่ label ระบุว่าเป็นกล้องหน้าไว้ท้ายสุด */
+function buildBackCameraCandidates_(cameras){
+  if(!cameras || cameras.length === 0) return [];
+  if(cameras.length === 1) return [cameras[0].id];
+  var backLabeled = cameras.filter(function(c){ return /back|rear|environment/i.test(c.label||''); });
+  var frontLabeled = cameras.filter(function(c){ return /front|user|selfie|face/i.test(c.label||''); });
+  var frontIds = frontLabeled.map(function(c){ return c.id; });
+  var unknown = cameras.filter(function(c){
+    return frontIds.indexOf(c.id) === -1 && backLabeled.indexOf(c) === -1;
+  }).slice().reverse();
+  var order = backLabeled.concat(unknown).concat(frontLabeled);
+  var seen = {}, result = [];
+  order.forEach(function(c){ if(!seen[c.id]){ seen[c.id] = 1; result.push(c.id); } });
+  return result;
+}
+/* ดึง facingMode จริงจาก track ที่กำลังรันอยู่ (ไม่ใช่ค่าที่เราขอ) เพื่อยืนยันว่าไม่ใช่กล้องหน้า
+   เบราว์เซอร์ส่วนใหญ่บน Android รายงานค่านี้ได้แม่นยำ ส่วน iOS Safari บางเวอร์ชันอาจไม่รายงาน (undefined) */
+function getRunningFacingMode_(scannerInstance){
+  try{
+    if(scannerInstance && typeof scannerInstance.getRunningTrackSettings === 'function'){
+      var s = scannerInstance.getRunningTrackSettings();
+      return (s && s.facingMode) ? s.facingMode : null;
     }
+  }catch(e){}
+  return null;
+}
+/* ไล่ลองกล้องทีละตัวตามลำดับ candidates จนกว่าจะเจอตัวที่ยืนยันได้ว่าไม่ใช่กล้องหน้า
+   (หรือลองครบทุกตัวแล้วไม่มีอันไหนยืนยันได้ ก็ยอมรับตัวแรกที่ start ได้ ดีกว่าไม่มีกล้องเลย) */
+function tryBackCameraCandidates_(scannerInstance, candidates, i, scanConfig, onDecode, onFrameMiss){
+  if(i >= candidates.length){
     return scannerInstance.start(SCAN_CAMERA_SELECTOR, scanConfig, onDecode, onFrameMiss)
-      .catch(function(){
-        return scannerInstance.start(SCAN_CAMERA_SELECTOR_FALLBACK, scanConfig, onDecode, onFrameMiss);
+      .catch(function(){ return scannerInstance.start(SCAN_CAMERA_SELECTOR_FALLBACK, scanConfig, onDecode, onFrameMiss); });
+  }
+  var id = candidates[i];
+  return scannerInstance.start({ deviceId: { exact: id } }, scanConfig, onDecode, onFrameMiss).then(function(res){
+    var facing = getRunningFacingMode_(scannerInstance);
+    if(facing === 'user'){
+      /* ยืนยันแล้วว่าเป็นกล้องหน้าจริง ปิดแล้วลองตัวถัดไปทันที โดยผู้ใช้ไม่เห็นภาพกล้องหน้าเลย */
+      return scannerInstance.stop().catch(function(){}).then(function(){
+        return tryBackCameraCandidates_(scannerInstance, candidates, i+1, scanConfig, onDecode, onFrameMiss);
       });
+    }
+    _verifiedBackCameraId = id; /* จำไว้ใช้ครั้งหน้า ไม่ต้องไล่ใหม่ */
+    return res;
+  }).catch(function(){
+    return tryBackCameraCandidates_(scannerInstance, candidates, i+1, scanConfig, onDecode, onFrameMiss);
+  });
+}
+function startScannerBackCamera(scannerInstance, scanConfig, onDecode, onFrameMiss){
+  return ensureCameraList_().then(function(cameras){
+    var candidates = buildBackCameraCandidates_(cameras);
+    if(_verifiedBackCameraId){
+      /* เคยยืนยันแล้วว่าตัวนี้เป็นกล้องหลังจริง ลองตัวนี้ก่อนเสมอ */
+      candidates = [_verifiedBackCameraId].concat(candidates.filter(function(id){ return id !== _verifiedBackCameraId; }));
+    }
+    if(candidates.length === 0){
+      return scannerInstance.start(SCAN_CAMERA_SELECTOR, scanConfig, onDecode, onFrameMiss)
+        .catch(function(){ return scannerInstance.start(SCAN_CAMERA_SELECTOR_FALLBACK, scanConfig, onDecode, onFrameMiss); });
+    }
+    return tryBackCameraCandidates_(scannerInstance, candidates, 0, scanConfig, onDecode, onFrameMiss);
+  });
+}
+
+/* ============================================================
+   ควบคุมระดับซูมเลนส์ (1x/2x/3x/5x) สำหรับมือถือที่มีกล้องหลังหลายตัว/หลายเลนส์
+   ใช้ zoom capability ของ track กล้องหลังที่เปิดอยู่ตัวเดียวกัน (ไม่ใช่การสลับกล้องคนละตัว)
+   เบราว์เซอร์/อุปกรณ์ที่ไม่รองรับ (เช่น iOS Safari ส่วนใหญ่) จะไม่แสดงปุ่มนี้ให้เลย
+   ============================================================ */
+function getZoomCapability_(scannerInstance){
+  try{
+    if(scannerInstance && typeof scannerInstance.getRunningTrackCapabilities === 'function'){
+      var cap = scannerInstance.getRunningTrackCapabilities();
+      if(cap && cap.zoom && typeof cap.zoom.max === 'number'){ return cap.zoom; }
+    }
+  }catch(e){}
+  return null;
+}
+function applyZoom_(scannerInstance, zoomVal){
+  try{
+    if(scannerInstance && typeof scannerInstance.applyVideoConstraints === 'function'){
+      return scannerInstance.applyVideoConstraints({ advanced: [{ zoom: zoomVal }] });
+    }
+  }catch(e){}
+  return Promise.resolve();
+}
+/* วาดปุ่มระดับซูมตามช่วงที่กล้องรองรับจริง (min-max) เลือกเฉพาะ preset ที่อยู่ในช่วงนั้น
+   ถ้ากล้องรองรับซูมได้น้อยกว่า 2 ระดับ (เช่นซูมไม่ได้เลย) จะไม่แสดงปุ่มอะไรเลย */
+function renderZoomButtons_(containerId, scannerInstance){
+  var el = document.getElementById(containerId);
+  if(!el) return;
+  el.innerHTML = '';
+  var zoom = getZoomCapability_(scannerInstance);
+  if(!zoom) return;
+  var min = (typeof zoom.min === 'number') ? zoom.min : 1;
+  var max = zoom.max;
+  var presets = [1,2,3,5].filter(function(z){ return z >= min && z <= max; });
+  if(presets.indexOf(Math.max(1,min)) === -1){ presets.unshift(Math.max(1,min)); }
+  presets = presets.filter(function(z,i){ return presets.indexOf(z)===i; }).sort(function(a,b){ return a-b; });
+  if(presets.length < 2) return;
+  presets.forEach(function(z){
+    var btn = document.createElement('span');
+    btn.textContent = z+'x';
+    var isDefault = (z === presets[0]);
+    btn.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:26px;padding:0 8px;border-radius:14px;font-size:12px;font-weight:800;cursor:pointer;margin:0 3px;'
+      + (isDefault ? 'background:linear-gradient(135deg,var(--grad-a),var(--grad-b));color:#fff;border:1.5px solid transparent;'
+                   : 'background:rgba(255,255,255,.16);color:#fff;border:1.5px solid rgba(255,255,255,.4);');
+    btn.onclick = function(){
+      applyZoom_(scannerInstance, z);
+      Array.prototype.forEach.call(el.children, function(c){
+        c.style.background='rgba(255,255,255,.16)'; c.style.border='1.5px solid rgba(255,255,255,.4)';
+      });
+      btn.style.background='linear-gradient(135deg,var(--grad-a),var(--grad-b))'; btn.style.border='1.5px solid transparent';
+    };
+    el.appendChild(btn);
   });
 }
 
@@ -1259,7 +1349,9 @@ function startQrScanner(){
         { fps: 15, qrbox: barcodeQrbox, videoConstraints: SCAN_VIDEO_CONSTRAINTS },
         function(decodedText){ handleQrResult(decodedText); },
         function(){ /* ignore per-frame scan misses */ }
-      ).catch(function(err){
+      ).then(function(){
+        renderZoomButtons_('qrZoomCtrl', qrScanner);
+      }).catch(function(err){
         var msgEl=document.getElementById('qrScanMsg');
         msgEl.style.color='var(--er)';
         var detail = (err && (err.name || err.message)) ? (err.name||'')+' '+(err.message||err) : String(err);
@@ -1274,6 +1366,7 @@ function startQrScanner(){
   });
 }
 function stopQrScanner(cb){
+  var zc=document.getElementById('qrZoomCtrl'); if(zc) zc.innerHTML='';
   if(qrScanner){
     var s = qrScanner; qrScanner=null;
     s.stop().then(function(){ try{ s.clear(); }catch(e){} if(cb) cb(); }).catch(function(){ if(cb) cb(); });
@@ -1353,7 +1446,9 @@ function startContinuousScanner(){
         { fps: 15, qrbox: barcodeQrbox, videoConstraints: SCAN_VIDEO_CONSTRAINTS },
         function(decodedText){ handleContinuousScanResult(decodedText); },
         function(){ /* ignore per-frame scan misses */ }
-      ).catch(function(err){
+      ).then(function(){
+        renderZoomButtons_('cScanZoomCtrl', cScanScanner);
+      }).catch(function(err){
         var msgEl=document.getElementById('cScanMsg');
         msgEl.style.color='var(--er)';
         var detail = (err && (err.name || err.message)) ? (err.name||'')+' '+(err.message||err) : String(err);
@@ -1368,6 +1463,7 @@ function startContinuousScanner(){
   });
 }
 function stopContinuousScanner(cb){
+  var zc=document.getElementById('cScanZoomCtrl'); if(zc) zc.innerHTML='';
   if(cScanScanner){
     var s = cScanScanner; cScanScanner=null;
     s.stop().then(function(){ try{ s.clear(); }catch(e){} if(cb) cb(); }).catch(function(){ if(cb) cb(); });
@@ -1531,7 +1627,9 @@ function startRscanScanner(){
         { fps: 15, qrbox: barcodeQrbox, videoConstraints: SCAN_VIDEO_CONSTRAINTS },
         function(decodedText){ handleRscanResult(decodedText); },
         function(){ /* ignore per-frame scan misses */ }
-      ).catch(function(err){
+      ).then(function(){
+        renderZoomButtons_('rscanZoomCtrl', RSCAN.scanner);
+      }).catch(function(err){
         var msgEl=document.getElementById('rscanMsg');
         msgEl.style.color='var(--er)';
         var detail = (err && (err.name || err.message)) ? (err.name||'')+' '+(err.message||err) : String(err);
@@ -1546,6 +1644,7 @@ function startRscanScanner(){
   });
 }
 function stopRscanScanner(cb){
+  var zc=document.getElementById('rscanZoomCtrl'); if(zc) zc.innerHTML='';
   if(RSCAN.scanner){
     var s = RSCAN.scanner; RSCAN.scanner=null;
     s.stop().then(function(){ try{ s.clear(); }catch(e){} if(cb) cb(); }).catch(function(){ if(cb) cb(); });
