@@ -1164,15 +1164,17 @@ function startQrScanner(){
         { fps: 15, qrbox: barcodeQrbox },
         function(decodedText){ handleQrResult(decodedText); },
         function(){ /* ignore per-frame scan misses */ }
-      ).catch(function(){
+      ).catch(function(err){
         var msgEl=document.getElementById('qrScanMsg');
         msgEl.style.color='var(--er)';
-        msgEl.textContent='เปิดกล้องไม่สำเร็จ (บางเครื่อง/เบราว์เซอร์เปิดกล้องในเว็บแอปนี้ไม่ได้) — กรุณาพิมพ์รหัสที่อยู่บนขวดจริงในช่องด้านล่างแทน';
+        var detail = (err && (err.name || err.message)) ? (err.name||'')+' '+(err.message||err) : String(err);
+        msgEl.textContent='เปิดกล้องไม่สำเร็จ: '+detail+' — กรุณาพิมพ์รหัสที่อยู่บนขวดจริงในช่องด้านล่างแทน';
       });
     }catch(e){
       var msgEl=document.getElementById('qrScanMsg');
       msgEl.style.color='var(--er)';
-      msgEl.textContent='เปิดกล้องไม่สำเร็จ (บางเครื่อง/เบราว์เซอร์เปิดกล้องในเว็บแอปนี้ไม่ได้) — กรุณาพิมพ์รหัสที่อยู่บนขวดจริงในช่องด้านล่างแทน';
+      var detail = (e && (e.name || e.message)) ? (e.name||'')+' '+(e.message||e) : String(e);
+      msgEl.textContent='เปิดกล้องไม่สำเร็จ: '+detail+' — กรุณาพิมพ์รหัสที่อยู่บนขวดจริงในช่องด้านล่างแทน';
     }
   });
 }
@@ -1255,15 +1257,17 @@ function startContinuousScanner(){
         { fps: 15, qrbox: barcodeQrbox },
         function(decodedText){ handleContinuousScanResult(decodedText); },
         function(){ /* ignore per-frame scan misses */ }
-      ).catch(function(){
+      ).catch(function(err){
         var msgEl=document.getElementById('cScanMsg');
         msgEl.style.color='var(--er)';
-        msgEl.textContent='เปิดกล้องไม่สำเร็จ (บางเครื่อง/เบราว์เซอร์เปิดกล้องในเว็บแอปนี้ไม่ได้) — กรุณาพิมพ์รหัสด้วยตนเองด้านล่าง';
+        var detail = (err && (err.name || err.message)) ? (err.name||'')+' '+(err.message||err) : String(err);
+        msgEl.textContent='เปิดกล้องไม่สำเร็จ: '+detail+' — กรุณาพิมพ์รหัสด้วยตนเองด้านล่าง';
       });
     }catch(e){
       var msgEl=document.getElementById('cScanMsg');
       msgEl.style.color='var(--er)';
-      msgEl.textContent='เปิดกล้องไม่สำเร็จ — กรุณาพิมพ์รหัสด้วยตนเองด้านล่าง';
+      var detail = (e && (e.name || e.message)) ? (e.name||'')+' '+(e.message||e) : String(e);
+      msgEl.textContent='เปิดกล้องไม่สำเร็จ: '+detail+' — กรุณาพิมพ์รหัสด้วยตนเองด้านล่าง';
     }
   });
 }
@@ -1430,15 +1434,17 @@ function startRscanScanner(){
         { fps: 15, qrbox: barcodeQrbox },
         function(decodedText){ handleRscanResult(decodedText); },
         function(){ /* ignore per-frame scan misses */ }
-      ).catch(function(){
+      ).catch(function(err){
         var msgEl=document.getElementById('rscanMsg');
         msgEl.style.color='var(--er)';
-        msgEl.textContent='เปิดกล้องไม่สำเร็จ (บางเครื่อง/เบราว์เซอร์เปิดกล้องในเว็บแอปนี้ไม่ได้) — กรุณาพิมพ์รหัสด้วยตนเองด้านล่าง';
+        var detail = (err && (err.name || err.message)) ? (err.name||'')+' '+(err.message||err) : String(err);
+        msgEl.textContent='เปิดกล้องไม่สำเร็จ: '+detail+' — กรุณาพิมพ์รหัสด้วยตนเองด้านล่าง';
       });
     }catch(e){
       var msgEl=document.getElementById('rscanMsg');
       msgEl.style.color='var(--er)';
-      msgEl.textContent='เปิดกล้องไม่สำเร็จ — กรุณาพิมพ์รหัสด้วยตนเองด้านล่าง';
+      var detail = (e && (e.name || e.message)) ? (e.name||'')+' '+(e.message||e) : String(e);
+      msgEl.textContent='เปิดกล้องไม่สำเร็จ: '+detail+' — กรุณาพิมพ์รหัสด้วยตนเองด้านล่าง';
     }
   });
 }
