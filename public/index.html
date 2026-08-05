@@ -1331,17 +1331,34 @@ function openQrScan(idx){
   msgEl.textContent=''; msgEl.style.color='var(--text-soft)';
   document.getElementById('qrManualInput').value='';
   document.getElementById('modalQrScan').classList.add('open');
+  qrScanRetried = false;
   startQrScanner();
 }
+/* บังคับเคลียร์กล่องแสดงผลกล้องเอง กรณี instance เก่าค้างสถานะ isScanning=true
+   (ปกติ .clear() ของ lib จะ throw ถ้า isScanning ยังไม่เป็น false เราจึงเคลียร์ DOM ตรงๆ แทน) */
+function forceResetReaderBox_(id){
+  var el = document.getElementById(id);
+  if(el) el.innerHTML = '';
+}
+/* เช็คว่า error ที่ได้คือปัญหา "instance เก่าค้าง" หรือไม่ */
+function isScanClearRaceError_(err){
+  var msg = (err && (err.message || err)) ? String(err.message || err) : String(err);
+  return msg.indexOf('Cannot clear while scan is ongoing') > -1;
+}
+var qrScanRetried = false; /* กันวน retry ไม่รู้จบ */
+var qrScanStarting = false; /* กันเปิดกล้องซ้อนขณะกำลังเปิดอยู่ */
 function startQrScanner(){
+  if(qrScanStarting) return;
+  qrScanStarting = true;
   stopQrScanner(function(){
     if(typeof Html5Qrcode === 'undefined'){
+      qrScanStarting = false;
       var msgEl=document.getElementById('qrScanMsg');
       msgEl.style.color='var(--er)';
       msgEl.textContent='ไม่สามารถโหลดกล้องสแกนได้ กรุณาพิมพ์รหัสด้วยตนเอง';
       return;
     }
-    if(showLineBrowserWarning('qrScanMsg')) return;
+    if(showLineBrowserWarning('qrScanMsg')){ qrScanStarting = false; return; }
     try{
       qrScanner = new Html5Qrcode('qrReaderBox', { formatsToSupport: getScanFormatsToSupport(), verbose: false });
       startScannerBackCamera(
@@ -1350,14 +1367,26 @@ function startQrScanner(){
         function(decodedText){ handleQrResult(decodedText); },
         function(){ /* ignore per-frame scan misses */ }
       ).then(function(){
+        qrScanStarting = false;
+        qrScanRetried = false;
         renderZoomButtons_('qrZoomCtrl', qrScanner);
       }).catch(function(err){
+        qrScanStarting = false;
+        if(isScanClearRaceError_(err) && !qrScanRetried){
+          /* instance เก่าค้างสถานะ - เคลียร์กล่องกล้องเอง แล้วลองเปิดใหม่อัตโนมัติ 1 ครั้งแบบเงียบๆ */
+          qrScanRetried = true;
+          qrScanner = null;
+          forceResetReaderBox_('qrReaderBox');
+          setTimeout(startQrScanner, 350);
+          return;
+        }
         var msgEl=document.getElementById('qrScanMsg');
         msgEl.style.color='var(--er)';
         var detail = (err && (err.name || err.message)) ? (err.name||'')+' '+(err.message||err) : String(err);
         msgEl.textContent='เปิดกล้องไม่สำเร็จ: '+detail+' — กรุณาพิมพ์รหัสที่อยู่บนขวดจริงในช่องด้านล่างแทน';
       });
     }catch(e){
+      qrScanStarting = false;
       var msgEl=document.getElementById('qrScanMsg');
       msgEl.style.color='var(--er)';
       var detail = (e && (e.name || e.message)) ? (e.name||'')+' '+(e.message||e) : String(e);
@@ -1369,7 +1398,8 @@ function stopQrScanner(cb){
   var zc=document.getElementById('qrZoomCtrl'); if(zc) zc.innerHTML='';
   if(qrScanner){
     var s = qrScanner; qrScanner=null;
-    s.stop().then(function(){ try{ s.clear(); }catch(e){} if(cb) cb(); }).catch(function(){ if(cb) cb(); });
+    var finish = function(){ try{ s.clear(); }catch(e){} if(cb) cb(); };
+    s.stop().then(finish).catch(finish);
   } else if(cb) cb();
 }
 function handleQrResult(code){
@@ -1421,6 +1451,8 @@ var cScanScanner = null;
 var cScanLastCode = null;
 var cScanLastTime = 0;
 var cScanHistoryLog = [];
+var cScanStarting = false; /* กันเปิดกล้องซ้อนขณะกำลังเปิดอยู่ */
+var cScanRetried = false;  /* กันวน retry ไม่รู้จบ */
 
 function openContinuousScan(){
   document.getElementById('cScanHistory').innerHTML = renderCScanHistory();
@@ -1428,17 +1460,21 @@ function openContinuousScan(){
   msgEl.textContent = 'เล็งกล้องไปที่ QR/บาร์โค้ด...';
   msgEl.style.color = 'var(--text-soft)';
   document.getElementById('modalContinuousScan').classList.add('open');
+  cScanRetried = false;
   startContinuousScanner();
 }
 function startContinuousScanner(){
+  if(cScanStarting) return;
+  cScanStarting = true;
   stopContinuousScanner(function(){
     if(typeof Html5Qrcode === 'undefined'){
+      cScanStarting = false;
       var msgEl=document.getElementById('cScanMsg');
       msgEl.style.color='var(--er)';
       msgEl.textContent='ไม่สามารถโหลดกล้องสแกนได้ กรุณาพิมพ์รหัสด้วยตนเอง';
       return;
     }
-    if(showLineBrowserWarning('cScanMsg')) return;
+    if(showLineBrowserWarning('cScanMsg')){ cScanStarting = false; return; }
     try{
       cScanScanner = new Html5Qrcode('cScanReaderBox', { formatsToSupport: getScanFormatsToSupport(), verbose: false });
       startScannerBackCamera(
@@ -1447,14 +1483,26 @@ function startContinuousScanner(){
         function(decodedText){ handleContinuousScanResult(decodedText); },
         function(){ /* ignore per-frame scan misses */ }
       ).then(function(){
+        cScanStarting = false;
+        cScanRetried = false;
         renderZoomButtons_('cScanZoomCtrl', cScanScanner);
       }).catch(function(err){
+        cScanStarting = false;
+        if(isScanClearRaceError_(err) && !cScanRetried){
+          /* instance เก่าค้างสถานะ - เคลียร์กล่องกล้องเอง แล้วลองเปิดใหม่อัตโนมัติ 1 ครั้งแบบเงียบๆ */
+          cScanRetried = true;
+          cScanScanner = null;
+          forceResetReaderBox_('cScanReaderBox');
+          setTimeout(startContinuousScanner, 350);
+          return;
+        }
         var msgEl=document.getElementById('cScanMsg');
         msgEl.style.color='var(--er)';
         var detail = (err && (err.name || err.message)) ? (err.name||'')+' '+(err.message||err) : String(err);
         msgEl.textContent='เปิดกล้องไม่สำเร็จ: '+detail+' — กรุณาพิมพ์รหัสด้วยตนเองด้านล่าง';
       });
     }catch(e){
+      cScanStarting = false;
       var msgEl=document.getElementById('cScanMsg');
       msgEl.style.color='var(--er)';
       var detail = (e && (e.name || e.message)) ? (e.name||'')+' '+(e.message||e) : String(e);
@@ -1466,7 +1514,8 @@ function stopContinuousScanner(cb){
   var zc=document.getElementById('cScanZoomCtrl'); if(zc) zc.innerHTML='';
   if(cScanScanner){
     var s = cScanScanner; cScanScanner=null;
-    s.stop().then(function(){ try{ s.clear(); }catch(e){} if(cb) cb(); }).catch(function(){ if(cb) cb(); });
+    var finish = function(){ try{ s.clear(); }catch(e){} if(cb) cb(); };
+    s.stop().then(finish).catch(finish);
   } else if(cb) cb();
 }
 function cScanBeep(ok){
@@ -1594,6 +1643,8 @@ document.getElementById('cScanManualInput').addEventListener('keydown', function
    พร้อมวันที่รับเข้า และตัวเลือก "เปิดใช้ทันที" (บันทึกวันที่เปิด)
    ============================================================ */
 var RSCAN = { batch: [], scanner: null, lastCode: '', lastTime: 0 };
+var rscanStarting = false; /* กันเปิดกล้องซ้อนขณะกำลังเปิดอยู่ */
+var rscanRetried = false;  /* กันวน retry ไม่รู้จบ */
 
 function todayIsoDate_(){
   var d = new Date();
@@ -1609,17 +1660,21 @@ function openScanReceive(){
   msgEl.style.color = 'var(--text-soft)';
   msgEl.textContent = 'เล็งกล้องไปที่บาร์โค้ด/QR ของสารเคมี...';
   renderRscanBatch();
+  rscanRetried = false;
   startRscanScanner();
 }
 function startRscanScanner(){
+  if(rscanStarting) return;
+  rscanStarting = true;
   stopRscanScanner(function(){
     if(typeof Html5Qrcode === 'undefined'){
+      rscanStarting = false;
       var msgEl=document.getElementById('rscanMsg');
       msgEl.style.color='var(--er)';
       msgEl.textContent='ไม่สามารถโหลดกล้องสแกนได้ กรุณาพิมพ์รหัสด้วยตนเอง';
       return;
     }
-    if(showLineBrowserWarning('rscanMsg')) return;
+    if(showLineBrowserWarning('rscanMsg')){ rscanStarting = false; return; }
     try{
       RSCAN.scanner = new Html5Qrcode('rscanReaderBox', { formatsToSupport: getScanFormatsToSupport(), verbose: false });
       startScannerBackCamera(
@@ -1628,14 +1683,26 @@ function startRscanScanner(){
         function(decodedText){ handleRscanResult(decodedText); },
         function(){ /* ignore per-frame scan misses */ }
       ).then(function(){
+        rscanStarting = false;
+        rscanRetried = false;
         renderZoomButtons_('rscanZoomCtrl', RSCAN.scanner);
       }).catch(function(err){
+        rscanStarting = false;
+        if(isScanClearRaceError_(err) && !rscanRetried){
+          /* instance เก่าค้างสถานะ - เคลียร์กล่องกล้องเอง แล้วลองเปิดใหม่อัตโนมัติ 1 ครั้งแบบเงียบๆ */
+          rscanRetried = true;
+          RSCAN.scanner = null;
+          forceResetReaderBox_('rscanReaderBox');
+          setTimeout(startRscanScanner, 350);
+          return;
+        }
         var msgEl=document.getElementById('rscanMsg');
         msgEl.style.color='var(--er)';
         var detail = (err && (err.name || err.message)) ? (err.name||'')+' '+(err.message||err) : String(err);
         msgEl.textContent='เปิดกล้องไม่สำเร็จ: '+detail+' — กรุณาพิมพ์รหัสด้วยตนเองด้านล่าง';
       });
     }catch(e){
+      rscanStarting = false;
       var msgEl=document.getElementById('rscanMsg');
       msgEl.style.color='var(--er)';
       var detail = (e && (e.name || e.message)) ? (e.name||'')+' '+(e.message||e) : String(e);
@@ -1647,7 +1714,8 @@ function stopRscanScanner(cb){
   var zc=document.getElementById('rscanZoomCtrl'); if(zc) zc.innerHTML='';
   if(RSCAN.scanner){
     var s = RSCAN.scanner; RSCAN.scanner=null;
-    s.stop().then(function(){ try{ s.clear(); }catch(e){} if(cb) cb(); }).catch(function(){ if(cb) cb(); });
+    var finish = function(){ try{ s.clear(); }catch(e){} if(cb) cb(); };
+    s.stop().then(finish).catch(finish);
   } else if(cb) cb();
 }
 function rscanBeep(ok){
