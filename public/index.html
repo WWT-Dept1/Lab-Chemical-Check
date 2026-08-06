@@ -1242,8 +1242,9 @@ function isRunningFrontCamera_(scannerInstance){
    (width/height) แทนที่จะแยกส่งเป็นพารามิเตอร์แรก เพราะพารามิเตอร์แรกจะถูกมองข้ามอยู่ดีเมื่อพารามิเตอร์
    ที่ 2 มี videoConstraints */
 function mergeVideoConstraints_(selector){
+  var base = getSafeVideoConstraints_();
   var vc = {};
-  for(var k in SCAN_VIDEO_CONSTRAINTS){ if(Object.prototype.hasOwnProperty.call(SCAN_VIDEO_CONSTRAINTS, k)) vc[k] = SCAN_VIDEO_CONSTRAINTS[k]; }
+  for(var k in base){ if(Object.prototype.hasOwnProperty.call(base, k)) vc[k] = base[k]; }
   if(selector){
     var key = Object.keys(selector)[0];
     vc[key] = selector[key];
@@ -1256,8 +1257,40 @@ function withCameraSelector_(scanConfig, selector){
   merged.videoConstraints = mergeVideoConstraints_(selector);
   return merged;
 }
+/* [แก้บั๊ก iPhone สแกนไม่ติด ไม่มีอะไรขึ้นมาเลย]
+   เช็คก่อนเลยว่าอุปกรณ์/เบราว์เซอร์พร้อมใช้กล้องหรือไม่ ถ้าไม่พร้อมให้ฟ้อง error ทันที
+   แทนที่จะปล่อยให้ getUserMedia พยายามแล้วเงียบไปเฉยๆ
+   - ต้องเป็น secure context (https หรือ localhost) ไม่งั้น mediaDevices จะไม่มีให้ใช้เลย
+     (สาเหตุที่พบบ่อย: เปิดไฟล์ตรงๆ หรือลิงก์ http ธรรมดา หรือเปิดผ่าน webview ที่ปิด secure context) */
+function cameraPreflightError_(){
+  if(!window.isSecureContext){
+    return 'ต้องเปิดหน้านี้ผ่านลิงก์ https:// เท่านั้น กล้องจะไม่ทำงานถ้าเปิดเป็นไฟล์โดยตรงหรือผ่านลิงก์ http ธรรมดา';
+  }
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    return 'เบราว์เซอร์นี้ไม่รองรับการเปิดกล้อง กรุณาเปิดด้วย Safari เวอร์ชันล่าสุด (ไม่ใช่ผ่านแอปอื่นที่ฝังเบราว์เซอร์ไว้ เช่น LINE)';
+  }
+  return null;
+}
+/* [แก้บั๊ก iPhone สแกนไม่ติด ไม่มีอะไรขึ้นมาเลย]
+   สาเหตุหลักที่จอว่างเปล่าไม่มีอะไรขึ้นเลยคือ promise ของ start() ค้างอยู่เฉยๆ ไม่ resolve ไม่ reject
+   (เช่น กล่องขอสิทธิ์กล้องของ iOS ไม่เด้งขึ้นมาเพราะถูก Permissions-Policy ของ iframe ปิดกั้น)
+   ใส่ timeout ครอบไว้ ถ้าผ่านไปนานเกินไปไม่มีอะไรเกิดขึ้น ให้ตัดจบแล้วฟ้อง error ให้ผู้ใช้เห็น
+   แทนที่จะปล่อยให้จอค้างว่างเปล่าตลอดไปโดยไม่รู้สาเหตุ */
+function withTimeout_(promise, ms, timeoutMsg){
+  var timer;
+  var timeoutPromise = new Promise(function(_, reject){
+    timer = setTimeout(function(){ reject(new Error(timeoutMsg)); }, ms);
+  });
+  return Promise.race([promise, timeoutPromise]).then(function(res){
+    clearTimeout(timer); return res;
+  }, function(err){
+    clearTimeout(timer); throw err;
+  });
+}
 function startScannerSimple_(scannerInstance, scanConfig, onDecode, onFrameMiss){
-  return listCamerasSafe_().then(function(cameras){
+  var preflightErr = cameraPreflightError_();
+  if(preflightErr){ return Promise.reject(new Error(preflightErr)); }
+  var attemptPromise = listCamerasSafe_().then(function(cameras){
     var id = pickBackCameraId_(cameras, null);
     var selector = id ? { deviceId: { exact: id } } : SCAN_CAMERA_SELECTOR;
     return delay_(200).then(function(){ /* กันชน getUserMedia ชั่วคราวจาก getCameras() เอง (Android) */
@@ -1289,6 +1322,11 @@ function startScannerSimple_(scannerInstance, scanConfig, onDecode, onFrameMiss)
       );
     });
   });
+  return withTimeout_(
+    attemptPromise,
+    12000,
+    'เปิดกล้องไม่สำเร็จ (รอนานเกินไป) — มักเกิดจากยังไม่ได้กดอนุญาตสิทธิ์กล้อง กรุณาตรวจสอบที่ การตั้งค่า > Safari > กล้อง แล้วลองใหม่ หรือพิมพ์รหัสด้วยตนเองด้านล่าง'
+  );
 }
 
 /* ============================================================
@@ -1311,6 +1349,21 @@ var SCAN_VIDEO_CONSTRAINTS = {
   height: { ideal: 1080 },
   advanced: [{ focusMode: 'continuous' }]
 };
+/* [แก้บั๊ก iPhone สแกนไม่ติด ไม่มีอะไรขึ้นมาเลย]
+   iOS Safari (WebKit) หลายเวอร์ชันไม่รองรับ constraint "advanced":[{focusMode:...}]
+   ตามสเปกแล้วเบราว์เซอร์ที่ไม่รองรับควรเพิกเฉยเงียบๆ แต่ WebKit บางเวอร์ชันกลับทำให้
+   getUserMedia ล้มเหลวหรือค้างไปเลยแทน (ไม่มี error ไม่มี video ขึ้นมาเลย) จึงตัด "advanced"
+   ออกเฉพาะบน iOS/iPadOS เพื่อไม่ให้ไปชนบั๊กนี้ (Android/เดสก์ท็อปยังได้ auto-focus ต่อเนื่องตามเดิม) */
+function isIOSDevice_(){
+  var ua = navigator.userAgent || '';
+  if(/iPad|iPhone|iPod/.test(ua)) return true;
+  /* iPadOS 13+ ปลอมตัวเป็น "Macintosh" ใน userAgent ต้องเช็คจาก touch points แยก */
+  return navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+}
+var SCAN_VIDEO_CONSTRAINTS_IOS = { width: { ideal: 1920 }, height: { ideal: 1080 } };
+function getSafeVideoConstraints_(){
+  return isIOSDevice_() ? SCAN_VIDEO_CONSTRAINTS_IOS : SCAN_VIDEO_CONSTRAINTS;
+}
 /* จำกัด format ให้ decode เฉพาะ Code128 (รูปแบบบาร์โค้ดจริงที่ใช้บนขวดสารเคมี)
    เดิมไลบรารีจะพยายามถอดรหัสทุก format (QR, EAN, UPC, DataMatrix ฯลฯ) ทุกเฟรม
    ทำให้กินแรงประมวลผลเกินจำเป็นและอัตราสแกนติดต่ำลง */
