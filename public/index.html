@@ -359,6 +359,11 @@ textarea.input{resize:vertical; min-height:64px; line-height:1.5;}
 .scanbox-success.show{animation:scanboxSuccessPop .55s cubic-bezier(.34,1.56,.64,1) forwards;}
 @keyframes scanboxSuccessPop{0%{opacity:0; transform:scale(.5);}55%{opacity:1; transform:scale(1.15);}100%{opacity:1; transform:scale(1);}}
 .scanbox-success svg{width:64px; height:64px; filter:drop-shadow(0 3px 10px rgba(0,0,0,.35));}
+/* ไลบรารี html5-qrcode เองจะแทรก div id="qr-shaded-region" พร้อมกรอบขาวเล็กๆ ที่มุม (เพื่อไฮไลต์
+   พื้นที่ decode) ซ้อนทับกรอบเขียวของเราเองอัตโนมัติทุกครั้งที่ตั้งค่า qrbox — ปิดกรอบขาวของไลบรารีทิ้ง
+   เหลือแค่กรอบเขียว/เส้นสแกนที่เราออกแบบเองเท่านั้น ไม่ต้องแก้ไฟล์ไลบรารี ใช้ CSS override พอ */
+#qr-shaded-region{ border-color: transparent !important; }
+#qr-shaded-region > div{ background-color: transparent !important; }
 </style>
 </head>
 <body>
@@ -1167,10 +1172,12 @@ document.getElementById('saveSigEmployee').onclick=function(){
 /* กล่องสแกนแบบแถบแนวนอน เหมาะกับบาร์โค้ด 1 มิติ (กว้าง-เตี้ย แทนที่จะเป็นสี่เหลี่ยมจัตุรัส)
    html5-qrcode จะถอดรหัสเฉพาะพื้นที่ในกล่องนี้เท่านั้น ทำให้ต้องเล็งบาร์โค้ดให้อยู่ในแถบก่อนถึงจะสแกนติด */
 function barcodeQrbox(viewfinderWidth, viewfinderHeight){
-  /* กรอบแคบลงจากเดิม เพื่อไม่ให้ครอบโดนบาร์โค้ดแถวข้างๆ เวลาสแกนจากตาราง label ที่พิมพ์ชิดกัน
-     ผู้ใช้ควรเข้าใกล้/ซูมให้บาร์โค้ดเป้าหมายเติมเต็มกรอบก่อนสแกน */
-  var w = Math.floor(Math.min(viewfinderWidth * 0.62, 230));
-  var h = Math.max(56, Math.floor(w * 0.34));
+  /* กรอบแคบ (แนวนอน) เพื่อไม่ให้ครอบโดนบาร์โค้ดแถวข้างๆ เวลาสแกนจากตาราง label ที่พิมพ์ชิดกัน
+     ผู้ใช้ควรเข้าใกล้/ซูมให้บาร์โค้ดเป้าหมายเติมเต็มกรอบก่อนสแกน
+     ปรับกว้างขึ้นเล็กน้อยจากเดิม (230→260) เผื่อ "แดนเงียบ" (quiet zone) ซ้าย-ขวาของบาร์โค้ดพอดี
+     ไม่งั้นถ้ากรอบแคบไปจนตัดขอบบาร์โค้ด/แดนเงียบ ตัวถอดรหัสจะอ่านไม่ออกเลยทั้งที่ภาพคมชัดดี */
+  var w = Math.floor(Math.min(viewfinderWidth * 0.68, 260));
+  var h = Math.max(52, Math.floor(w * 0.30));
   return { width: w, height: h };
 }
 /* ตั้งค่ากล้องกลาง ใช้ร่วมกันทั้งโหมดสแกนทีละรายการและสแกนต่อเนื่อง
