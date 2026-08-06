@@ -328,6 +328,37 @@ textarea.input{resize:vertical; min-height:64px; line-height:1.5;}
 .ri-open-toggle.on .rot-lbl{color:var(--warn);}
 .rscan-count-badge{display:inline-flex; align-items:center; justify-content:center; min-width:20px; height:20px; padding:0 6px;
   border-radius:10px; background:var(--ok); color:#fff; font-size:11px; font-weight:800;}
+
+/* ============================================================
+   Scanbox: กรอบสแกนกล้องดีไซน์เดียวกันใช้ร่วม 3 โหมด (ยืนยันทีละรายการ/ต่อเนื่อง/รับเข้า)
+   ============================================================ */
+.scanbox{position:relative; width:100%; height:100%; background:#000; overflow:hidden;}
+.scanbox::before{content:''; position:absolute; inset:0; pointer-events:none; z-index:2;
+  background:radial-gradient(ellipse at center, rgba(0,0,0,0) 42%, rgba(0,0,0,.45) 100%);}
+.scanbox-corner{position:absolute; width:34px; height:34px; border:4px solid #35e6ab; pointer-events:none; z-index:3;
+  filter:drop-shadow(0 0 7px rgba(53,230,171,.65)); animation:scanboxPulse 2.2s ease-in-out infinite;}
+.scanbox-corner.tl{top:38%; left:9%; border-right:none; border-bottom:none; border-top-left-radius:12px;}
+.scanbox-corner.tr{top:38%; right:9%; border-left:none; border-bottom:none; border-top-right-radius:12px;}
+.scanbox-corner.bl{bottom:38%; left:9%; border-right:none; border-top:none; border-bottom-left-radius:12px;}
+.scanbox-corner.br{bottom:38%; right:9%; border-left:none; border-top:none; border-bottom-right-radius:12px;}
+@keyframes scanboxPulse{0%,100%{opacity:1;}50%{opacity:.55;}}
+.scanbox-scanline{position:absolute; left:9%; right:9%; height:2.5px; border-radius:2px; z-index:3;
+  background:linear-gradient(90deg,transparent,#35e6ab,transparent); box-shadow:0 0 12px 1.5px rgba(53,230,171,.75);
+  animation:scanboxMove 1.8s ease-in-out infinite; pointer-events:none;}
+@keyframes scanboxMove{0%{top:38%;}50%{top:62%;}100%{top:38%;}}
+.scanbox-flash{position:absolute; inset:0; pointer-events:none; z-index:4; background:rgba(26,156,107,0); transition:background .15s;}
+.scanbox-tip{position:absolute; left:0; right:0; bottom:10px; z-index:3; text-align:center; pointer-events:none;
+  font-size:11px; font-weight:600; color:rgba(255,255,255,.85); text-shadow:0 1px 3px rgba(0,0,0,.6); padding:0 14px;}
+.scanbox-torch{position:absolute; top:10px; right:10px; z-index:5; width:38px; height:38px; border-radius:50%; border:none;
+  background:rgba(0,0,0,.4); backdrop-filter:blur(2px); color:#fff; font-size:16px; display:flex; align-items:center; justify-content:center;
+  cursor:pointer; transition:background .15s, transform .15s;}
+.scanbox-torch.on{background:var(--warn); box-shadow:0 0 12px rgba(192,122,31,.7);}
+.scanbox-torch:active{transform:scale(.92);}
+.scanbox-success{position:absolute; inset:0; z-index:6; display:flex; align-items:center; justify-content:center; pointer-events:none;
+  opacity:0; transform:scale(.6);}
+.scanbox-success.show{animation:scanboxSuccessPop .55s cubic-bezier(.34,1.56,.64,1) forwards;}
+@keyframes scanboxSuccessPop{0%{opacity:0; transform:scale(.5);}55%{opacity:1; transform:scale(1.15);}100%{opacity:1; transform:scale(1);}}
+.scanbox-success svg{width:64px; height:64px; filter:drop-shadow(0 3px 10px rgba(0,0,0,.35));}
 </style>
 </head>
 <body>
@@ -491,8 +522,17 @@ textarea.input{resize:vertical; min-height:64px; line-height:1.5;}
     <button class="modal-close" id="closeQrScan">✕</button>
     <div class="modal-title" id="qrScanTitle">สแกน QR/บาร์โค้ดยืนยัน</div>
     <div class="modal-sub" id="qrScanSub">เล็งกล้องไปที่ QR/บาร์โค้ดบนขวดสารเคมี</div>
-    <div style="position:relative;">
-      <div id="qrReaderBox" style="width:100%;border-radius:12px;overflow:hidden;background:#000;margin-top:10px;min-height:220px;"></div>
+    <div style="position:relative;border-radius:12px;overflow:hidden;margin-top:10px;height:52vh;min-height:240px;max-height:360px;">
+      <div class="scanbox" id="qrScanBox">
+        <div id="qrReaderBox" style="width:100%;height:100%;"></div>
+        <div class="scanbox-corner tl"></div><div class="scanbox-corner tr"></div>
+        <div class="scanbox-corner bl"></div><div class="scanbox-corner br"></div>
+        <div class="scanbox-scanline" id="qrScanLine"></div>
+        <div class="scanbox-flash" id="qrScanFlash"></div>
+        <div class="scanbox-success" id="qrScanSuccess"></div>
+        <button type="button" class="scanbox-torch" id="qrScanTorch" style="display:none;">🔦</button>
+        <div class="scanbox-tip">ถือกล้องนิ่ง ๆ ห่างจากบาร์โค้ดประมาณ 10–15 ซม.</div>
+      </div>
     </div>
     <div id="qrScanMsg" style="font-size:12.5px;font-weight:600;text-align:center;margin-top:10px;min-height:18px;"></div>
     <div class="modal-sub" style="margin-top:6px;">หรือพิมพ์รหัสด้วยตนเองหากกล้องสแกนไม่ได้</div>
@@ -514,8 +554,16 @@ textarea.input{resize:vertical; min-height:64px; line-height:1.5;}
       <button class="modal-close" id="closeContinuousScan" style="position:static;">✕</button>
     </div>
     <div style="position:relative;flex:1;min-height:260px;">
-      <div id="cScanReaderBox" style="width:100%;height:100%;background:#000;overflow:hidden;position:absolute;inset:0;"></div>
-      <div id="cScanFlash" style="position:absolute;inset:0;pointer-events:none;background:rgba(26,156,107,0);transition:background .15s;"></div>
+      <div class="scanbox" id="cScanBox" style="position:absolute;inset:0;">
+        <div id="cScanReaderBox" style="width:100%;height:100%;"></div>
+        <div class="scanbox-corner tl"></div><div class="scanbox-corner tr"></div>
+        <div class="scanbox-corner bl"></div><div class="scanbox-corner br"></div>
+        <div class="scanbox-scanline" id="cScanLine"></div>
+        <div id="cScanFlash" class="scanbox-flash"></div>
+        <div class="scanbox-success" id="cScanSuccess"></div>
+        <button type="button" class="scanbox-torch" id="cScanTorch" style="display:none;">🔦</button>
+        <div class="scanbox-tip">ถือกล้องนิ่ง ๆ ห่างจากบาร์โค้ดประมาณ 10–15 ซม.</div>
+      </div>
     </div>
     <div style="padding:10px 16px;flex-shrink:0;">
       <div id="cScanMsg" style="font-size:14px;font-weight:700;text-align:center;min-height:22px;color:var(--text-soft);">เล็งกล้องไปที่ QR/บาร์โค้ด...</div>
@@ -548,6 +596,9 @@ textarea.input{resize:vertical; min-height:64px; line-height:1.5;}
       <div class="rscan-corner bl"></div><div class="rscan-corner br"></div>
       <div class="rscan-scanline"></div>
       <div class="rscan-flash" id="rscanFlash"></div>
+      <div class="scanbox-success" id="rscanSuccess"></div>
+      <button type="button" class="scanbox-torch" id="rscanTorch" style="display:none;">🔦</button>
+      <div class="scanbox-tip">ถือกล้องนิ่ง ๆ ห่างจากบาร์โค้ดประมาณ 10–15 ซม.</div>
     </div>
     <div class="rscan-msg" id="rscanMsg">เล็งกล้องไปที่บาร์โค้ด/QR ของสารเคมี...</div>
     <div class="rscan-manual" style="padding-bottom:14px;">
@@ -1184,7 +1235,8 @@ function isRunningFrontCamera_(scannerInstance){
    (width/height) แทนที่จะแยกส่งเป็นพารามิเตอร์แรก เพราะพารามิเตอร์แรกจะถูกมองข้ามอยู่ดีเมื่อพารามิเตอร์
    ที่ 2 มี videoConstraints */
 function mergeVideoConstraints_(selector){
-  var vc = { width: SCAN_VIDEO_CONSTRAINTS.width, height: SCAN_VIDEO_CONSTRAINTS.height };
+  var vc = {};
+  for(var k in SCAN_VIDEO_CONSTRAINTS){ if(Object.prototype.hasOwnProperty.call(SCAN_VIDEO_CONSTRAINTS, k)) vc[k] = SCAN_VIDEO_CONSTRAINTS[k]; }
   if(selector){
     var key = Object.keys(selector)[0];
     vc[key] = selector[key];
@@ -1242,9 +1294,15 @@ function startScannerSimple_(scannerInstance, scanConfig, onDecode, onFrameMiss)
    ถ้าเครื่อง/เวอร์ชัน LINE ไหนขอสิทธิ์กล้องไม่ได้จริงๆ ก็จะเข้า error handler ปกติของแต่ละโหมด
    ที่มีช่องพิมพ์รหัสเองสำรองไว้อยู่แล้ว */
 /* resolution ที่ต้องการต้องระบุแยกผ่าน videoConstraints ในพารามิเตอร์ที่สอง (scan config) แทน */
+/* ความละเอียดสูงขึ้น (จากเดิม 1280x720) ช่วยให้เส้นบาร์โค้ดที่บาง/ชิดกันคมชัดพอ decode ติดง่ายขึ้น
+   โดยเฉพาะบน iOS ที่ตัวถอดรหัสเป็น JS ล้วน (ไม่มี native BarcodeDetector เหมือน Android Chrome)
+   advanced:[{focusMode:'continuous'}] เป็นคำขอแบบ "ทำให้ดีที่สุดเท่าที่ทำได้" — เบราว์เซอร์ที่ไม่รองรับ
+   (เช่น iOS Safari บางเวอร์ชัน) จะเพิกเฉยเงียบๆ ไม่ error แต่ถ้ารองรับจะช่วยให้กล้องโฟกัสต่อเนื่อง
+   แทนที่จะล็อกโฟกัสค้างครั้งเดียวตอนเปิดกล้อง (สาเหตุหลักที่สแกนติดยากตอนขวดอยู่ใกล้กล้อง) */
 var SCAN_VIDEO_CONSTRAINTS = {
-  width: { ideal: 1280 },
-  height: { ideal: 720 }
+  width: { ideal: 1920 },
+  height: { ideal: 1080 },
+  advanced: [{ focusMode: 'continuous' }]
 };
 /* จำกัด format ให้ decode เฉพาะ Code128 (รูปแบบบาร์โค้ดจริงที่ใช้บนขวดสารเคมี)
    เดิมไลบรารีจะพยายามถอดรหัสทุก format (QR, EAN, UPC, DataMatrix ฯลฯ) ทุกเฟรม
@@ -1252,6 +1310,69 @@ var SCAN_VIDEO_CONSTRAINTS = {
 function getScanFormatsToSupport(){
   if (typeof Html5QrcodeSupportedFormats === 'undefined') return undefined;
   return [Html5QrcodeSupportedFormats.CODE_128];
+}
+
+/* ============================================================
+   เสียงติ๊ด + ภาพเช็คถูก✓เด้ง + ปุ่มไฟฉาย — ใช้ร่วมกันทั้ง 3 โหมดสแกน
+   ============================================================ */
+var _scanAudioCtx = null;
+function playScanBeep(ok){
+  try{
+    var ctx = _scanAudioCtx || (_scanAudioCtx = new (window.AudioContext||window.webkitAudioContext)());
+    if(ctx.state === 'suspended'){ ctx.resume(); }
+    var o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'sine';
+    o.frequency.value = ok ? 1200 : 300;
+    g.gain.value = 0.16;
+    o.connect(g); g.connect(ctx.destination);
+    o.start();
+    if(ok){
+      /* ok: ติ๊ด-ติ๊ด สั้นกระชับ 2 จังหวะ ให้ฟังดูน่าพอใจกว่าเสียงเดียว */
+      o.frequency.setValueAtTime(1200, ctx.currentTime);
+      o.frequency.setValueAtTime(1500, ctx.currentTime + 0.09);
+      o.stop(ctx.currentTime + 0.16);
+    } else {
+      o.stop(ctx.currentTime + 0.18);
+    }
+  }catch(e){}
+}
+var SCANBOX_CHECK_SVG = '<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">'
+  + '<circle cx="32" cy="32" r="30" fill="#1a9c6b"/>'
+  + '<path d="M18 33.5L27 42.5L46 22" stroke="#fff" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>'
+  + '</svg>';
+function showScanSuccessPop(elId){
+  var el = document.getElementById(elId);
+  if(!el) return;
+  el.innerHTML = SCANBOX_CHECK_SVG;
+  el.classList.remove('show');
+  void el.offsetWidth; /* บังคับ reflow เพื่อให้เล่น animation ซ้ำได้ทุกครั้ง */
+  el.classList.add('show');
+  setTimeout(function(){ el.classList.remove('show'); el.innerHTML=''; }, 700);
+}
+/* เปิด/ปิดไฟฉาย ถ้ากล้อง/เบราว์เซอร์รองรับ (ส่วนใหญ่ Android Chrome รองรับ, iOS Safari มักไม่รองรับ
+   จึงซ่อนปุ่มไปเลยถ้าตรวจสอบแล้วใช้ไม่ได้ ไม่โชว์ปุ่มค้างที่กดแล้วไม่ทำงาน) */
+function wireTorchButton_(btnId, getScannerInstance){
+  var btn = document.getElementById(btnId);
+  if(!btn) return;
+  var isOn = false;
+  btn.style.display = 'none';
+  btn.classList.remove('on');
+  var scanner = getScannerInstance();
+  try{
+    if(scanner && typeof scanner.getRunningTrackCameraCapabilities === 'function'){
+      var caps = scanner.getRunningTrackCameraCapabilities();
+      var torch = caps.torchFeature();
+      if(torch && torch.isSupported()){
+        btn.style.display = 'flex';
+        btn.onclick = function(){
+          isOn = !isOn;
+          torch.apply(isOn).then(function(){
+            btn.classList.toggle('on', isOn);
+          }).catch(function(){ btn.style.display='none'; });
+        };
+      }
+    }
+  }catch(e){ btn.style.display = 'none'; }
 }
 
 var qrScanner = null;
@@ -1301,12 +1422,13 @@ function startQrScanner(){
       qrScanner = new Html5Qrcode('qrReaderBox', { formatsToSupport: getScanFormatsToSupport(), verbose: false });
       startScannerSimple_(
         qrScanner,
-        { fps: 15, qrbox: barcodeQrbox, videoConstraints: SCAN_VIDEO_CONSTRAINTS },
+        { fps: 10, qrbox: barcodeQrbox, videoConstraints: SCAN_VIDEO_CONSTRAINTS, disableFlip: true },
         function(decodedText){ handleQrResult(decodedText); },
         function(){ /* ignore per-frame scan misses */ }
       ).then(function(){
         qrScanStarting = false;
         qrScanRetried = false;
+        wireTorchButton_('qrScanTorch', function(){ return qrScanner; });
       }).catch(function(err){
         qrScanStarting = false;
         if(isScanClearRaceError_(err) && !qrScanRetried){
@@ -1353,6 +1475,11 @@ function handleQrResult(code){
     st.checked = true; st.checkedAt = new Date().toISOString();
     msgEl.style.color='var(--ok)';
     msgEl.textContent='✓ ยืนยันตัวสารเคมีสำเร็จ';
+    playScanBeep(true);
+    showScanSuccessPop('qrScanSuccess');
+    var qrFlashEl = document.getElementById('qrScanFlash');
+    if(qrFlashEl){ qrFlashEl.style.background='rgba(26,156,107,.30)'; setTimeout(function(){ qrFlashEl.style.background='rgba(0,0,0,0)'; }, 200); }
+    if(navigator.vibrate) navigator.vibrate(40);
     setTimeout(function(){
       document.getElementById('modalQrScan').classList.remove('open');
       qrScanTargetIdx=null;
@@ -1362,6 +1489,10 @@ function handleQrResult(code){
   } else {
     msgEl.style.color='var(--er)';
     msgEl.textContent='✗ รหัสนี้ไม่ตรงกับรายการ "'+esc(it.name)+'" กรุณาลองใหม่';
+    playScanBeep(false);
+    var qrFlashEl2 = document.getElementById('qrScanFlash');
+    if(qrFlashEl2){ qrFlashEl2.style.background='rgba(209,82,74,.35)'; setTimeout(function(){ qrFlashEl2.style.background='rgba(0,0,0,0)'; }, 200); }
+    if(navigator.vibrate) navigator.vibrate(120);
   }
 }
 document.getElementById('closeQrScan').onclick=function(){
@@ -1414,12 +1545,13 @@ function startContinuousScanner(){
       cScanScanner = new Html5Qrcode('cScanReaderBox', { formatsToSupport: getScanFormatsToSupport(), verbose: false });
       startScannerSimple_(
         cScanScanner,
-        { fps: 15, qrbox: barcodeQrbox, videoConstraints: SCAN_VIDEO_CONSTRAINTS },
+        { fps: 10, qrbox: barcodeQrbox, videoConstraints: SCAN_VIDEO_CONSTRAINTS, disableFlip: true },
         function(decodedText){ handleContinuousScanResult(decodedText); },
         function(){ /* ignore per-frame scan misses */ }
       ).then(function(){
         cScanStarting = false;
         cScanRetried = false;
+        wireTorchButton_('cScanTorch', function(){ return cScanScanner; });
       }).catch(function(err){
         cScanStarting = false;
         if(isScanClearRaceError_(err) && !cScanRetried){
@@ -1533,7 +1665,7 @@ function handleContinuousScanResult(rawCode){
   st.checked = true;
   st.checkedAt = new Date().toISOString();
 
-  cScanBeep(true); cScanFlash('rgba(26,156,107,.30)'); if(navigator.vibrate) navigator.vibrate(40);
+  cScanBeep(true); cScanFlash('rgba(26,156,107,.30)'); showScanSuccessPop('cScanSuccess'); if(navigator.vibrate) navigator.vibrate(40);
   msgEl.style.color='var(--ok)';
   msgEl.textContent='✓ '+esc(it.name)+'  ('+st.scannedCodes.length+'/'+it.qty+')';
   pushCScanHistory({ok:true, text: it.name+'  '+st.scannedCodes.length+'/'+it.qty});
@@ -1611,12 +1743,13 @@ function startRscanScanner(){
       RSCAN.scanner = new Html5Qrcode('rscanReaderBox', { formatsToSupport: getScanFormatsToSupport(), verbose: false });
       startScannerSimple_(
         RSCAN.scanner,
-        { fps: 15, qrbox: barcodeQrbox, videoConstraints: SCAN_VIDEO_CONSTRAINTS },
+        { fps: 10, qrbox: barcodeQrbox, videoConstraints: SCAN_VIDEO_CONSTRAINTS, disableFlip: true },
         function(decodedText){ handleRscanResult(decodedText); },
         function(){ /* ignore per-frame scan misses */ }
       ).then(function(){
         rscanStarting = false;
         rscanRetried = false;
+        wireTorchButton_('rscanTorch', function(){ return RSCAN.scanner; });
       }).catch(function(err){
         rscanStarting = false;
         if(isScanClearRaceError_(err) && !rscanRetried){
@@ -1693,7 +1826,7 @@ function handleRscanResult(rawCode){
     });
   }
 
-  rscanBeep(true); rscanFlash('rgba(26,156,107,.30)'); if(navigator.vibrate) navigator.vibrate(40);
+  rscanBeep(true); rscanFlash('rgba(26,156,107,.30)'); showScanSuccessPop('rscanSuccess'); if(navigator.vibrate) navigator.vibrate(40);
   msgEl.style.color='var(--ok)';
   msgEl.textContent = found.isNew
     ? '✓ เพิ่มแล้ว: '+esc(it.name)+' (x'+(existing?existing.qty:1)+') — รหัสล็อตใหม่ จะบันทึกเพิ่มเข้า Product code'
