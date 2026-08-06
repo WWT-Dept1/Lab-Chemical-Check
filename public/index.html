@@ -1135,20 +1135,43 @@ var SCAN_CAMERA_SELECTOR = { facingMode: { exact: 'environment' } };
 var SCAN_CAMERA_SELECTOR_FALLBACK = { facingMode: 'environment' };
 
 /* ============================================================
-   เปิดกล้องหลังแบบง่ายที่สุด — เรียก start() ครั้งเดียวตรงๆ
-   (เดิมมีโค้ดไล่ลองกล้องทีละตัว + เช็ค facingMode ย้อนกลับ + stop()/start() วนซ้ำ
-   เพื่อ "ยืนยัน" กล้องหลังให้แน่ใจ แต่การ start()/stop() ถี่ๆ ซ้อนกันแบบนั้นเองคือสาเหตุจริง
-   ที่ทำให้ชน "Cannot transition to a new state, already under transition" เป็นระยะๆ
-   ตัดออกทั้งหมด เหลือแค่ลองกล้องหลังแบบบังคับ (exact) ครั้งเดียว
-   ถ้าเครื่องไหนไม่มีกล้องหลังจริงๆ (หายาก) ค่อย fallback เป็นแบบ ideal อีกครั้งเดียว) */
+   บังคับกล้องหลังแบบง่าย แต่แม่นยำ — เลือกด้วย deviceId จาก label ("back"/"rear")
+   สาเหตุที่ facingMode:{exact:'environment'} เพียงอย่างเดียวใช้ไม่ได้ผลแน่นอน:
+   บน iOS/เบราว์เซอร์ในแอป LINE (WKWebView) constraint นี้มักถูกละเลย เปิดกล้องหน้าให้แทน
+   โดยไม่ error เลย (เดโมนี้เจอเองจากภาพหน้าจอ) ในขณะที่ label ของกล้อง (getCameras())
+   บนอุปกรณ์กลุ่มนี้กลับรายงานถูกต้องแม่นยำกว่า จึงเลือกวิธีนี้เป็นหลัก
+   ยังคง "เรียก start() ครั้งเดียว" ไม่มีการ stop()/start() วนซ้ำเหมือนโค้ดเดิมที่เคยพังเรื่อง
+   "already under transition" — มีแค่ fallback สำรอง 1 ครั้งถ้า deviceId ที่เลือกใช้ไม่ได้จริงๆ */
 function delay_(ms){ return new Promise(function(resolve){ setTimeout(resolve, ms); }); }
+var _backCameraId = null;         /* กล้องหลังที่หาเจอจาก label แคชไว้ใช้ซ้ำในเซสชันนี้ */
+var _backCameraLookupDone = false;
+function pickBackCameraId_(){
+  if(_backCameraLookupDone) return Promise.resolve(_backCameraId);
+  if(typeof Html5Qrcode === 'undefined' || !Html5Qrcode.getCameras){
+    _backCameraLookupDone = true;
+    return Promise.resolve(null);
+  }
+  return Html5Qrcode.getCameras().then(function(cameras){
+    _backCameraLookupDone = true;
+    if(!cameras || !cameras.length) return null;
+    var back = cameras.filter(function(c){ return /back|rear|environment/i.test(c.label||''); })[0];
+    _backCameraId = back ? back.id : null;
+    /* ถ้าหา label กล้องหลังไม่เจอ (เช่น ยังไม่เคยขอสิทธิ์กล้องมาก่อน label จะว่างเปล่า)
+       อย่าเดา — ปล่อยเป็น null แล้วให้ไปใช้ facingMode constraint แทนที่ด้านล่าง */
+    return _backCameraId;
+  }).catch(function(){ _backCameraLookupDone = true; return null; });
+}
 function startScannerSimple_(scannerInstance, scanConfig, onDecode, onFrameMiss){
-  return scannerInstance.start(SCAN_CAMERA_SELECTOR, scanConfig, onDecode, onFrameMiss)
-    .catch(function(){
-      return delay_(150).then(function(){
-        return scannerInstance.start(SCAN_CAMERA_SELECTOR_FALLBACK, scanConfig, onDecode, onFrameMiss);
-      });
+  return pickBackCameraId_().then(function(id){
+    var selector = id ? { deviceId: { exact: id } } : SCAN_CAMERA_SELECTOR;
+    return scannerInstance.start(selector, scanConfig, onDecode, onFrameMiss);
+  }).catch(function(){
+    /* deviceId ที่จำไว้ใช้ไม่ได้แล้ว (เช่น ถอด/สลับอุปกรณ์) เคลียร์แคชแล้วลองรอบสุดท้ายด้วย facingMode ธรรมดา */
+    _backCameraId = null; _backCameraLookupDone = false;
+    return delay_(150).then(function(){
+      return scannerInstance.start(SCAN_CAMERA_SELECTOR_FALLBACK, scanConfig, onDecode, onFrameMiss);
     });
+  });
 }
 
 /* ============================================================
