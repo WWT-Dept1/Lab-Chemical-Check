@@ -1186,11 +1186,18 @@ function getRunningFacingMode_(scannerInstance){
 }
 /* ไล่ลองกล้องทีละตัวตามลำดับ candidates จนกว่าจะเจอตัวที่ยืนยันได้ว่าไม่ใช่กล้องหน้า
    (หรือลองครบทุกตัวแล้วไม่มีอันไหนยืนยันได้ ก็ยอมรับตัวแรกที่ start ได้ ดีกว่าไม่มีกล้องเลย) */
+/* หน่วงเวลาสั้นๆ ก่อนเรียก stop() ตามหลัง start() ที่เพิ่งล้มเหลว
+   (ไลบรารี html5-qrcode ยังอยู่ระหว่างเปลี่ยนสถานะภายในจาก start() ที่ reject
+   ถ้า stop() ถูกเรียกทันทีจะชน "Cannot transition to a new state, already under transition") */
+function delay_(ms){ return new Promise(function(resolve){ setTimeout(resolve, ms); }); }
+function safeStop_(scannerInstance){
+  return delay_(120).then(function(){ return scannerInstance.stop(); }).catch(function(){});
+}
 /* เรียก start() ซ้ำบน scannerInstance เดิมได้อย่างปลอดภัย โดยแทรก stop() คั่นก่อนเสมอ
    (ป้องกัน "Cannot clear while scan is ongoing" ที่เกิดตอน start() ครั้งก่อนหน้าล้มเหลว
    แล้วโค้ดเดิมเรียก start() ซ้ำทันทีบน instance เดิมโดยไม่ stop() คั่นก่อน) */
 function safeRestart_(scannerInstance, selector, scanConfig, onDecode, onFrameMiss){
-  return scannerInstance.stop().catch(function(){}).then(function(){
+  return safeStop_(scannerInstance).then(function(){
     return scannerInstance.start(selector, scanConfig, onDecode, onFrameMiss);
   });
 }
@@ -1204,15 +1211,15 @@ function tryBackCameraCandidates_(scannerInstance, candidates, i, scanConfig, on
     var facing = getRunningFacingMode_(scannerInstance);
     if(facing === 'user'){
       /* ยืนยันแล้วว่าเป็นกล้องหน้าจริง ปิดแล้วลองตัวถัดไปทันที โดยผู้ใช้ไม่เห็นภาพกล้องหน้าเลย */
-      return scannerInstance.stop().catch(function(){}).then(function(){
+      return safeStop_(scannerInstance).then(function(){
         return tryBackCameraCandidates_(scannerInstance, candidates, i+1, scanConfig, onDecode, onFrameMiss);
       });
     }
     _verifiedBackCameraId = id; /* จำไว้ใช้ครั้งหน้า ไม่ต้องไล่ใหม่ */
     return res;
   }).catch(function(){
-    /* start() ครั้งนี้ล้มเหลว - ต้อง stop() คั่นก่อนลองตัวถัดไปบน instance เดิม กัน "Cannot clear" */
-    return scannerInstance.stop().catch(function(){}).then(function(){
+    /* start() ครั้งนี้ล้มเหลว - ต้อง stop() คั่นก่อนลองตัวถัดไปบน instance เดิม กัน "Cannot clear" / "already under transition" */
+    return safeStop_(scannerInstance).then(function(){
       return tryBackCameraCandidates_(scannerInstance, candidates, i+1, scanConfig, onDecode, onFrameMiss);
     });
   });
@@ -1351,10 +1358,13 @@ function forceResetReaderBox_(id){
   var el = document.getElementById(id);
   if(el) el.innerHTML = '';
 }
-/* เช็คว่า error ที่ได้คือปัญหา "instance เก่าค้าง" หรือไม่ */
+/* เช็คว่า error ที่ได้คือปัญหา "instance เก่าค้าง" / ไลบรารีกำลังเปลี่ยนสถานะค้างอยู่หรือไม่
+   (ครอบคลุมทั้ง "Cannot clear while scan is ongoing" และ
+   "Cannot transition to a new state, already under transition") */
 function isScanClearRaceError_(err){
   var msg = (err && (err.message || err)) ? String(err.message || err) : String(err);
-  return msg.indexOf('Cannot clear while scan is ongoing') > -1;
+  return msg.indexOf('Cannot clear while scan is ongoing') > -1
+      || msg.indexOf('already under transition') > -1;
 }
 var qrScanRetried = false; /* กันวน retry ไม่รู้จบ */
 var qrScanStarting = false; /* กันเปิดกล้องซ้อนขณะกำลังเปิดอยู่ */
