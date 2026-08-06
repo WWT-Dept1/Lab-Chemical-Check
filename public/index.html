@@ -1,0 +1,2201 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<title>ใบตรวจนับสารเคมี F-WWT-28</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<script src="/gas-compat.js"></script>
+<style>
+:root{
+  --bg:#eef4f3; --card:#ffffff; --border:#dde7e6; --border-soft:#eaf1f0;
+  --text:#1b2523; --text-soft:#556663; --text-faint:#8a9895;
+  --primary:#0f8a7e; --primary-dk:#0a6459; --primary-lt:#e2f4f1;
+  --grad-a:#12968a; --grad-b:#2c5f66;
+  --ok:#1a9c6b; --ok-lt:#e5f7ee; --warn:#c07a1f; --warn-lt:#fbf0dd; --er:#d1524a; --er-lt:#fbe8e6;
+  --catD:#0f8a7e; --catD-lt:#e2f4f1;
+  --catF:#5b6f8c; --catF-lt:#eaeef3;
+  --catC:#2c8fa0; --catC-lt:#e2f2f5;
+  --catE:#b3762a; --catE-lt:#f7ecdc;
+  --catO:#6b7b78; --catO-lt:#eef2f1;
+  --radius:16px; --radius-sm:11px;
+  --shadow-sm:0 1px 2px rgba(15,32,29,.05), 0 2px 8px rgba(15,32,29,.05);
+  --shadow-md:0 4px 14px rgba(11,60,55,.12);
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;font-family:'Prompt',sans-serif;color:var(--text);background:var(--bg);}
+body{min-height:100vh; padding-bottom:110px;}
+.wrap{max-width:640px; margin:0 auto; padding:14px 14px 0;}
+.card{background:var(--card); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow-sm);}
+.hidden{display:none !important;}
+
+/* ---------- top bar ---------- */
+.topbar{display:flex; align-items:center; justify-content:space-between; padding:12px 14px; max-width:640px; margin:0 auto;}
+.topbar .brand{font-size:13px; font-weight:700; color:var(--primary-dk); letter-spacing:.3px; display:flex; align-items:center; gap:7px;}
+.topbar .brand .dot{width:8px;height:8px;border-radius:50%;background:linear-gradient(135deg,var(--grad-a),var(--grad-b)); flex-shrink:0;}
+.mode-switch{display:flex; gap:6px; background:var(--border-soft); padding:3px; border-radius:10px; flex-wrap:wrap; justify-content:flex-end;}
+.mode-btn{border:none; background:#fff; padding:8px 11px; border-radius:10px; font-family:'Prompt',sans-serif;
+  font-size:11.8px; font-weight:700; color:var(--primary-dk); cursor:pointer; box-shadow:var(--shadow-sm); display:flex; align-items:center; gap:6px; white-space:nowrap;}
+.mode-btn.active{background:var(--card); color:var(--primary-dk); box-shadow:0 1px 3px rgba(0,0,0,.08);}
+
+/* ---------- header (hero) ---------- */
+.header{padding:22px 20px 20px; margin-bottom:14px; position:relative; overflow:hidden;
+  background:linear-gradient(135deg,var(--grad-a) 0%, var(--grad-b) 100%); border:none; color:#fff; box-shadow:var(--shadow-md);}
+.header::before{content:''; position:absolute; width:220px; height:220px; border-radius:50%; background:rgba(255,255,255,.10);
+  top:-90px; right:-60px;}
+.header::after{content:''; position:absolute; width:140px; height:140px; border-radius:50%; background:rgba(255,255,255,.08);
+  bottom:-70px; left:-30px;}
+.header > *{position:relative; z-index:1;}
+.eyebrow{font-size:10.5px; letter-spacing:2px; color:rgba(255,255,255,.85); font-weight:700; text-transform:uppercase;}
+.htitle{font-size:20px; font-weight:800; margin:6px 0 2px; color:#fff;}
+.hsub{font-size:12.5px; color:rgba(255,255,255,.85); margin:0;}
+.field-row{margin-top:12px;}
+.inspector-card{padding:16px; margin-bottom:12px;}
+.inspector-card .field-row label{display:flex; align-items:center; gap:6px;}
+.inspector-card .field-row label::before{content:'✎'; font-size:12px; color:var(--primary);}
+.header .btn-primary{background:#fff; color:var(--primary-dk); box-shadow:0 4px 14px rgba(0,0,0,.18);}
+.header .btn-primary:active{background:#f2f7f6;}
+.header .btn-ghost{background:rgba(255,255,255,.95); color:var(--primary-dk); border-color:rgba(255,255,255,.5);}
+.field-row label{display:block; font-size:12px; color:var(--text-soft); font-weight:600; margin-bottom:5px;}
+.input, select.input{width:100%; padding:11px 13px; border-radius:var(--radius-sm); border:1.5px solid var(--border);
+  background:#fff; font-family:'Prompt',sans-serif; font-size:14.5px; color:var(--text); outline:none;
+  box-shadow:inset 0 1px 2px rgba(15,32,29,.04); transition:border-color .15s ease, box-shadow .15s ease, background .15s ease;}
+.input::placeholder{color:var(--text-faint);}
+.input:focus{border-color:var(--primary); background:#fff; box-shadow:0 0 0 3px var(--primary-lt);}
+select.input{background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23556663' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><path d='M6 9l6 6 6-6'/></svg>");
+  background-repeat:no-repeat; background-position:right 12px center; background-size:15px; appearance:none; -webkit-appearance:none; padding-right:34px;}
+textarea.input{resize:vertical; min-height:64px; line-height:1.5;}
+
+/* ---------- progress ---------- */
+.progress-wrap{padding:12px 14px; margin-bottom:12px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+.progress-track{flex:1; height:7px; border-radius:8px; background:var(--border-soft); overflow:hidden; min-width:110px;}
+.progress-fill{height:100%; border-radius:8px; background:var(--primary); transition:width .25s ease;}
+.progress-num{font-size:12.5px; font-weight:700; color:var(--primary-dk); white-space:nowrap;}
+.btn-save-draft{flex-shrink:0; padding:8px 12px; border-radius:9px; border:1.5px solid var(--border); font-family:'Prompt',sans-serif;
+  font-weight:600; font-size:12px; color:var(--text-soft); cursor:pointer; background:#fff; white-space:nowrap;}
+.btn-save-draft:disabled{opacity:.45;}
+.draft-status{width:100%; font-size:11px; color:var(--text-faint); margin-top:2px;}
+
+/* ---------- category chips ---------- */
+.cat-tabs{display:flex; gap:6px; overflow-x:auto; padding:2px 2px 12px; scrollbar-width:none;}
+.cat-tabs::-webkit-scrollbar{display:none;}
+.cat-tab{flex-shrink:0; padding:7px 13px; border-radius:999px; font-size:12.5px; font-weight:600;
+  background:#fff; border:1.5px solid var(--border); color:var(--text-soft); cursor:pointer; white-space:nowrap; box-shadow:var(--shadow-sm);}
+.cat-tab.active{background:linear-gradient(135deg,var(--grad-a),var(--grad-b)); color:#fff; border-color:transparent; box-shadow:0 4px 12px rgba(79,109,245,.35);}
+
+/* ---------- item card ---------- */
+.item-card{padding:14px 16px 16px; margin-bottom:10px; border-left:4px solid var(--catO); transition:transform .1s ease;}
+.item-card.cat-D{border-left-color:var(--catD);}
+.item-card.cat-F{border-left-color:var(--catF);}
+.item-card.cat-C{border-left-color:var(--catC);}
+.item-card.cat-E{border-left-color:var(--catE);}
+.item-card.is-checked{border-left-color:var(--ok); background:#fff; box-shadow:0 0 0 1.5px var(--ok-lt), var(--shadow-sm);}
+.item-card.is-mismatch:not(.is-checked){box-shadow:0 0 0 1.5px var(--warn), var(--shadow-sm);}
+.checked-badge{display:inline-flex; align-items:center; gap:4px; font-size:10.5px; font-weight:700; color:var(--ok);
+  background:var(--ok-lt); padding:3px 8px; border-radius:7px; margin-left:6px;}
+.checked-badge svg{width:10px;height:10px;}
+.item-top{display:flex; align-items:flex-start; gap:10px;}
+.item-code{flex-shrink:0; font-size:10.5px; font-weight:700; color:var(--primary-dk); background:var(--primary-lt);
+  padding:3px 8px; border-radius:7px; letter-spacing:.3px;}
+.item-code.cat-D{color:var(--catD); background:var(--catD-lt);}
+.item-code.cat-F{color:var(--catF); background:var(--catF-lt);}
+.item-code.cat-C{color:var(--catC); background:var(--catC-lt);}
+.item-code.cat-E{color:var(--catE); background:var(--catE-lt);}
+.item-code.cat-O{color:var(--catO); background:var(--catO-lt);}
+.item-name{font-size:14.5px; font-weight:600; color:var(--text); line-height:1.35; margin:2px 0 1px;}
+.item-mfr{font-size:11.5px; color:var(--text-faint);}
+.item-expected{font-size:11.5px; color:var(--text-soft); margin-top:2px;}
+.chk{flex-shrink:0; width:34px; height:34px; border-radius:10px; border:2px dashed var(--text-faint);
+  background:var(--border-soft); display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:var(--shadow-sm);}
+.chk svg{width:17px;height:17px;color:#fff; opacity:0;}
+.chk.on{background:linear-gradient(135deg,#20bf85,var(--ok)); border:2px solid var(--ok); box-shadow:0 3px 10px rgba(23,166,114,.4);}
+.chk.on svg{opacity:1;}
+
+.item-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:12px;}
+.item-grid .field-row{margin-top:0;}
+.item-grid label{font-size:10.5px;}
+.item-grid .input{padding:9px 10px; font-size:14px; border-radius:9px;}
+.qty-input.mismatch{border-color:var(--warn); background:var(--warn-lt);}
+
+.reason-row{margin-top:10px; padding:10px; border-radius:10px; background:var(--warn-lt); border:1px solid #f3d9a8;}
+.reason-row label{font-size:11px; font-weight:700; color:var(--warn); display:block; margin-bottom:6px;}
+.reason-row select{margin-bottom:8px;}
+
+.chips-label{font-size:11px; color:var(--text-faint); margin:10px 0 6px; font-weight:600;}
+.chips-row{display:flex; flex-direction:column; gap:6px; margin-bottom:2px;}
+.chip{display:flex; align-items:center; gap:10px; width:100%; min-height:42px; padding:9px 12px; border-radius:10px;
+  background:#fff; border:1.5px solid var(--border); color:var(--text-soft); cursor:pointer; user-select:none;}
+.chip-box{flex-shrink:0; width:20px; height:20px; border-radius:6px; border:2px solid var(--border-soft);
+  background:#fff; display:flex; align-items:center; justify-content:center;}
+.chip-box svg{width:12px; height:12px; color:#fff; opacity:0; stroke-width:3.2;}
+.chip-code{font-family:monospace; font-size:12.5px; flex:1;}
+.chip-tag{flex-shrink:0; font-size:10px; font-weight:700; padding:2px 7px; border-radius:6px; background:var(--border-soft); color:var(--text-faint);}
+.chip.open{background:var(--primary-lt); color:var(--primary-dk); border-color:var(--primary);}
+.chip.open .chip-box{background:linear-gradient(135deg,var(--grad-a),var(--grad-b)); border-color:transparent;}
+.chip.open .chip-box svg{opacity:1;}
+.chip.open .chip-tag{background:#fff; color:var(--primary-dk);}
+
+.link-text{font-size:12px; color:var(--primary-dk); font-weight:700; cursor:pointer; margin-top:9px; display:inline-flex; align-items:center; gap:4px;
+  padding:6px 11px; border-radius:9px; background:var(--primary-lt);}
+.request-box{margin-top:8px; padding:12px; border-radius:12px; background:var(--primary-lt); border:1px solid #bfe4de;}
+.request-box .input{margin-bottom:6px;}
+.btn-mini{width:100%; padding:10px; border-radius:10px; border:none; font-family:'Prompt',sans-serif;
+  font-weight:700; font-size:12px; color:#fff; cursor:pointer; background:linear-gradient(135deg,var(--grad-a),var(--grad-b)); box-shadow:0 4px 10px rgba(79,109,245,.3);}
+
+/* ---------- sign bar ---------- */
+.sign-bar{position:fixed; left:0; right:0; bottom:0; z-index:60; padding:10px 14px calc(10px + env(safe-area-inset-bottom));
+  background:linear-gradient(180deg, rgba(245,246,248,0) 0%, rgba(245,246,248,.97) 35%);}
+.sign-bar-inner{max-width:640px; margin:0 auto; display:flex; gap:8px; align-items:center;}
+.sign-status{flex:1; display:flex; align-items:center; gap:9px; padding:9px 12px; border-radius:12px;
+  background:#fff; border:1.5px solid var(--border); cursor:pointer;}
+.seal{width:32px; height:32px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center;
+  background:var(--primary-lt); color:var(--primary-dk); font-size:14px;}
+.seal.signed{background:linear-gradient(135deg,#20bf85,var(--ok)); color:#fff;}
+.sign-status-text{font-size:12px; font-weight:600; color:var(--text-soft);}
+.sign-status-text b{color:var(--text); display:block; font-size:13px;}
+.btn-submit{flex-shrink:0; padding:13px 22px; border-radius:13px; border:none; font-family:'Prompt',sans-serif;
+  font-weight:700; font-size:13.5px; color:#fff; cursor:pointer; background:linear-gradient(135deg,var(--grad-a),var(--grad-b));
+  box-shadow:0 8px 18px rgba(79,109,245,.4);}
+.btn-submit:disabled{opacity:.4; box-shadow:none;}
+
+/* ---------- modal ---------- */
+.modal-overlay{position:fixed; inset:0; background:rgba(20,24,34,.4); z-index:200; display:none; align-items:flex-end; justify-content:center;}
+.modal-overlay.open{display:flex;}
+@media(min-width:640px){.modal-overlay{align-items:center;}}
+.modal-box{width:100%; max-width:480px; max-height:90vh; overflow-y:auto; padding:20px 18px;
+  border-radius:20px 20px 0 0; background:var(--card); position:relative; animation:slideUp .2s ease;}
+@media(min-width:640px){.modal-box{border-radius:18px; margin-bottom:0;}}
+@keyframes slideUp{from{transform:translateY(24px); opacity:0;} to{transform:translateY(0); opacity:1;}}
+.modal-box-xl{max-width:1080px; width:96vw; min-height:75vh; max-height:92vh;}
+@media(max-width:720px){.modal-box-xl{width:100vw; max-height:96vh; border-radius:18px 18px 0 0;}}
+.modal-title{font-size:16.5px; font-weight:700; margin:0 0 3px;}
+.modal-sub{font-size:12px; color:var(--text-soft); margin:0 0 14px;}
+.modal-close{position:absolute; top:14px; right:14px; width:30px; height:30px; border-radius:9px;
+  background:var(--border-soft); border:none; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:14px;}
+
+.sigpad-wrap{border-radius:14px; overflow:hidden; border:2px dashed var(--border); background:#fafbfc; position:relative;}
+.sigpad-wrap canvas{width:100%; height:180px; display:block; touch-action:none;}
+.sigpad-hint{position:absolute; top:50%; left:0; right:0; text-align:center; transform:translateY(-50%); color:var(--text-faint); font-size:13px; pointer-events:none;}
+.sigpad-actions{display:flex; gap:8px; margin-top:10px;}
+.btn-ghost{flex:1; padding:11px; border-radius:11px; background:#fff; border:1.5px solid var(--border);
+  font-family:'Prompt',sans-serif; font-weight:600; font-size:13.5px; color:var(--text-soft); cursor:pointer;}
+.btn-primary{flex:1; padding:11px; border-radius:11px; border:none; font-family:'Prompt',sans-serif; font-weight:700;
+  font-size:13.5px; color:#fff; cursor:pointer; background:linear-gradient(135deg,var(--grad-a),var(--grad-b)); box-shadow:0 5px 14px rgba(79,109,245,.32);}
+.btn-primary:disabled{opacity:.4; box-shadow:none;}
+.btn-block{width:100%;}
+
+.pin-text-input{text-align:center; font-size:20px; letter-spacing:4px; font-weight:700;}
+.pin-error{color:var(--er); font-size:12px; text-align:center; margin-top:8px; min-height:16px;}
+
+/* ---------- backend layout ---------- */
+.be-tabs{display:flex; gap:4px; margin-bottom:14px; background:var(--border-soft); padding:3px; border-radius:11px; overflow-x:auto;}
+.be-tab{flex:1; text-align:center; padding:9px 8px; border-radius:9px; font-size:12px; font-weight:600; color:var(--text-soft);
+  cursor:pointer; white-space:nowrap;}
+.be-tab.active{background:linear-gradient(135deg,var(--grad-a),var(--grad-b)); color:#fff; box-shadow:0 3px 10px rgba(79,109,245,.3);}
+.stat-row{display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;}
+.stat-chip{flex:1; min-width:100px; padding:12px; border-radius:12px; background:var(--primary-lt); text-align:center; box-shadow:var(--shadow-sm);}
+.stat-chip .s-num{font-size:20px; font-weight:800; color:var(--primary-dk);}
+.stat-chip .s-lbl{font-size:10.5px; color:var(--text-soft); margin-top:2px;}
+.stat-chip.warn{background:var(--warn-lt);} .stat-chip.warn .s-num{color:var(--warn);}
+.stat-chip.er{background:var(--er-lt);} .stat-chip.er .s-num{color:var(--er);}
+
+.list-row{padding:13px 14px; margin-bottom:8px; border-radius:12px; background:#fff; border:1px solid var(--border);
+  cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:10px; box-shadow:var(--shadow-sm);}
+.list-row:active{background:var(--border-soft);}
+.list-info{flex:1; min-width:0;}
+.list-name{font-size:13.5px; font-weight:700; color:var(--text);}
+.list-meta{font-size:11.5px; color:var(--text-faint); margin-top:3px;}
+.list-action{flex-shrink:0; font-size:11px; font-weight:700; padding:6px 10px; border-radius:8px;
+  background:linear-gradient(135deg,var(--grad-a),var(--grad-b)); color:#fff;}
+.badge-count{display:inline-flex; align-items:center; justify-content:center; min-width:17px; height:17px; padding:0 4px;
+  border-radius:9px; background:var(--er); color:#fff; font-size:10px; font-weight:700; margin-left:5px;}
+
+/* ---------- reason tags / picker (สำหรับระบบขอแก้ไข) ---------- */
+.reason-tag{display:inline-block; font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:7px; margin-bottom:6px;}
+.reason-tag.rt-used{background:var(--warn-lt); color:var(--warn);}
+.reason-tag.rt-nocode{background:var(--er-lt); color:var(--er);}
+.reason-tag.rt-mismatch{background:var(--catF-lt); color:var(--catF);}
+.reason-tag.rt-qty{background:var(--catD-lt); color:var(--catD);}
+.reason-tag.rt-codes{background:var(--catC-lt); color:var(--catC);}
+.reason-tag.rt-other{background:var(--catO-lt); color:var(--catO);}
+.reason-select-wrap{margin-top:9px; padding:12px; border-radius:12px; background:var(--primary-lt); border:1px solid #bfe4de;}
+.reason-select-wrap .rl{font-size:11px; font-weight:700; color:var(--primary-dk); display:block; margin-bottom:8px;}
+.reason-select-wrap .input{margin-bottom:7px;}
+.reason-chip-grid{display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:8px;}
+.reason-chip{padding:9px 9px; border-radius:9px; background:#fff; border:1.5px solid var(--border); font-size:11.5px;
+  font-weight:600; color:var(--text-soft); cursor:pointer; text-align:center;}
+.reason-chip.sel{background:linear-gradient(135deg,var(--grad-a),var(--grad-b)); color:#fff; border-color:transparent;}
+
+.detail-item{padding:11px 13px; border-radius:11px; background:var(--border-soft); margin-bottom:7px;}
+.detail-item.disc{background:var(--warn-lt); border:1px solid #f3d9a8;}
+.detail-item-name{font-size:13px; font-weight:600;}
+.detail-item-row{display:flex; justify-content:space-between; font-size:11.5px; color:var(--text-soft); margin-top:4px; gap:8px;}
+.detail-item-row b{color:var(--text);}
+.detail-item-edit{margin-top:8px; padding:9px; border-radius:10px; background:#fff; border:1px solid var(--border);}
+.detail-item-edit .field-row{margin-top:7px;}
+.detail-item-edit .field-row:first-child{margin-top:0;}
+.detail-item-edit label{font-size:10.5px;}
+.detail-item-edit .input{padding:8px 9px; font-size:13px; border-radius:8px;}
+
+.empty-state{text-align:center; padding:44px 16px; color:var(--text-faint); font-size:13px;}
+.loading-dots{text-align:center; padding:36px 0; color:var(--text-faint); font-size:12.5px;}
+.success-icon{width:56px; height:56px; border-radius:50%; margin:0 auto 12px; display:flex; align-items:center; justify-content:center;
+  background:var(--ok); color:#fff;}
+.success-icon svg{width:26px;height:26px;}
+
+.month-card{padding:14px 16px; margin-bottom:8px; border-radius:12px; background:#fff; border:1px solid var(--border);
+  cursor:pointer; display:flex; justify-content:space-between; align-items:center; box-shadow:var(--shadow-sm);}
+.month-card:active{background:var(--border-soft);}
+.month-card .m-label{font-size:14.5px; font-weight:700;}
+.month-card .m-meta{font-size:11.5px; color:var(--text-faint); margin-top:3px;}
+
+.summary-table-wrap{overflow-x:auto; border-radius:12px; border:1px solid var(--border);}
+.summary-table{width:100%; border-collapse:collapse; font-size:13px; min-width:840px;}
+.summary-table thead th{position:sticky; top:0; z-index:2; background:linear-gradient(135deg,var(--grad-a),var(--grad-b)); color:#fff; font-size:11.5px;
+  font-weight:700; text-align:left; padding:10px 12px; white-space:nowrap;}
+.summary-table tbody td{padding:10px 12px; border-bottom:1px solid var(--border-soft); vertical-align:top;}
+.summary-table tbody tr:nth-child(even){background:#fafbfc;}
+.summary-table tr.cat-row td{background:var(--text); color:#fff; font-weight:700; font-size:12px; padding:8px 12px;}
+.summary-table tr.disc-row td{background:var(--warn-lt);}
+.summary-table tr.unchecked-row td{opacity:.55;}
+.col-code{font-weight:700; color:var(--primary-dk); white-space:nowrap;}
+.col-name{font-weight:600; min-width:200px;}
+.col-qty{font-weight:800; font-size:14px; white-space:nowrap;}
+.unchecked-tag{font-size:9.5px; font-weight:600; color:var(--text-faint);}
+.code-pill{display:inline-block; font-family:monospace; font-size:10.5px; padding:2px 6px; border-radius:6px;
+  background:var(--border-soft); color:var(--text-soft); margin:1px 2px 1px 0; white-space:nowrap;}
+.code-pill.open{background:var(--primary); color:#fff; font-weight:700;}
+
+/* ---------- สแกนบาร์โค้ดรับเข้าสารเคมี (Scan-to-Receive) ---------- */
+.btn-receive-scan{flex:1; padding:11px; border-radius:11px; border:none; font-family:'Prompt',sans-serif; font-weight:700;
+  font-size:13.5px; color:#fff; cursor:pointer; background:linear-gradient(135deg,#20bf85,var(--ok));
+  box-shadow:0 5px 14px rgba(26,156,107,.35); display:flex; align-items:center; justify-content:center; gap:6px;}
+.btn-receive-scan:active{transform:translateY(1px);}
+
+.rscan-header{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:18px 20px; flex-shrink:0;
+  background:linear-gradient(135deg,#20bf85,var(--ok)); color:#fff;}
+.rscan-header .modal-title{color:#fff; margin:0;}
+.rscan-header .modal-sub{color:rgba(255,255,255,.85); margin:2px 0 0;}
+.rscan-header .modal-close{position:static; background:rgba(255,255,255,.2); color:#fff; flex-shrink:0;}
+.rscan-cam{position:relative; width:100%; flex:0 0 auto; height:46vh; min-height:220px; max-height:340px; background:#000; overflow:hidden;}
+.rscan-corner{position:absolute; width:30px; height:30px; border:4px solid #35e6ab; pointer-events:none; filter:drop-shadow(0 0 6px rgba(53,230,171,.6));}
+.rscan-corner.tl{top:38%; left:8%; border-right:none; border-bottom:none; border-top-left-radius:10px;}
+.rscan-corner.tr{top:38%; right:8%; border-left:none; border-bottom:none; border-top-right-radius:10px;}
+.rscan-corner.bl{bottom:38%; left:8%; border-right:none; border-top:none; border-bottom-left-radius:10px;}
+.rscan-corner.br{bottom:38%; right:8%; border-left:none; border-top:none; border-bottom-right-radius:10px;}
+.rscan-scanline{position:absolute; left:8%; right:8%; height:2px; border-radius:2px;
+  background:linear-gradient(90deg,transparent,#35e6ab,transparent); box-shadow:0 0 10px 1px rgba(53,230,171,.7);
+  animation:rscanMove 1.8s ease-in-out infinite; pointer-events:none;}
+@keyframes rscanMove{0%{top:38%;}50%{top:62%;}100%{top:38%;}}
+.rscan-flash{position:absolute; inset:0; pointer-events:none; background:rgba(26,156,107,0); transition:background .15s;}
+.rscan-msg{padding:10px 16px 0; font-size:14px; font-weight:700; text-align:center; min-height:22px; color:var(--text-soft); flex-shrink:0;}
+.rscan-manual{display:flex; gap:8px; padding:8px 16px 0; flex-shrink:0;}
+.rscan-body{flex:1; min-height:0; overflow-y:auto; border-top:1px solid var(--border); padding:10px 16px; margin-top:10px;}
+.rscan-emprow{padding:0 0 10px;}
+.rscan-batch-title{font-size:12.5px; font-weight:700; color:var(--text-soft); margin:2px 0 8px; display:flex; justify-content:space-between; align-items:center;}
+.rscan-item{display:flex; align-items:center; gap:10px; background:var(--ok-lt); border:1px solid rgba(26,156,107,.22);
+  border-radius:12px; padding:9px 10px; margin-bottom:8px; animation:rscanPopIn .22s ease-out;}
+@keyframes rscanPopIn{from{opacity:0; transform:translateY(6px) scale(.97);} to{opacity:1; transform:translateY(0) scale(1);}}
+.rscan-item .ri-info{flex:1; min-width:0;}
+.rscan-item .ri-name{font-size:13px; font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.rscan-item .ri-code{font-size:10.5px; color:var(--text-faint); margin-top:1px;}
+.rscan-stepper{display:flex; align-items:center; gap:6px; flex-shrink:0;}
+.rscan-stepper button{width:27px; height:27px; border-radius:8px; border:none; background:#fff; box-shadow:var(--shadow-sm);
+  font-weight:800; font-size:16px; line-height:1; color:var(--primary-dk); cursor:pointer;}
+.rscan-stepper .rs-qty{min-width:24px; text-align:center; font-weight:800; font-size:14px; color:var(--ok);}
+.rscan-item .ri-remove{flex-shrink:0; width:27px; height:27px; border-radius:8px; border:none; background:var(--er-lt); color:var(--er);
+  font-weight:700; font-size:12px; cursor:pointer;}
+.rscan-footer{flex-shrink:0; padding:12px 16px calc(16px + env(safe-area-inset-bottom)); border-top:1px solid var(--border); background:#fff;}
+.rscan-save-btn{width:100%; padding:14px; border:none; border-radius:14px; font-family:'Prompt',sans-serif; font-weight:800; font-size:15px; color:#fff;
+  background:linear-gradient(135deg,#20bf85,var(--ok)); box-shadow:0 6px 18px rgba(26,156,107,.35); cursor:pointer;}
+.rscan-save-btn:disabled{opacity:.4; box-shadow:none;}
+.rscan-empty{text-align:center; color:var(--text-faint); font-size:12.5px; padding:16px 0;}
+.rscan-datefield{display:flex; align-items:center; gap:8px; margin-bottom:2px;}
+.rscan-datefield label{font-size:11.5px; font-weight:700; color:var(--text-soft); white-space:nowrap;}
+.rscan-datefield input[type="date"]{flex:1; padding:9px 10px; border-radius:9px; border:1.5px solid var(--border);
+  font-family:'Prompt',sans-serif; font-size:12.5px; color:var(--text); background:#fff;}
+.rscan-item.opened{background:var(--warn-lt); border-color:rgba(192,122,31,.28);}
+.ri-open-toggle{flex-shrink:0; display:flex; flex-direction:column; align-items:center; gap:2px; cursor:pointer; user-select:none;}
+.ri-open-toggle .rot-sw{width:34px; height:19px; border-radius:20px; background:var(--border); position:relative; transition:background .15s;}
+.ri-open-toggle .rot-sw::after{content:''; position:absolute; top:2px; left:2px; width:15px; height:15px; border-radius:50%;
+  background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.25); transition:transform .15s;}
+.ri-open-toggle.on .rot-sw{background:var(--warn);}
+.ri-open-toggle.on .rot-sw::after{transform:translateX(15px);}
+.ri-open-toggle .rot-lbl{font-size:9px; font-weight:700; color:var(--text-faint);}
+.ri-open-toggle.on .rot-lbl{color:var(--warn);}
+.rscan-count-badge{display:inline-flex; align-items:center; justify-content:center; min-width:20px; height:20px; padding:0 6px;
+  border-radius:10px; background:var(--ok); color:#fff; font-size:11px; font-weight:800;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">F-WWT-28 &middot; ระบบตรวจนับสารเคมี</div>
+  <div class="mode-switch">
+    <button class="mode-btn" id="btnGoReceive">📥 รับเข้า</button>
+    <button class="mode-btn" id="btnGoSummary">📊 สรุปคงเหลือ</button>
+    <button class="mode-btn" id="btnGoBackend">⚙ ADMIN</button>
+  </div>
+</div>
+
+<!-- ===================== หน้าพนักงาน: เช็คของ ===================== -->
+<div id="viewEmployee">
+<div class="wrap">
+
+  <div class="header card">
+    <div class="eyebrow">MONTHLY CHEMICAL AUDIT</div>
+    <h1 class="htitle">ใบตรวจนับสารเคมีและวัสดุอุปกรณ์</h1>
+    <p class="hsub" id="todayDateText">กำลังโหลดวันที่...</p>
+  </div>
+
+  <div class="card inspector-card">
+    <div class="field-row" style="margin-top:0;">
+      <label>ชื่อ-สกุลผู้ตรวจนับ (พนักงาน)</label>
+      <input type="text" class="input" id="employeeName" placeholder="พิมพ์ชื่อ-นามสกุล"/>
+    </div>
+  </div>
+
+  <div class="card progress-wrap">
+    <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+    <div class="progress-num" id="progressNum">0/0</div>
+    <button class="btn-save-draft" id="btnSaveDraft">💾 บันทึกความคืบหน้า</button>
+    <div class="draft-status" id="draftStatusText"></div>
+  </div>
+
+  <button class="btn-primary btn-block" id="btnOpenContinuousScan" style="margin-bottom:14px;display:flex;align-items:center;justify-content:center;gap:8px;">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2"/><line x1="7" y1="12" x2="17" y2="12"/></svg>
+    สแกนต่อเนื่อง (โหมดยิงเร็ว)
+  </button>
+
+  <div class="cat-tabs" id="catTabs"></div>
+  <div id="itemsContainer"></div>
+
+</div>
+
+<div class="sign-bar">
+  <div class="sign-bar-inner">
+    <div class="sign-status card" id="btnOpenSign">
+      <div class="seal" id="employeeSeal">✎</div>
+      <div class="sign-status-text"><b id="signStatusMain">เซ็นชื่อผู้ตรวจนับ</b>แตะเพื่อวาดลายเซ็น</div>
+    </div>
+    <button class="btn-submit" id="btnSubmit" disabled>ส่งใบตรวจนับ</button>
+  </div>
+</div>
+</div>
+
+<!-- ===================== หน้าสรุปคงเหลือรายเดือน (สาธารณะ ดูได้ทุกคน) ===================== -->
+<div id="viewSummary" class="wrap hidden">
+  <div class="topbar" style="padding:8px 0 12px;">
+    <div class="brand">สรุปคงเหลือรายเดือน</div>
+    <button class="mode-btn" id="btnExitSummary">✕ กลับหน้าเช็คของ</button>
+  </div>
+  <div class="modal-sub" style="margin-bottom:12px;">เลือกเดือนที่ต้องการดูยอดคงเหลือสารเคมีและวัสดุอุปกรณ์ (จากใบตรวจนับที่อนุมัติแล้ว)</div>
+  <div id="publicSummaryContent"><div class="loading-dots">กำลังโหลด...</div></div>
+</div>
+
+<!-- ===================== หน้าหลังบ้าน (PIN gate) ===================== -->
+<div id="viewBackendGate" class="wrap hidden">
+  <div class="header card" style="text-align:center;">
+    <div class="eyebrow">สำหรับผู้ตรวจสอบ / ผู้ดูแลระบบ</div>
+    <h1 class="htitle">เข้าสู่ระบบหลังบ้าน</h1>
+    <p class="hsub">กรอกรหัส PIN เพื่อตรวจสอบ อนุมัติ และจัดการรายการ</p>
+    <div class="field-row">
+      <input type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="off"
+        class="input pin-text-input" id="gatePinInput" placeholder="PIN" maxlength="20"/>
+    </div>
+    <button class="btn-primary btn-block" id="btnGatePinConfirm" style="margin-top:12px;">เข้าสู่ระบบ</button>
+    <div class="pin-error" id="gatePinError"></div>
+    <button class="btn-ghost btn-block" id="btnGateBack" style="margin-top:20px;">← กลับหน้าเช็คของ</button>
+  </div>
+</div>
+
+<!-- ===================== หน้าหลังบ้าน (หลัง PIN ผ่าน) ===================== -->
+<div id="viewBackend" class="wrap hidden">
+  <div class="topbar" style="padding:8px 0 12px;">
+    <div class="brand">ระบบหลังบ้าน</div>
+    <button class="mode-btn" id="btnExitBackend">✕ ออก</button>
+  </div>
+
+  <div class="be-tabs">
+    <div class="be-tab active" data-tab="dash">Dashboard</div>
+    <div class="be-tab" data-tab="pending">รอตรวจสอบ<span class="badge-count hidden" id="pendingBadge"></span></div>
+    <div class="be-tab" data-tab="master">รายการหลัก</div>
+  </div>
+
+  <div id="beTabDash" class="be-panel">
+    <div class="stat-row">
+      <div class="stat-chip"><div class="s-num" id="statItemCount">-</div><div class="s-lbl">รายการทั้งหมด</div></div>
+      <div class="stat-chip warn"><div class="s-num" id="statPendingCount">-</div><div class="s-lbl">รอตรวจสอบ</div></div>
+      <div class="stat-chip er"><div class="s-num" id="statReqCount">-</div><div class="s-lbl">คำขอแก้ไขค้าง</div></div>
+    </div>
+    <div class="modal-title" style="font-size:14.5px;margin-bottom:8px;">สารเคมีคงเหลือรายเดือน</div>
+    <div class="modal-sub" style="margin-bottom:12px;">เลือกเดือนที่ต้องการดูยอดคงเหลือ (จากใบตรวจนับที่อนุมัติแล้ว)</div>
+    <div id="archiveContent"><div class="loading-dots">กำลังโหลด...</div></div>
+  </div>
+
+  <div id="beTabPending" class="be-panel hidden">
+    <div id="pendingContent"><div class="loading-dots">กำลังโหลด...</div></div>
+  </div>
+
+  <div id="beTabMaster" class="be-panel hidden">
+    <button class="btn-primary btn-block" id="btnAdminAddNew" style="margin-bottom:12px;">+ เพิ่มรายการใหม่</button>
+    <div id="adminListContent"></div>
+  </div>
+</div>
+
+<!-- ===== Modal: เซ็นชื่อพนักงาน ===== -->
+<div class="modal-overlay" id="modalSign">
+  <div class="modal-box">
+    <button class="modal-close" id="closeSign">✕</button>
+    <div class="modal-title">ลงลายเซ็นผู้ตรวจนับ</div>
+    <div class="modal-sub">วาดลายเซ็นด้วยนิ้วในกรอบด้านล่าง</div>
+    <div class="sigpad-wrap"><canvas id="sigCanvasEmployee"></canvas><div class="sigpad-hint" id="sigHintEmployee">ลงลายเซ็นตรงนี้</div></div>
+    <div class="sigpad-actions">
+      <button class="btn-ghost" id="clearSigEmployee">ล้างลายเซ็น</button>
+      <button class="btn-primary" id="saveSigEmployee">ยืนยันลายเซ็น</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Modal: สำเร็จ ===== -->
+<div class="modal-overlay" id="modalSuccess">
+  <div class="modal-box" style="text-align:center;">
+    <div class="success-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg></div>
+    <div class="modal-title">ส่งใบตรวจนับเรียบร้อย</div>
+    <div class="modal-sub">สถานะ: รอผู้ตรวจสอบอนุมัติ</div>
+    <button class="btn-primary btn-block" id="btnSuccessClose">เสร็จสิ้น</button>
+  </div>
+</div>
+
+<!-- ===== Modal: พบข้อมูลที่บันทึกไว้ก่อนหน้า ===== -->
+<div class="modal-overlay" id="modalRestoreDraft">
+  <div class="modal-box" style="text-align:center;">
+    <div class="success-icon" style="background:var(--primary-lt);color:var(--primary-dk);">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 106 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>
+    </div>
+    <div class="modal-title">พบข้อมูลที่บันทึกไว้ก่อนหน้า</div>
+    <div class="modal-sub" id="restoreDraftSub">-</div>
+    <div style="display:flex;gap:8px;margin-top:6px;">
+      <button class="btn-ghost" id="btnRestoreDraftNo">เริ่มนับใหม่</button>
+      <button class="btn-primary" id="btnRestoreDraftYes">โหลดข้อมูลเดิม</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Modal: สแกน QR/บาร์โค้ดยืนยันตัวสารเคมี ===== -->
+<div class="modal-overlay" id="modalQrScan">
+  <div class="modal-box">
+    <button class="modal-close" id="closeQrScan">✕</button>
+    <div class="modal-title" id="qrScanTitle">สแกน QR/บาร์โค้ดยืนยัน</div>
+    <div class="modal-sub" id="qrScanSub">เล็งกล้องไปที่ QR/บาร์โค้ดบนขวดสารเคมี</div>
+    <div style="position:relative;">
+      <div id="qrReaderBox" style="width:100%;border-radius:12px;overflow:hidden;background:#000;margin-top:10px;min-height:220px;"></div>
+    </div>
+    <div id="qrScanMsg" style="font-size:12.5px;font-weight:600;text-align:center;margin-top:10px;min-height:18px;"></div>
+    <div class="modal-sub" style="margin-top:6px;">หรือพิมพ์รหัสด้วยตนเองหากกล้องสแกนไม่ได้</div>
+    <div style="display:flex;gap:8px;margin-top:6px;">
+      <input type="text" class="input" id="qrManualInput" placeholder="พิมพ์รหัส เช่น 01121-2026-13"/>
+      <button class="btn-primary" id="qrManualSubmit" style="flex-shrink:0;">ยืนยัน</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Modal: สแกนต่อเนื่อง (โหมดยิงเร็วแบบห้างสรรพสินค้า) ===== -->
+<div class="modal-overlay" id="modalContinuousScan" style="align-items:stretch;">
+  <div class="modal-box" style="max-width:640px;width:100%;height:100%;max-height:100vh;border-radius:0;display:flex;flex-direction:column;padding:0;">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;flex-shrink:0;">
+      <div>
+        <div class="modal-title" style="margin:0;">📷 สแกนต่อเนื่อง</div>
+        <div class="modal-sub" style="margin:2px 0 0;">เล็งกล้องไปที่ QR บนขวด ทีละใบต่อเนื่องได้เลย ไม่ต้องกดปิดหน้าจอ</div>
+      </div>
+      <button class="modal-close" id="closeContinuousScan" style="position:static;">✕</button>
+    </div>
+    <div style="position:relative;flex:1;min-height:260px;">
+      <div id="cScanReaderBox" style="width:100%;height:100%;background:#000;overflow:hidden;position:absolute;inset:0;"></div>
+      <div id="cScanFlash" style="position:absolute;inset:0;pointer-events:none;background:rgba(26,156,107,0);transition:background .15s;"></div>
+    </div>
+    <div style="padding:10px 16px;flex-shrink:0;">
+      <div id="cScanMsg" style="font-size:14px;font-weight:700;text-align:center;min-height:22px;color:var(--text-soft);">เล็งกล้องไปที่ QR/บาร์โค้ด...</div>
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <input type="text" class="input" id="cScanManualInput" placeholder="หรือพิมพ์รหัสเอง แล้วกด Enter"/>
+      </div>
+    </div>
+    <div id="cScanHistory" style="flex-shrink:0;max-height:26vh;overflow-y:auto;border-top:1px solid var(--border);padding:8px 16px 16px;"></div>
+  </div>
+</div>
+
+<!-- ===================== หน้ารับเข้าสารเคมี (Scan-to-Receive) ===================== -->
+<div id="viewReceive" class="wrap hidden">
+  <div class="topbar" style="padding:8px 0 12px;">
+    <div class="brand">รับเข้าสารเคมี</div>
+    <button class="mode-btn" id="btnExitReceive">✕ กลับหน้าเช็คของ</button>
+  </div>
+
+  <div class="card rscan-header" style="border:none; border-radius:var(--radius); margin-bottom:14px; box-shadow:var(--shadow-md);">
+    <div>
+      <div class="modal-title">📥 สแกนรับเข้าสารเคมี</div>
+      <div class="modal-sub">เล็งกล้องไปที่บาร์โค้ด/QR บนกล่อง รายการจะเด้งเข้าระบบให้อัตโนมัติ</div>
+    </div>
+  </div>
+
+  <div class="card" style="overflow:hidden; margin-bottom:14px; padding:0;">
+    <div class="rscan-cam" id="rscanCam">
+      <div id="rscanReaderBox" style="width:100%;height:100%;"></div>
+      <div class="rscan-corner tl"></div><div class="rscan-corner tr"></div>
+      <div class="rscan-corner bl"></div><div class="rscan-corner br"></div>
+      <div class="rscan-scanline"></div>
+      <div class="rscan-flash" id="rscanFlash"></div>
+    </div>
+    <div class="rscan-msg" id="rscanMsg">เล็งกล้องไปที่บาร์โค้ด/QR ของสารเคมี...</div>
+    <div class="rscan-manual" style="padding-bottom:14px;">
+      <input type="text" class="input" id="rscanManualInput" placeholder="หรือพิมพ์รหัสเอง แล้วกด Enter"/>
+    </div>
+  </div>
+
+  <div class="card" style="padding:16px; margin-bottom:14px;">
+    <div class="field-row" style="margin-top:0;">
+      <label>ชื่อผู้รับเข้า</label>
+      <input type="text" class="input" id="rscanEmpName" placeholder="พิมพ์ชื่อ-นามสกุลผู้สแกนรับเข้า"/>
+    </div>
+    <div class="rscan-datefield" style="margin-top:10px;">
+      <label>📅 วันที่รับเข้า</label>
+      <input type="date" id="rscanReceivedDate"/>
+    </div>
+  </div>
+
+  <div class="card" style="padding:16px; margin-bottom:100px;">
+    <div class="rscan-batch-title">
+      <span>รายการที่สแกนได้</span>
+      <span class="rscan-count-badge" id="rscanCountBadge">0</span>
+    </div>
+    <div id="rscanBatchList"><div class="rscan-empty">ยังไม่มีรายการ ลองสแกนบาร์โค้ดดูสิ 👆</div></div>
+  </div>
+
+  <div style="position:fixed; left:0; right:0; bottom:0; z-index:60; padding:10px 14px calc(10px + env(safe-area-inset-bottom));
+    background:linear-gradient(180deg, rgba(238,244,243,0) 0%, rgba(238,244,243,.97) 35%);">
+    <div style="max-width:640px; margin:0 auto;">
+      <button class="rscan-save-btn" id="btnRscanSave" disabled>✓ บันทึกการรับเข้าทั้งหมด</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Modal: รายละเอียดใบตรวจนับ + อนุมัติ ===== -->
+<div class="modal-overlay" id="modalReviewDetail">
+  <div class="modal-box">
+    <button class="modal-close" id="closeReviewDetail">✕</button>
+    <div class="modal-title" id="detailEmployeeName">-</div>
+    <div class="modal-sub" id="detailMeta">-</div>
+    <div id="detailItemsContent" style="max-height:42vh; overflow-y:auto; margin-bottom:12px;"></div>
+    <div id="detailApproveSection"></div>
+  </div>
+</div>
+
+<!-- ===== Modal: เซ็นชื่อผู้ตรวจสอบ ===== -->
+<div class="modal-overlay" id="modalSignReviewer">
+  <div class="modal-box">
+    <button class="modal-close" id="closeSignReviewer">✕</button>
+    <div class="modal-title">ลงลายเซ็นผู้ตรวจสอบ</div>
+    <div class="sigpad-wrap"><canvas id="sigCanvasReviewer"></canvas><div class="sigpad-hint" id="sigHintReviewer">ลงลายเซ็นตรงนี้</div></div>
+    <div class="sigpad-actions">
+      <button class="btn-ghost" id="clearSigReviewer">ล้างลายเซ็น</button>
+      <button class="btn-primary" id="saveSigReviewer">ยืนยันลายเซ็น</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Modal: เพิ่ม/แก้ไขรายการ Master ===== -->
+<div class="modal-overlay" id="modalAdminEdit">
+  <div class="modal-box">
+    <button class="modal-close" id="closeAdminEdit">✕</button>
+    <div class="modal-title" id="adminEditTitle">เพิ่มรายการใหม่</div>
+    <div class="field-row"><label>รหัสช่อง (code)</label><input type="text" class="input" id="adminFieldCode" placeholder="เช่น D01 หรือ -"/></div>
+    <div class="field-row"><label>ชื่อรายการ</label><input type="text" class="input" id="adminFieldName" placeholder="ชื่อสารเคมี/วัสดุ"/></div>
+    <div class="field-row"><label>ผู้ผลิต</label><input type="text" class="input" id="adminFieldMfr" placeholder="ผู้ผลิต"/></div>
+    <div class="field-row"><label>รหัสสินค้า / เลขขวด (คั่นด้วย , )</label><input type="text" class="input" id="adminFieldCodes" placeholder="เช่น 01121-2026-01, 01121-2026-02"/></div>
+    <div class="field-row"><label>จำนวนคงเหลือตามเอกสาร</label><input type="number" min="0" class="input" id="adminFieldQty" placeholder="0"/></div>
+    <div class="field-row"><label>หน่วยนับ</label><input type="text" class="input" id="adminFieldUnit" placeholder="เช่น ขวด, ชิ้น, ม้วน"/></div>
+    <div class="field-row"><label>หมายเหตุ</label><input type="text" class="input" id="adminFieldNote" placeholder="-"/></div>
+    <div style="display:flex; gap:8px; margin-top:14px;">
+      <button class="btn-ghost hidden" id="btnAdminDeleteConfirm">ลบรายการนี้</button>
+      <button class="btn-primary" id="btnAdminSave" style="flex:1;">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Modal: ตารางสรุปสารเคมีคงเหลือของเดือน ===== -->
+<div class="modal-overlay" id="modalMonthDetail">
+  <div class="modal-box modal-box-xl">
+    <button class="modal-close" id="closeMonthDetail">✕</button>
+    <div class="modal-title" id="monthDetailTitle">-</div>
+    <div class="modal-sub" id="monthDetailSub">-</div>
+    <div id="monthDetailContent"></div>
+  </div>
+</div>
+
+<!-- ===== Modal: รับเข้าสารเคมี (Receiving) ===== -->
+<div class="modal-overlay" id="modalReceive">
+  <div class="modal-box">
+    <button class="modal-close" id="closeReceive">✕</button>
+    <div class="modal-title" style="color:var(--ok);">📥 รับเข้าสารเคมี</div>
+    <div class="modal-sub" id="receiveItemTitle">-</div>
+    <div class="field-row">
+      <label>ชื่อผู้ตรวจรับเข้า</label>
+      <input type="text" class="input" id="receiveEmpName" placeholder="ระบุชื่อ-สกุลพนักงาน"/>
+    </div>
+    <div class="field-row">
+      <label>จำนวนที่รับเข้าเพิ่ม</label>
+      <input type="number" min="1" class="input" id="receiveQty" placeholder="ระบุจำนวน (ตัวเลข)"/>
+    </div>
+    <div class="field-row">
+      <label>หมายเหตุ / เลขที่ PO (ถ้ามี)</label>
+      <input type="text" class="input" id="receiveRemark" placeholder="เช่น สั่งซื้อลอตใหม่ PO-2026-001"/>
+    </div>
+    <button class="btn-primary btn-block" id="btnReceiveSave" style="margin-top:16px;">ยืนยันการรับเข้า</button>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   STATE
+   ============================================================ */
+var STATE = { items: [], activeCat: 'ทั้งหมด', employeeSignature: null, itemState: {} };
+var BE = { pin: '', pending: [], editRequests: [], master: [], editingRowIndex: null, currentDetail: null, reviewerName: '', activeTab: 'dash' };
+
+var MISMATCH_REASONS = [
+  {v:'', t:'-- เลือกเหตุผล --'},
+  {v:'ใช้หมดแล้ว', t:'ใช้หมดแล้ว'},
+  {v:'สูญหาย', t:'สูญหาย'},
+  {v:'ชำรุด/เสียหาย', t:'ชำรุด/เสียหาย'},
+  {v:'รับเข้าใหม่', t:'รับเข้าใหม่ (ของเพิ่ม)'},
+  {v:'อื่นๆ', t:'อื่นๆ (พิมพ์ระบุ)'}
+];
+
+var ADD_CODE_REASONS = [
+  {v:'', t:'-- เลือกเหตุผลที่ขอเพิ่มรหัส --'},
+  {v:'รับเข้าใหม่/สั่งซื้อเพิ่ม', t:'1. รับเข้าใหม่/สั่งซื้อเพิ่ม'},
+  {v:'ตกหล่นจากรายการเดิม', t:'2. ตกหล่นจากรายการเดิม (มีของอยู่แล้วแต่ไม่มีรหัส)'},
+  {v:'เปลี่ยน/ย้ายรหัสจากขวดเดิม', t:'3. เปลี่ยน/ย้ายรหัสจากขวดเดิม'},
+  {v:'อื่นๆ', t:'4. อื่นๆ (พิมพ์ระบุ)'}
+];
+
+var REMOVE_CODE_REASONS = [
+  {v:'', t:'-- เลือกเหตุผลที่ขอลบรหัส --'},
+  {v:'สารเคมีถูกใช้หมดแล้ว', t:'1. สารเคมีถูกใช้หมดแล้ว'},
+  {v:'ขวดสูญหาย', t:'2. ขวดสูญหาย'},
+  {v:'ขวดแตก/ชำรุดเสียหาย', t:'3. ขวดแตก/ชำรุดเสียหาย'},
+  {v:'รหัสพิมพ์ผิด/ไม่ตรงกับขวดจริง', t:'4. รหัสพิมพ์ผิด/ไม่ตรงกับขวดจริง'},
+  {v:'อื่นๆ', t:'5. อื่นๆ (พิมพ์ระบุ)'}
+];
+
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function onError(err){ alert('เกิดข้อผิดพลาด: '+(err && err.message ? err.message : err)); }
+function categoryOf(code){
+  if(!code || code==='-') return 'อื่นๆ';
+  var p = code.charAt(0);
+  if(p==='D') return 'ช่อง D';
+  if(p==='F') return 'ช่อง F';
+  if(p==='C') return 'ช่อง C';
+  if(p==='E') return 'ช่อง E';
+  return 'อื่นๆ';
+}
+function itemKey(it){ return it.code+'|'+it.name; }
+function fmtDate(str){
+  var d=new Date(str);
+  if(isNaN(d.getTime())) return str;
+  return d.toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'numeric'})+' '+d.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});
+}
+
+/* ============================================================
+   วันที่ไทย
+   ============================================================ */
+function thaiDateStr(){
+  var months=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+  var d=new Date();
+  return 'วันที่ตรวจนับ '+d.getDate()+' '+months[d.getMonth()]+' '+(d.getFullYear()+543);
+}
+document.getElementById('todayDateText').textContent = thaiDateStr();
+
+/* ============================================================
+   โหลดรายการสารเคมี (หน้าพนักงาน)
+   ============================================================ */
+google.script.run.withSuccessHandler(function(items){
+  STATE.items = items;
+  items.forEach(function(it, idx){
+    STATE.itemState[idx] = { actualQty: null, openBottles: [], remark: it.note || '', remainingApprox: '', reason:'', reasonOther:'', checked: false, checkedAt: '', qrVerified: false, qrCode: '', scannedCodes: [] };
+  });
+  renderCatTabs();
+  renderItems();
+  updateProgress();
+}).withFailureHandler(onError).getMasterItems();
+
+function renderCatTabs(){
+  var cats = ['ทั้งหมด'];
+  STATE.items.forEach(function(it){ var c=categoryOf(it.code); if(cats.indexOf(c)===-1) cats.push(c); });
+  var el = document.getElementById('catTabs');
+  el.innerHTML='';
+  cats.forEach(function(c){
+    var btn=document.createElement('div');
+    btn.className='cat-tab'+(c===STATE.activeCat?' active':'');
+    btn.textContent=c;
+    btn.onclick=function(){ STATE.activeCat=c; renderCatTabs(); renderItems(); };
+    el.appendChild(btn);
+  });
+}
+
+function fmtCheckedTime(iso){
+  if(!iso) return '';
+  var d = new Date(iso);
+  if(isNaN(d.getTime())) return '';
+  var hh = String(d.getHours()).padStart(2,'0');
+  var mm = String(d.getMinutes()).padStart(2,'0');
+  return hh+':'+mm+' น.';
+}
+
+function composeRemark(st){
+  if(!st.reason) return st.remark || '';
+  var r = st.reason==='อื่นๆ' ? (st.reasonOther||'อื่นๆ') : st.reason;
+  return st.remark ? (r+' — '+st.remark) : r;
+}
+
+function renderItems(){
+  var container = document.getElementById('itemsContainer');
+  container.innerHTML='';
+  STATE.items.forEach(function(it, idx){
+    var cat = categoryOf(it.code);
+    if(STATE.activeCat!=='ทั้งหมด' && cat!==STATE.activeCat) return;
+    var st = STATE.itemState[idx];
+    var entered = st.actualQty!==null && st.actualQty!=='' && st.actualQty!==undefined;
+    var mismatch = entered && Number(st.actualQty) !== Number(it.qty);
+    var unit = it.unit || 'ขวด';
+    var hasQr = it.productCodes && it.productCodes.length && it.productCodes[0]!=='-';
+    var qrOk = !hasQr || st.qrVerified;
+
+    var card = document.createElement('div');
+    card.className='item-card card'+(st.checked?' is-checked':'')+(mismatch?' is-mismatch':'');
+
+    var top = document.createElement('div');
+    top.className='item-top';
+    top.innerHTML =
+      '<div style="flex:1;min-width:0;">'+
+        '<span class="item-code">'+esc(it.code)+'</span>'+
+        (st.checked ? '<span class="checked-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>ยืนยันแล้ว'+(st.checkedAt? ' &middot; '+fmtCheckedTime(st.checkedAt):'')+'</span>' : '')+
+        '<div class="item-name">'+esc(it.name)+'</div>'+
+        '<div class="item-mfr">'+esc(it.manufacturer)+'</div>'+
+        '<div class="item-expected">เอกสารระบุคงเหลือ '+it.qty+' '+esc(unit)+'</div>'+
+      '</div>';
+    card.appendChild(top);
+
+    if(it.productCodes && it.productCodes.length && it.productCodes[0]!=='-' && qrOk){
+      var chipsLabel=document.createElement('div');
+      chipsLabel.className='chips-label';
+      chipsLabel.textContent='แตะเพื่อทำเครื่องหมายขวดที่เปิดใช้อยู่';
+      card.appendChild(chipsLabel);
+      var chipsRow=document.createElement('div');
+      chipsRow.className='chips-row';
+      it.productCodes.forEach(function(pc){
+        var isOpen = st.openBottles.indexOf(pc)>-1;
+        var chip=document.createElement('div');
+        chip.className='chip'+(isOpen?' open':'');
+        chip.innerHTML =
+          '<span class="chip-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>'+
+          '<span class="chip-code">'+esc(pc)+'</span>'+(isOpen ? '<span class="chip-tag">เปิดใช้</span>' : '');
+        chip.onclick=function(){
+          var i=st.openBottles.indexOf(pc);
+          if(i>-1) st.openBottles.splice(i,1); else st.openBottles.push(pc);
+          renderItems();
+        };
+        chipsRow.appendChild(chip);
+      });
+      card.appendChild(chipsRow);
+
+      if(st.openBottles.length){
+        var remWrap=document.createElement('div');
+        remWrap.className='field-row';
+        remWrap.style.marginTop='6px';
+        remWrap.innerHTML =
+          '<label>ปริมาณคงเหลือโดยประมาณ (ขวดที่เปิดใช้อยู่) *</label>'+
+          '<input type="text" class="input remaining-input" data-idx="'+idx+'" value="'+esc(st.remainingApprox)+'" placeholder="เช่น ครึ่งขวด, เหลือ 30%, เหลือ 250 มล."/>';
+        card.appendChild(remWrap);
+      }
+    }
+
+    if(hasQr){
+      var qrGate=document.createElement('div');
+      if(st.qrVerified){
+        qrGate.className='qr-verified-strip';
+        qrGate.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--ok-lt);color:var(--ok);border-radius:10px;padding:8px 12px;margin-top:10px;font-size:12px;font-weight:700;';
+        qrGate.innerHTML = '<span>✓ สแกนยืนยันขวดแล้ว ('+esc(st.qrCode)+')</span><span class="btn-rescan-qr" data-idx="'+idx+'" style="text-decoration:underline;cursor:pointer;font-weight:600;">สแกนใหม่</span>';
+      } else {
+        qrGate.className='qr-gate';
+        qrGate.style.cssText='background:var(--warn-lt);color:var(--warn);border-radius:10px;padding:10px 12px;margin-top:10px;font-size:12px;font-weight:700;text-align:center;';
+        qrGate.innerHTML = '🔒 ต้องสแกน QR/บาร์โค้ดที่ขวดก่อน จึงจะกรอกจำนวนได้<br/>'+
+          '<button class="btn-mini btn-scan-qr" data-idx="'+idx+'" style="margin-top:8px;">📷 สแกน QR ยืนยันขวด</button>';
+      }
+      card.appendChild(qrGate);
+    }
+
+    if(st.qrVerified){
+      var scannedCount = st.scannedCodes.length || 1;
+      var remain = Math.max(it.qty - scannedCount, 0);
+      var scanStatus=document.createElement('div');
+      scanStatus.className='field-row';
+      scanStatus.style.cssText='margin-top:10px;background:var(--ok-lt);border-radius:10px;padding:10px 12px;';
+      scanStatus.innerHTML =
+        '<div style="font-size:13px;font-weight:700;color:var(--ok);">นับได้แล้ว '+scannedCount+' / '+it.qty+' '+esc(unit)+'</div>'+
+        '<div style="font-size:12.5px;color:var(--text-soft);margin-top:2px;">'+
+          (remain>0 ? 'เหลืออีกประมาณ '+remain+' '+esc(unit)+' ที่ยังไม่ได้สแกน' : '✓ สแกนครบตามจำนวนเอกสารแล้ว')+
+        '</div>';
+      card.appendChild(scanStatus);
+    }
+
+    var grid=document.createElement('div');
+    grid.className='item-grid';
+    grid.innerHTML =
+      '<div class="field-row" style="grid-column:1/-1;"><label>หมายเหตุเพิ่มเติม</label>'+
+        '<input type="text" class="input remark-input" data-idx="'+idx+'" value="'+esc(st.remark)+'" placeholder="-"'+(qrOk?'':' disabled')+'/></div>';
+    card.appendChild(grid);
+
+    if(mismatch){
+      var reasonWrap=document.createElement('div');
+      reasonWrap.className='reason-row';
+      var opts = MISMATCH_REASONS.map(function(r){ return '<option value="'+esc(r.v)+'"'+(st.reason===r.v?' selected':'')+'>'+esc(r.t)+'</option>'; }).join('');
+      reasonWrap.innerHTML =
+        '<label>⚠ จำนวนไม่ตรงกับเอกสาร ('+it.qty+' → '+st.actualQty+') กรุณาระบุเหตุผล</label>'+
+        '<select class="input reason-select" data-idx="'+idx+'">'+opts+'</select>'+
+        (st.reason==='อื่นๆ' ? '<input type="text" class="input reason-other" data-idx="'+idx+'" placeholder="ระบุเหตุผลอื่นๆ" value="'+esc(st.reasonOther)+'"/>' : '');
+      card.appendChild(reasonWrap);
+    }
+
+    if(!st.checked){
+      var hint=document.createElement('div');
+      hint.style.cssText='font-size:11px;color:var(--er);font-weight:600;margin-top:8px;';
+      hint.textContent = '* กรุณาสแกน QR/บาร์โค้ดที่ขวดของรายการนี้ก่อน ระบบจะยืนยันและนับจำนวนให้อัตโนมัติ';
+      card.appendChild(hint);
+    }
+
+    var codeReqToggle = document.createElement('div');
+    codeReqToggle.className='link-text';
+    codeReqToggle.textContent='✏ ขอแก้ไขรหัสสินค้า (เพิ่ม/ลด)';
+    codeReqToggle.onclick=function(){
+      var box=document.getElementById('codeReqBox_'+idx);
+      box.style.display = (box.style.display==='none'||!box.style.display) ? 'block' : 'none';
+    };
+    card.appendChild(codeReqToggle);
+
+    var codeReqBox=document.createElement('div');
+    codeReqBox.className='request-box';
+    codeReqBox.id='codeReqBox_'+idx;
+    codeReqBox.style.display='none';
+    var removeReasonOpts = REMOVE_CODE_REASONS.map(function(r){ return '<option value="'+esc(r.v)+'">'+esc(r.t)+'</option>'; }).join('');
+    var addReasonOpts = ADD_CODE_REASONS.map(function(r){ return '<option value="'+esc(r.v)+'">'+esc(r.t)+'</option>'; }).join('');
+    codeReqBox.innerHTML =
+      '<div style="font-size:11px;color:var(--text-faint);margin-bottom:6px;">รหัสปัจจุบัน: '+
+        (it.productCodes && it.productCodes.length ? esc(it.productCodes.join(', ')) : '-') +'</div>'+
+      '<input type="text" class="input" id="addCodes_'+idx+'" placeholder="รหัสที่ต้องการเพิ่ม เช่น 01121-2026-13"/>'+
+      '<label style="font-size:11px;font-weight:700;color:var(--primary-dk);display:block;margin:2px 0 6px;">เหตุผลที่ขอเพิ่มรหัสนี้</label>'+
+      '<select class="input" id="addReason_'+idx+'">'+addReasonOpts+'</select>'+
+      '<input type="text" class="input hidden" id="addReasonOther_'+idx+'" placeholder="ระบุเหตุผลอื่นๆ" style="margin-top:8px;"/>'+
+      '<input type="text" class="input" id="removeCodes_'+idx+'" placeholder="รหัสที่ต้องการลบ" style="margin-top:10px;"/>'+
+      '<label style="font-size:11px;font-weight:700;color:var(--primary-dk);display:block;margin:2px 0 6px;">เหตุผลที่ขอลบรหัสนี้</label>'+
+      '<select class="input" id="removeReason_'+idx+'">'+removeReasonOpts+'</select>'+
+      '<input type="text" class="input hidden" id="removeReasonOther_'+idx+'" placeholder="ระบุเหตุผลอื่นๆ"/>'+
+      '<textarea class="input" id="codeReqNote_'+idx+'" placeholder="หมายเหตุเพิ่มเติม (ถ้ามี)"></textarea>'+
+      '<button class="btn-mini btn-send-codereq" data-idx="'+idx+'">ส่งคำขอแก้ไข</button>';
+    card.appendChild(codeReqBox);
+
+    container.appendChild(card);
+  });
+
+  container.querySelectorAll('.btn-scan-qr').forEach(function(btn){
+    btn.onclick=function(){ openQrScan(this.dataset.idx); };
+  });
+  container.querySelectorAll('.btn-rescan-qr').forEach(function(btn){
+    btn.onclick=function(){ openQrScan(this.dataset.idx); };
+  });
+  container.querySelectorAll('.remark-input').forEach(function(inp){
+    inp.oninput=function(){ STATE.itemState[this.dataset.idx].remark = this.value; scheduleAutoSaveDraft(); };
+  });
+  container.querySelectorAll('.remaining-input').forEach(function(inp){
+    inp.oninput=function(){
+      STATE.itemState[this.dataset.idx].remainingApprox = this.value;
+      scheduleAutoSaveDraft();
+    };
+  });
+  container.querySelectorAll('.reason-select').forEach(function(sel){
+    sel.onchange=function(){ STATE.itemState[this.dataset.idx].reason = this.value; renderItems(); scheduleAutoSaveDraft(); };
+  });
+  container.querySelectorAll('.reason-other').forEach(function(inp){
+    inp.oninput=function(){ STATE.itemState[this.dataset.idx].reasonOther = this.value; scheduleAutoSaveDraft(); };
+    inp.onblur=function(){ renderItems(); };
+  });
+  container.querySelectorAll('.btn-send-codereq').forEach(function(btn){
+    var idx = btn.dataset.idx;
+    var addReasonSel = document.getElementById('addReason_'+idx);
+    if(addReasonSel){
+      addReasonSel.onchange=function(){
+        var otherInp = document.getElementById('addReasonOther_'+idx);
+        otherInp.classList.toggle('hidden', this.value!=='อื่นๆ');
+      };
+    }
+    var reasonSel = document.getElementById('removeReason_'+idx);
+    if(reasonSel){
+      reasonSel.onchange=function(){
+        var otherInp = document.getElementById('removeReasonOther_'+idx);
+        otherInp.classList.toggle('hidden', this.value!=='อื่นๆ');
+      };
+    }
+    btn.onclick=function(){
+      var idx=this.dataset.idx, it=STATE.items[idx];
+      var addCodes=document.getElementById('addCodes_'+idx).value.split(',').map(function(s){return s.trim();}).filter(function(s){return s;});
+      var removeCodes=document.getElementById('removeCodes_'+idx).value.split(',').map(function(s){return s.trim();}).filter(function(s){return s;});
+      var addReasonVal = document.getElementById('addReason_'+idx).value;
+      var addReasonOther = document.getElementById('addReasonOther_'+idx).value.trim();
+      var reasonVal = document.getElementById('removeReason_'+idx).value;
+      var reasonOther = document.getElementById('removeReasonOther_'+idx).value.trim();
+      var extraNote=document.getElementById('codeReqNote_'+idx).value.trim();
+      if(!addCodes.length && !removeCodes.length){ alert('กรุณาระบุรหัสที่ต้องการเพิ่มหรือลบ'); return; }
+      if(addCodes.length && !addReasonVal){ alert('กรุณาเลือกเหตุผลที่ขอเพิ่มรหัสนี้'); return; }
+      if(addReasonVal==='อื่นๆ' && !addReasonOther){ alert('กรุณาระบุเหตุผลที่ขอเพิ่มรหัส (อื่นๆ)'); return; }
+      if(removeCodes.length && !reasonVal){ alert('กรุณาเลือกเหตุผลที่ขอลบรหัสนี้'); return; }
+      if(reasonVal==='อื่นๆ' && !reasonOther){ alert('กรุณาระบุเหตุผลอื่นๆ'); return; }
+      var addReasonText = addReasonVal ? (addReasonVal==='อื่นๆ' ? addReasonOther : addReasonVal) : '';
+      var reasonText = reasonVal ? (reasonVal==='อื่นๆ' ? reasonOther : reasonVal) : '';
+      var requesterName = document.getElementById('employeeName').value.trim() || 'ไม่ระบุชื่อ';
+      var thisBtn=this; thisBtn.disabled=true; thisBtn.textContent='กำลังส่ง...';
+      google.script.run.withSuccessHandler(function(){
+        thisBtn.disabled=false; thisBtn.textContent='ส่งคำขอแก้ไข';
+        document.getElementById('codeReqBox_'+idx).style.display='none';
+        alert('ส่งคำขอแก้ไขรหัสสินค้าเรียบร้อย รอ Admin ตรวจสอบ');
+      }).withFailureHandler(function(err){ thisBtn.disabled=false; thisBtn.textContent='ส่งคำขอแก้ไข'; onError(err); })
+      .requestCodeChange({ itemCode: it.code, itemName: it.name, addCodes: addCodes, removeCodes: removeCodes, addReason: addReasonText, removeReason: reasonText, note: extraNote, requesterName: requesterName });
+    };
+  });
+}
+
+function updateProgress(){
+  var total = STATE.items.length;
+  var touched = Object.keys(STATE.itemState).filter(function(k){ return STATE.itemState[k].checked===true; }).length;
+  document.getElementById('progressFill').style.width = total? (touched/total*100)+'%':'0%';
+  document.getElementById('progressNum').textContent = touched+'/'+total+' ยืนยันแล้ว';
+  checkSubmitEnabled();
+}
+function checkSubmitEnabled(){
+  var nameOk = document.getElementById('employeeName').value.trim().length>0;
+  var total = STATE.items.length;
+  var allChecked = total>0 && Object.keys(STATE.itemState).every(function(k){ return STATE.itemState[k].checked===true; });
+  var btn = document.getElementById('btnSubmit');
+  btn.disabled = !(nameOk && STATE.employeeSignature && allChecked);
+  btn.title = allChecked ? '' : 'กรุณายืนยันการตรวจนับให้ครบทุกรายการก่อน';
+}
+document.getElementById('employeeName').addEventListener('input', checkSubmitEnabled);
+
+/* ============================================================
+   Draft (บันทึกความคืบหน้า)
+   ============================================================ */
+var draftAutoSaveTimer = null;
+var draftPromptedForName = '';
+function buildDraftStateObject(){
+  var obj = {};
+  STATE.items.forEach(function(it, idx){
+    var st = STATE.itemState[idx];
+    obj[itemKey(it)] = { actualQty: st.actualQty, openBottles: st.openBottles, remark: st.remark, remainingApprox: st.remainingApprox, reason: st.reason, reasonOther: st.reasonOther, checked: st.checked, checkedAt: st.checkedAt, qrVerified: st.qrVerified, qrCode: st.qrCode, scannedCodes: st.scannedCodes };
+  });
+  return obj;
+}
+function applyDraftStateObject(obj){
+  STATE.items.forEach(function(it, idx){
+    var saved = obj[itemKey(it)];
+    if(saved){
+      STATE.itemState[idx] = {
+        actualQty: (saved.actualQty!==undefined && saved.actualQty!==null && saved.actualQty!=='') ? saved.actualQty : null,
+        openBottles: saved.openBottles || [], remark: saved.remark || '', remainingApprox: saved.remainingApprox || '',
+        reason: saved.reason || '', reasonOther: saved.reasonOther || '', checked: !!saved.checked, checkedAt: saved.checkedAt || '',
+        qrVerified: !!saved.qrVerified, qrCode: saved.qrCode || '', scannedCodes: saved.scannedCodes || []
+      };
+    }
+  });
+}
+function scheduleAutoSaveDraft(){
+  var name = document.getElementById('employeeName').value.trim();
+  if(!name) return;
+  if(draftAutoSaveTimer) clearTimeout(draftAutoSaveTimer);
+  draftAutoSaveTimer = setTimeout(function(){ saveDraftNow(true); }, 4000);
+}
+function saveDraftNow(isAuto){
+  var name = document.getElementById('employeeName').value.trim();
+  if(!name){ if(!isAuto) alert('กรุณากรอกชื่อ-สกุลผู้ตรวจนับก่อนบันทึกความคืบหน้า'); return; }
+  var btn = document.getElementById('btnSaveDraft');
+  var statusEl = document.getElementById('draftStatusText');
+  if(!isAuto){ btn.disabled=true; btn.textContent='กำลังบันทึก...'; }
+  var json = JSON.stringify(buildDraftStateObject());
+  google.script.run.withSuccessHandler(function(res){
+    if(!isAuto){ btn.disabled=false; btn.textContent='💾 บันทึกความคืบหน้า'; }
+    statusEl.textContent = 'บันทึกความคืบหน้าล่าสุดเมื่อ '+res.savedAt;
+  }).withFailureHandler(function(err){ if(!isAuto){ btn.disabled=false; btn.textContent='💾 บันทึกความคืบหน้า'; onError(err); } }).saveDraft(name, json);
+}
+document.getElementById('btnSaveDraft').onclick=function(){ saveDraftNow(false); };
+document.getElementById('employeeName').addEventListener('blur', function(){
+  var name = this.value.trim();
+  if(!name || name===draftPromptedForName) return;
+  draftPromptedForName = name;
+  google.script.run.withSuccessHandler(function(draft){
+    if(draft && draft.itemsStateJson){
+      document.getElementById('restoreDraftSub').textContent = 'ของ "'+name+'" บันทึกล่าสุดเมื่อ '+draft.updatedAt+' ต้องการโหลดข้อมูลเดิมมาทำต่อหรือไม่?';
+      document.getElementById('modalRestoreDraft').classList.add('open');
+      var yesBtn = document.getElementById('btnRestoreDraftYes');
+      var noBtn = document.getElementById('btnRestoreDraftNo');
+      yesBtn.onclick = function(){
+        try{
+          applyDraftStateObject(JSON.parse(draft.itemsStateJson));
+          renderItems(); updateProgress();
+          document.getElementById('draftStatusText').textContent='โหลดความคืบหน้าที่บันทึกไว้เมื่อ '+draft.updatedAt+' แล้ว';
+        }catch(e){}
+        document.getElementById('modalRestoreDraft').classList.remove('open');
+      };
+      noBtn.onclick = function(){ document.getElementById('modalRestoreDraft').classList.remove('open'); };
+    }
+  }).withFailureHandler(function(){}).getDraft(name);
+});
+
+/* ============================================================
+   Signature Pad
+   ============================================================ */
+function makeSigPad(canvasId, hintId){
+  var canvas=document.getElementById(canvasId);
+  var ctx=canvas.getContext('2d');
+  var drawing=false, hasInk=false;
+  var dpr = window.devicePixelRatio||1;
+  function resize(){
+    var rect=canvas.getBoundingClientRect();
+    canvas.width=rect.width*dpr; canvas.height=rect.height*dpr;
+    ctx.scale(dpr,dpr);
+    ctx.lineWidth=2.4; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.strokeStyle='#1f2430';
+  }
+  setTimeout(resize,50);
+  function pos(e){
+    var rect=canvas.getBoundingClientRect();
+    var cx = (e.touches? e.touches[0].clientX : e.clientX) - rect.left;
+    var cy = (e.touches? e.touches[0].clientY : e.clientY) - rect.top;
+    return {x:cx,y:cy};
+  }
+  function start(e){ e.preventDefault(); drawing=true; hasInk=true; document.getElementById(hintId).style.display='none'; var p=pos(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); }
+  function move(e){ if(!drawing) return; e.preventDefault(); var p=pos(e); ctx.lineTo(p.x,p.y); ctx.stroke(); }
+  function end(){ drawing=false; }
+  canvas.addEventListener('mousedown',start); canvas.addEventListener('mousemove',move); window.addEventListener('mouseup',end);
+  canvas.addEventListener('touchstart',start,{passive:false}); canvas.addEventListener('touchmove',move,{passive:false}); canvas.addEventListener('touchend',end);
+  return {
+    clear:function(){ ctx.clearRect(0,0,canvas.width,canvas.height); hasInk=false; document.getElementById(hintId).style.display='block'; },
+    isEmpty:function(){ return !hasInk; },
+    toDataURL:function(){ return canvas.toDataURL('image/png'); },
+    resize:resize
+  };
+}
+var employeeSigPad, reviewerSigPad;
+document.getElementById('btnOpenSign').onclick=function(){
+  document.getElementById('modalSign').classList.add('open');
+  if(!employeeSigPad){ employeeSigPad=makeSigPad('sigCanvasEmployee','sigHintEmployee'); } else employeeSigPad.resize();
+};
+document.getElementById('closeSign').onclick=function(){ document.getElementById('modalSign').classList.remove('open'); };
+document.getElementById('clearSigEmployee').onclick=function(){ employeeSigPad.clear(); };
+document.getElementById('saveSigEmployee').onclick=function(){
+  if(employeeSigPad.isEmpty()){ alert('กรุณาวาดลายเซ็นก่อน'); return; }
+  STATE.employeeSignature = employeeSigPad.toDataURL();
+  document.getElementById('employeeSeal').classList.add('signed');
+  document.getElementById('employeeSeal').textContent='✓';
+  document.getElementById('signStatusMain').textContent='เซ็นชื่อแล้ว';
+  document.getElementById('modalSign').classList.remove('open');
+  checkSubmitEnabled();
+};
+
+/* ============================================================
+   สแกน QR/บาร์โค้ดยืนยันตัวสารเคมีก่อนกรอกจำนวน
+   ============================================================ */
+/* กล่องสแกนแบบแถบแนวนอน เหมาะกับบาร์โค้ด 1 มิติ (กว้าง-เตี้ย แทนที่จะเป็นสี่เหลี่ยมจัตุรัส)
+   html5-qrcode จะถอดรหัสเฉพาะพื้นที่ในกล่องนี้เท่านั้น ทำให้ต้องเล็งบาร์โค้ดให้อยู่ในแถบก่อนถึงจะสแกนติด */
+function barcodeQrbox(viewfinderWidth, viewfinderHeight){
+  /* กรอบแคบลงจากเดิม เพื่อไม่ให้ครอบโดนบาร์โค้ดแถวข้างๆ เวลาสแกนจากตาราง label ที่พิมพ์ชิดกัน
+     ผู้ใช้ควรเข้าใกล้/ซูมให้บาร์โค้ดเป้าหมายเติมเต็มกรอบก่อนสแกน */
+  var w = Math.floor(Math.min(viewfinderWidth * 0.62, 230));
+  var h = Math.max(56, Math.floor(w * 0.34));
+  return { width: w, height: h };
+}
+/* ตั้งค่ากล้องกลาง ใช้ร่วมกันทั้งโหมดสแกนทีละรายการและสแกนต่อเนื่อง
+   - ขอ resolution สูงขึ้น เพื่อให้เส้นบาร์โค้ด Code128 ที่บางและชิดกันคมชัดพอ decode ได้
+   - focusMode: continuous ให้กล้องปรับโฟกัสต่อเนื่องอัตโนมัติ (ไม่ใช่โฟกัสค้างครั้งเดียวตอนเปิดกล้อง) */
+/* พารามิเตอร์แรกของ Html5Qrcode.start() (เลือกกล้อง) ต้องมี key เดียวเท่านั้น (facingMode หรือ deviceId)
+   ถ้าใส่ width/height ปนเข้าไปด้วย library จะ throw error ทันที ("should have exactly 1 key") */
+/* พารามิเตอร์แรกของ Html5Qrcode.start() (เลือกกล้อง) ต้องมี key เดียวเท่านั้น (facingMode หรือ deviceId)
+   ถ้าใส่ width/height ปนเข้าไปด้วย library จะ throw error ทันที ("should have exactly 1 key")
+   ใช้ exact เพื่อ "บังคับ" กล้องหลัง ไม่งั้นบางเครื่อง/เบราว์เซอร์จะเปิดกล้องหน้าแทน (facingMode แบบ ideal ธรรมดาไม่บังคับ) */
+var SCAN_CAMERA_SELECTOR = { facingMode: { exact: 'environment' } };
+/* เผื่อไว้กรณีอุปกรณ์ไม่มีกล้องหลังจริงๆ (เช่น iPad บางรุ่น) จะ fallback มาใช้ตัวนี้แทน */
+var SCAN_CAMERA_SELECTOR_FALLBACK = { facingMode: 'environment' };
+
+/* ============================================================
+   บังคับกล้องหลังแบบง่าย แต่แม่นยำ — เลือกด้วย deviceId จาก label ("back"/"rear")
+   สาเหตุที่ facingMode:{exact:'environment'} เพียงอย่างเดียวใช้ไม่ได้ผลแน่นอน:
+   บน iOS/เบราว์เซอร์ในแอป LINE (WKWebView) constraint นี้มักถูกละเลย เปิดกล้องหน้าให้แทน
+   โดยไม่ error เลย (เดโมนี้เจอเองจากภาพหน้าจอ) ในขณะที่ label ของกล้อง (getCameras())
+   บนอุปกรณ์กลุ่มนี้กลับรายงานถูกต้องแม่นยำกว่า จึงเลือกวิธีนี้เป็นหลัก
+   ยังคง "เรียก start() ครั้งเดียว" ไม่มีการ stop()/start() วนซ้ำเหมือนโค้ดเดิมที่เคยพังเรื่อง
+   "already under transition" — มีแค่ fallback สำรอง 1 ครั้งถ้า deviceId ที่เลือกใช้ไม่ได้จริงๆ */
+function delay_(ms){ return new Promise(function(resolve){ setTimeout(resolve, ms); }); }
+var _backCameraId = null;         /* กล้องหลังที่หาเจอจาก label แคชไว้ใช้ซ้ำในเซสชันนี้ */
+var _backCameraLookupDone = false;
+function pickBackCameraId_(){
+  if(_backCameraLookupDone) return Promise.resolve(_backCameraId);
+  if(typeof Html5Qrcode === 'undefined' || !Html5Qrcode.getCameras){
+    _backCameraLookupDone = true;
+    return Promise.resolve(null);
+  }
+  return Html5Qrcode.getCameras().then(function(cameras){
+    _backCameraLookupDone = true;
+    if(!cameras || !cameras.length) return null;
+    var back = cameras.filter(function(c){ return /back|rear|environment/i.test(c.label||''); })[0];
+    _backCameraId = back ? back.id : null;
+    /* ถ้าหา label กล้องหลังไม่เจอ (เช่น ยังไม่เคยขอสิทธิ์กล้องมาก่อน label จะว่างเปล่า)
+       อย่าเดา — ปล่อยเป็น null แล้วให้ไปใช้ facingMode constraint แทนที่ด้านล่าง */
+    return _backCameraId;
+  }).catch(function(){ _backCameraLookupDone = true; return null; });
+}
+function startScannerSimple_(scannerInstance, scanConfig, onDecode, onFrameMiss){
+  return pickBackCameraId_().then(function(id){
+    var selector = id ? { deviceId: { exact: id } } : SCAN_CAMERA_SELECTOR;
+    return scannerInstance.start(selector, scanConfig, onDecode, onFrameMiss);
+  }).catch(function(){
+    /* deviceId ที่จำไว้ใช้ไม่ได้แล้ว (เช่น ถอด/สลับอุปกรณ์) เคลียร์แคชแล้วลองรอบสุดท้ายด้วย facingMode ธรรมดา */
+    _backCameraId = null; _backCameraLookupDone = false;
+    return delay_(150).then(function(){
+      return scannerInstance.start(SCAN_CAMERA_SELECTOR_FALLBACK, scanConfig, onDecode, onFrameMiss);
+    });
+  });
+}
+
+/* ============================================================
+   (ตัดฟีเจอร์ปุ่มเลือกระยะซูม 1x/2x/3x/5x ออกแล้วตามคำขอ — ให้กล้องเปิดง่าย/ติดเร็วที่สุด)
+   ============================================================ */
+
+/* หมายเหตุ: เดิมมีโค้ดตรวจจับ LINE in-app browser แล้วเตือน+บังคับให้ผู้ใช้ออกไปเปิด
+   ด้วย Safari/Chrome ก่อนถึงจะสแกนได้ — ตัดออกแล้วตามคำขอ ตอนนี้ปล่อยให้กล้องพยายาม
+   เปิดตามปกติแม้อยู่ใน LINE browser เลย ไม่มีการเด้งเตือน/บังคับออกไปที่อื่นอีกต่อไป
+   ถ้าเครื่อง/เวอร์ชัน LINE ไหนขอสิทธิ์กล้องไม่ได้จริงๆ ก็จะเข้า error handler ปกติของแต่ละโหมด
+   ที่มีช่องพิมพ์รหัสเองสำรองไว้อยู่แล้ว */
+/* resolution ที่ต้องการต้องระบุแยกผ่าน videoConstraints ในพารามิเตอร์ที่สอง (scan config) แทน */
+var SCAN_VIDEO_CONSTRAINTS = {
+  width: { ideal: 1280 },
+  height: { ideal: 720 }
+};
+/* จำกัด format ให้ decode เฉพาะ Code128 (รูปแบบบาร์โค้ดจริงที่ใช้บนขวดสารเคมี)
+   เดิมไลบรารีจะพยายามถอดรหัสทุก format (QR, EAN, UPC, DataMatrix ฯลฯ) ทุกเฟรม
+   ทำให้กินแรงประมวลผลเกินจำเป็นและอัตราสแกนติดต่ำลง */
+function getScanFormatsToSupport(){
+  if (typeof Html5QrcodeSupportedFormats === 'undefined') return undefined;
+  return [Html5QrcodeSupportedFormats.CODE_128];
+}
+
+var qrScanner = null;
+var qrScanTargetIdx = null;
+
+function openQrScan(idx){
+  var it = STATE.items[idx];
+  if(!it) return;
+  qrScanTargetIdx = idx;
+  document.getElementById('qrScanTitle').textContent = 'สแกนยืนยัน: '+it.name;
+  document.getElementById('qrScanSub').textContent = 'เล็งกล้องไปที่ QR/บาร์โค้ดบนขวด (รหัส '+it.code+')';
+  var msgEl = document.getElementById('qrScanMsg');
+  msgEl.textContent=''; msgEl.style.color='var(--text-soft)';
+  document.getElementById('qrManualInput').value='';
+  document.getElementById('modalQrScan').classList.add('open');
+  qrScanRetried = false;
+  startQrScanner();
+}
+/* บังคับเคลียร์กล่องแสดงผลกล้องเอง กรณี instance เก่าค้างสถานะ isScanning=true
+   (ปกติ .clear() ของ lib จะ throw ถ้า isScanning ยังไม่เป็น false เราจึงเคลียร์ DOM ตรงๆ แทน) */
+function forceResetReaderBox_(id){
+  var el = document.getElementById(id);
+  if(el) el.innerHTML = '';
+}
+/* เช็คว่า error ที่ได้คือปัญหา "instance เก่าค้าง" / ไลบรารีกำลังเปลี่ยนสถานะค้างอยู่หรือไม่
+   (ครอบคลุมทั้ง "Cannot clear while scan is ongoing" และ
+   "Cannot transition to a new state, already under transition") */
+function isScanClearRaceError_(err){
+  var msg = (err && (err.message || err)) ? String(err.message || err) : String(err);
+  return msg.indexOf('Cannot clear while scan is ongoing') > -1
+      || msg.indexOf('already under transition') > -1;
+}
+var qrScanRetried = false; /* กันวน retry ไม่รู้จบ */
+var qrScanStarting = false; /* กันเปิดกล้องซ้อนขณะกำลังเปิดอยู่ */
+function startQrScanner(){
+  if(qrScanStarting) return;
+  qrScanStarting = true;
+  stopQrScanner(function(){
+    if(typeof Html5Qrcode === 'undefined'){
+      qrScanStarting = false;
+      var msgEl=document.getElementById('qrScanMsg');
+      msgEl.style.color='var(--er)';
+      msgEl.textContent='ไม่สามารถโหลดกล้องสแกนได้ กรุณาพิมพ์รหัสด้วยตนเอง';
+      return;
+    }
+    try{
+      qrScanner = new Html5Qrcode('qrReaderBox', { formatsToSupport: getScanFormatsToSupport(), verbose: false });
+      startScannerSimple_(
+        qrScanner,
+        { fps: 15, qrbox: barcodeQrbox, videoConstraints: SCAN_VIDEO_CONSTRAINTS },
+        function(decodedText){ handleQrResult(decodedText); },
+        function(){ /* ignore per-frame scan misses */ }
+      ).then(function(){
+        qrScanStarting = false;
+        qrScanRetried = false;
+      }).catch(function(err){
+        qrScanStarting = false;
+        if(isScanClearRaceError_(err) && !qrScanRetried){
+          /* instance เก่าค้างสถานะ - เคลียร์กล่องกล้องเอง แล้วลองเปิดใหม่อัตโนมัติ 1 ครั้งแบบเงียบๆ */
+          qrScanRetried = true;
+          qrScanner = null;
+          forceResetReaderBox_('qrReaderBox');
+          setTimeout(startQrScanner, 350);
+          return;
+        }
+        var msgEl=document.getElementById('qrScanMsg');
+        msgEl.style.color='var(--er)';
+        var detail = (err && (err.name || err.message)) ? (err.name||'')+' '+(err.message||err) : String(err);
+        msgEl.textContent='เปิดกล้องไม่สำเร็จ: '+detail+' — กรุณาพิมพ์รหัสที่อยู่บนขวดจริงในช่องด้านล่างแทน';
+      });
+    }catch(e){
+      qrScanStarting = false;
+      var msgEl=document.getElementById('qrScanMsg');
+      msgEl.style.color='var(--er)';
+      var detail = (e && (e.name || e.message)) ? (e.name||'')+' '+(e.message||e) : String(e);
+      msgEl.textContent='เปิดกล้องไม่สำเร็จ: '+detail+' — กรุณาพิมพ์รหัสที่อยู่บนขวดจริงในช่องด้านล่างแทน';
+    }
+  });
+}
+function stopQrScanner(cb){
+  if(qrScanner){
+    var s = qrScanner; qrScanner=null;
+    var finish = function(){ try{ s.clear(); }catch(e){} if(cb) cb(); };
+    s.stop().then(finish).catch(finish);
+  } else if(cb) cb();
+}
+function handleQrResult(code){
+  if(qrScanTargetIdx===null) return;
+  var idx=qrScanTargetIdx, it=STATE.items[idx], st=STATE.itemState[idx];
+  var codes = (it.productCodes||[]).map(function(c){ return String(c).trim(); }).filter(function(c){ return c && c!=='-'; });
+  var normalized = String(code).trim();
+  var match = codes.indexOf(normalized) > -1;
+  if(!match){ match = codes.some(function(c){ return normalized.indexOf(c)>-1 || c.indexOf(normalized)>-1; }); }
+  var msgEl = document.getElementById('qrScanMsg');
+  if(match){
+    if(st.scannedCodes.indexOf(normalized)===-1){ st.scannedCodes.push(normalized); }
+    st.qrVerified = true; st.qrCode = normalized;
+    st.actualQty = st.scannedCodes.length;
+    st.checked = true; st.checkedAt = new Date().toISOString();
+    msgEl.style.color='var(--ok)';
+    msgEl.textContent='✓ ยืนยันตัวสารเคมีสำเร็จ';
+    setTimeout(function(){
+      document.getElementById('modalQrScan').classList.remove('open');
+      qrScanTargetIdx=null;
+      stopQrScanner();
+      renderItems(); scheduleAutoSaveDraft();
+    }, 550);
+  } else {
+    msgEl.style.color='var(--er)';
+    msgEl.textContent='✗ รหัสนี้ไม่ตรงกับรายการ "'+esc(it.name)+'" กรุณาลองใหม่';
+  }
+}
+document.getElementById('closeQrScan').onclick=function(){
+  document.getElementById('modalQrScan').classList.remove('open');
+  qrScanTargetIdx=null;
+  stopQrScanner();
+};
+document.getElementById('qrManualSubmit').onclick=function(){
+  var v=document.getElementById('qrManualInput').value.trim();
+  if(!v){ return; }
+  handleQrResult(v);
+};
+document.getElementById('qrManualInput').addEventListener('keydown', function(e){
+  if(e.key==='Enter'){ document.getElementById('qrManualSubmit').click(); }
+});
+
+/* ============================================================
+   สแกนต่อเนื่อง (โหมดยิงเร็วแบบห้างสรรพสินค้า)
+   กล้องเปิดค้างไว้ สแกนเจอปุ๊บ ระบบค้นหาว่าตรงกับสารตัวไหนเองอัตโนมัติ
+   (ไม่ต้องเลือกรายการก่อนแบบโหมดเดิม) แล้วนับจำนวนขวดที่สแกนแล้วให้อัตโนมัติ
+   ============================================================ */
+var cScanScanner = null;
+var cScanLastCode = null;
+var cScanLastTime = 0;
+var cScanHistoryLog = [];
+var cScanStarting = false; /* กันเปิดกล้องซ้อนขณะกำลังเปิดอยู่ */
+var cScanRetried = false;  /* กันวน retry ไม่รู้จบ */
+
+function openContinuousScan(){
+  document.getElementById('cScanHistory').innerHTML = renderCScanHistory();
+  var msgEl = document.getElementById('cScanMsg');
+  msgEl.textContent = 'เล็งกล้องไปที่ QR/บาร์โค้ด...';
+  msgEl.style.color = 'var(--text-soft)';
+  document.getElementById('modalContinuousScan').classList.add('open');
+  cScanRetried = false;
+  startContinuousScanner();
+}
+function startContinuousScanner(){
+  if(cScanStarting) return;
+  cScanStarting = true;
+  stopContinuousScanner(function(){
+    if(typeof Html5Qrcode === 'undefined'){
+      cScanStarting = false;
+      var msgEl=document.getElementById('cScanMsg');
+      msgEl.style.color='var(--er)';
+      msgEl.textContent='ไม่สามารถโหลดกล้องสแกนได้ กรุณาพิมพ์รหัสด้วยตนเอง';
+      return;
+    }
+    try{
+      cScanScanner = new Html5Qrcode('cScanReaderBox', { formatsToSupport: getScanFormatsToSupport(), verbose: false });
+      startScannerSimple_(
+        cScanScanner,
+        { fps: 15, qrbox: barcodeQrbox, videoConstraints: SCAN_VIDEO_CONSTRAINTS },
+        function(decodedText){ handleContinuousScanResult(decodedText); },
+        function(){ /* ignore per-frame scan misses */ }
+      ).then(function(){
+        cScanStarting = false;
+        cScanRetried = false;
+      }).catch(function(err){
+        cScanStarting = false;
+        if(isScanClearRaceError_(err) && !cScanRetried){
+          /* instance เก่าค้างสถานะ - เคลียร์กล่องกล้องเอง แล้วลองเปิดใหม่อัตโนมัติ 1 ครั้งแบบเงียบๆ */
+          cScanRetried = true;
+          cScanScanner = null;
+          forceResetReaderBox_('cScanReaderBox');
+          setTimeout(startContinuousScanner, 350);
+          return;
+        }
+        var msgEl=document.getElementById('cScanMsg');
+        msgEl.style.color='var(--er)';
+        var detail = (err && (err.name || err.message)) ? (err.name||'')+' '+(err.message||err) : String(err);
+        msgEl.textContent='เปิดกล้องไม่สำเร็จ: '+detail+' — กรุณาพิมพ์รหัสด้วยตนเองด้านล่าง';
+      });
+    }catch(e){
+      cScanStarting = false;
+      var msgEl=document.getElementById('cScanMsg');
+      msgEl.style.color='var(--er)';
+      var detail = (e && (e.name || e.message)) ? (e.name||'')+' '+(e.message||e) : String(e);
+      msgEl.textContent='เปิดกล้องไม่สำเร็จ: '+detail+' — กรุณาพิมพ์รหัสด้วยตนเองด้านล่าง';
+    }
+  });
+}
+function stopContinuousScanner(cb){
+  if(cScanScanner){
+    var s = cScanScanner; cScanScanner=null;
+    var finish = function(){ try{ s.clear(); }catch(e){} if(cb) cb(); };
+    s.stop().then(finish).catch(finish);
+  } else if(cb) cb();
+}
+function cScanBeep(ok){
+  try{
+    var ctx = window._cScanAudioCtx || (window._cScanAudioCtx = new (window.AudioContext||window.webkitAudioContext)());
+    var o = ctx.createOscillator(), g = ctx.createGain();
+    o.type='sine'; o.frequency.value = ok ? 1200 : 300;
+    g.gain.value = 0.15;
+    o.connect(g); g.connect(ctx.destination);
+    o.start(); o.stop(ctx.currentTime + (ok ? 0.09 : 0.18));
+  }catch(e){}
+}
+function cScanFlash(color){
+  var el = document.getElementById('cScanFlash');
+  if(!el) return;
+  el.style.background = color;
+  setTimeout(function(){ el.style.background='rgba(0,0,0,0)'; }, 160);
+}
+function findItemIdxByCode(rawCode){
+  var normalized = String(rawCode).trim();
+  for(var idx=0; idx<STATE.items.length; idx++){
+    var codes = (STATE.items[idx].productCodes||[]).map(function(c){return String(c).trim();}).filter(function(c){return c && c!=='-';});
+    var match = codes.indexOf(normalized) > -1;
+    if(!match){ match = codes.some(function(c){ return normalized.indexOf(c)>-1 || c.indexOf(normalized)>-1; }); }
+    if(match) return idx;
+  }
+  return -1;
+}
+/* รหัส Product code รูปแบบ ITEMCODE-YEAR-SEQ เช่น "04670-2025-01" (ขวดที่ 1 ปี 2025) และ "04670-2026-01" (ขวดที่ 1 ปี 2026 ของสารตัวเดิม)
+   ตัวที่คงที่จริงๆ คือ ITEMCODE (ส่วนแรกก่อนขีดแรก) เท่านั้น ส่วนปี/ลำดับขวดเปลี่ยนทุกครั้งที่รับเข้าใหม่
+   ใช้เฉพาะฝั่งรับเข้า (RSCAN) เพื่อจับคู่รหัสใหม่ที่ยังไม่เคยลงทะเบียน แล้วค่อยบันทึกรหัสใหม่นี้เพิ่มเข้า Product code ทีหลัง */
+function codePrefix_(code){
+  var parts = String(code).trim().split('-');
+  if(parts.length < 2) return null;
+  return parts[0];
+}
+function findItemIdxByPrefixCode(rawCode){
+  var normalized = String(rawCode).trim();
+  // 1) ลองจับคู่แบบเดิมก่อน (ตรงเป๊ะ หรือมีรหัสนี้ลงทะเบียนไว้แล้ว)
+  var idx = findItemIdxByCode(normalized);
+  if(idx > -1) return { idx: idx, isNew: false };
+
+  // 2) ไม่เจอ -> ลองเทียบด้วย prefix (ตัดเลขลำดับล็อตท้ายสุดออก) กับรหัสที่เคยลงทะเบียนไว้ของแต่ละสาร
+  var myPrefix = codePrefix_(normalized);
+  if(!myPrefix) return { idx: -1, isNew: false };
+  for(var i=0; i<STATE.items.length; i++){
+    var codes = (STATE.items[i].productCodes||[]).map(function(c){return String(c).trim();}).filter(function(c){return c && c!=='-';});
+    var match = codes.some(function(c){ return codePrefix_(c) === myPrefix; });
+    if(match) return { idx: i, isNew: true };
+  }
+  return { idx: -1, isNew: false };
+}
+function handleContinuousScanResult(rawCode){
+  var normalized = String(rawCode).trim();
+  if(!normalized) return;
+  var now = Date.now();
+  if(normalized === cScanLastCode && (now - cScanLastTime) < 2000){ return; } // กันอ่านซ้ำจากเฟรมกล้องเดียวกัน
+  cScanLastCode = normalized; cScanLastTime = now;
+
+  var idx = findItemIdxByCode(normalized);
+  var msgEl = document.getElementById('cScanMsg');
+
+  if(idx === -1){
+    cScanBeep(false); cScanFlash('rgba(209,82,74,.35)'); if(navigator.vibrate) navigator.vibrate(120);
+    msgEl.style.color='var(--er)';
+    msgEl.textContent='✗ ไม่พบรหัส "'+esc(normalized)+'" ในรายการ';
+    pushCScanHistory({ok:false, text:'ไม่พบรหัส '+normalized});
+    return;
+  }
+  var it = STATE.items[idx], st = STATE.itemState[idx];
+  if(st.scannedCodes.indexOf(normalized) > -1){
+    cScanBeep(false); cScanFlash('rgba(192,122,31,.35)'); if(navigator.vibrate) navigator.vibrate([60,60,60]);
+    msgEl.style.color='var(--warn)';
+    msgEl.textContent='⚠ สแกนซ้ำ: '+esc(it.name)+' (ขวดนี้นับไปแล้ว)';
+    pushCScanHistory({ok:null, text:'สแกนซ้ำ: '+it.name});
+    return;
+  }
+  st.scannedCodes.push(normalized);
+  st.qrVerified = true;
+  st.qrCode = normalized;
+  st.actualQty = st.scannedCodes.length;
+  st.checked = true;
+  st.checkedAt = new Date().toISOString();
+
+  cScanBeep(true); cScanFlash('rgba(26,156,107,.30)'); if(navigator.vibrate) navigator.vibrate(40);
+  msgEl.style.color='var(--ok)';
+  msgEl.textContent='✓ '+esc(it.name)+'  ('+st.scannedCodes.length+'/'+it.qty+')';
+  pushCScanHistory({ok:true, text: it.name+'  '+st.scannedCodes.length+'/'+it.qty});
+
+  updateProgress(); renderItems(); scheduleAutoSaveDraft();
+}
+function pushCScanHistory(entry){
+  entry.time = new Date().toLocaleTimeString('th-TH', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  cScanHistoryLog.unshift(entry);
+  if(cScanHistoryLog.length > 40) cScanHistoryLog.pop();
+  var histEl = document.getElementById('cScanHistory');
+  if(histEl) histEl.innerHTML = renderCScanHistory();
+}
+function renderCScanHistory(){
+  if(!cScanHistoryLog.length) return '<div style="text-align:center;color:var(--text-faint);font-size:12.5px;padding:10px 0;">ยังไม่มีรายการที่สแกน</div>';
+  return '<div style="font-size:11px;font-weight:700;color:var(--text-faint);margin-bottom:6px;">ประวัติสแกนล่าสุด</div>' +
+    cScanHistoryLog.map(function(h){
+      var color = h.ok===true ? 'var(--ok)' : (h.ok===false ? 'var(--er)' : 'var(--warn)');
+      var icon = h.ok===true ? '✓' : (h.ok===false ? '✗' : '⚠');
+      return '<div style="display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid var(--border-soft);font-size:13px;">'+
+        '<span style="color:'+color+';font-weight:700;">'+icon+' '+esc(h.text)+'</span>'+
+        '<span style="color:var(--text-faint);font-size:11.5px;flex-shrink:0;">'+h.time+'</span></div>';
+    }).join('');
+}
+document.getElementById('btnOpenContinuousScan').onclick = function(){ openContinuousScan(); };
+document.getElementById('closeContinuousScan').onclick = function(){
+  document.getElementById('modalContinuousScan').classList.remove('open');
+  stopContinuousScanner();
+};
+document.getElementById('cScanManualInput').addEventListener('keydown', function(e){
+  if(e.key==='Enter'){
+    var v = this.value.trim();
+    if(v){ handleContinuousScanResult(v); this.value=''; }
+  }
+});
+
+/* ============================================================
+   สแกนรับเข้าสารเคมี (Scan-to-Receive)
+   เปิดกล้องยิงบาร์โค้ด/QR ต่อเนื่อง รายการที่จำได้จะเด้งเข้ารายการอัตโนมัติ
+   พร้อมวันที่รับเข้า และตัวเลือก "เปิดใช้ทันที" (บันทึกวันที่เปิด)
+   ============================================================ */
+var RSCAN = { batch: [], scanner: null, lastCode: '', lastTime: 0 };
+var rscanStarting = false; /* กันเปิดกล้องซ้อนขณะกำลังเปิดอยู่ */
+var rscanRetried = false;  /* กันวน retry ไม่รู้จบ */
+
+function todayIsoDate_(){
+  var d = new Date();
+  var mm = String(d.getMonth()+1).padStart(2,'0'), dd = String(d.getDate()).padStart(2,'0');
+  return d.getFullYear()+'-'+mm+'-'+dd;
+}
+
+function openScanReceive(){
+  RSCAN.batch = [];
+  document.getElementById('rscanEmpName').value = '';
+  document.getElementById('rscanReceivedDate').value = todayIsoDate_();
+  var msgEl = document.getElementById('rscanMsg');
+  msgEl.style.color = 'var(--text-soft)';
+  msgEl.textContent = 'เล็งกล้องไปที่บาร์โค้ด/QR ของสารเคมี...';
+  renderRscanBatch();
+  rscanRetried = false;
+  startRscanScanner();
+}
+function startRscanScanner(){
+  if(rscanStarting) return;
+  rscanStarting = true;
+  stopRscanScanner(function(){
+    if(typeof Html5Qrcode === 'undefined'){
+      rscanStarting = false;
+      var msgEl=document.getElementById('rscanMsg');
+      msgEl.style.color='var(--er)';
+      msgEl.textContent='ไม่สามารถโหลดกล้องสแกนได้ กรุณาพิมพ์รหัสด้วยตนเอง';
+      return;
+    }
+    try{
+      RSCAN.scanner = new Html5Qrcode('rscanReaderBox', { formatsToSupport: getScanFormatsToSupport(), verbose: false });
+      startScannerSimple_(
+        RSCAN.scanner,
+        { fps: 15, qrbox: barcodeQrbox, videoConstraints: SCAN_VIDEO_CONSTRAINTS },
+        function(decodedText){ handleRscanResult(decodedText); },
+        function(){ /* ignore per-frame scan misses */ }
+      ).then(function(){
+        rscanStarting = false;
+        rscanRetried = false;
+      }).catch(function(err){
+        rscanStarting = false;
+        if(isScanClearRaceError_(err) && !rscanRetried){
+          /* instance เก่าค้างสถานะ - เคลียร์กล่องกล้องเอง แล้วลองเปิดใหม่อัตโนมัติ 1 ครั้งแบบเงียบๆ */
+          rscanRetried = true;
+          RSCAN.scanner = null;
+          forceResetReaderBox_('rscanReaderBox');
+          setTimeout(startRscanScanner, 350);
+          return;
+        }
+        var msgEl=document.getElementById('rscanMsg');
+        msgEl.style.color='var(--er)';
+        var detail = (err && (err.name || err.message)) ? (err.name||'')+' '+(err.message||err) : String(err);
+        msgEl.textContent='เปิดกล้องไม่สำเร็จ: '+detail+' — กรุณาพิมพ์รหัสด้วยตนเองด้านล่าง';
+      });
+    }catch(e){
+      rscanStarting = false;
+      var msgEl=document.getElementById('rscanMsg');
+      msgEl.style.color='var(--er)';
+      var detail = (e && (e.name || e.message)) ? (e.name||'')+' '+(e.message||e) : String(e);
+      msgEl.textContent='เปิดกล้องไม่สำเร็จ: '+detail+' — กรุณาพิมพ์รหัสด้วยตนเองด้านล่าง';
+    }
+  });
+}
+function stopRscanScanner(cb){
+  if(RSCAN.scanner){
+    var s = RSCAN.scanner; RSCAN.scanner=null;
+    var finish = function(){ try{ s.clear(); }catch(e){} if(cb) cb(); };
+    s.stop().then(finish).catch(finish);
+  } else if(cb) cb();
+}
+function rscanBeep(ok){
+  try{
+    var ctx = window._cScanAudioCtx || (window._cScanAudioCtx = new (window.AudioContext||window.webkitAudioContext)());
+    var o = ctx.createOscillator(), g = ctx.createGain();
+    o.type='sine'; o.frequency.value = ok ? 1200 : 300;
+    g.gain.value = 0.15;
+    o.connect(g); g.connect(ctx.destination);
+    o.start(); o.stop(ctx.currentTime + (ok ? 0.09 : 0.18));
+  }catch(e){}
+}
+function rscanFlash(color){
+  var el = document.getElementById('rscanFlash');
+  if(!el) return;
+  el.style.background = color;
+  setTimeout(function(){ el.style.background='rgba(0,0,0,0)'; }, 160);
+}
+function handleRscanResult(rawCode){
+  var normalized = String(rawCode).trim();
+  if(!normalized) return;
+  var now = Date.now();
+  if(normalized === RSCAN.lastCode && (now - RSCAN.lastTime) < 1500){ return; } // กันอ่านซ้ำจากเฟรมกล้องเดียวกัน
+  RSCAN.lastCode = normalized; RSCAN.lastTime = now;
+
+  var found = findItemIdxByPrefixCode(normalized);
+  var idx = found.idx;
+  var msgEl = document.getElementById('rscanMsg');
+
+  if(idx === -1){
+    rscanBeep(false); rscanFlash('rgba(209,82,74,.35)'); if(navigator.vibrate) navigator.vibrate(120);
+    msgEl.style.color='var(--er)';
+    msgEl.textContent='✗ ไม่พบรหัส "'+esc(normalized)+'" ในฐานข้อมูล';
+    return;
+  }
+  var it = STATE.items[idx];
+  var existing = RSCAN.batch.find(function(b){ return b.code === it.code; });
+  if(existing){
+    existing.qty += 1;
+    if(found.isNew && existing.newProductCodes.indexOf(normalized) === -1){ existing.newProductCodes.push(normalized); }
+  } else {
+    RSCAN.batch.push({
+      code: it.code, name: it.name, unit: it.unit || 'ขวด', qty: 1, opened: false, expiryDate: '',
+      newProductCodes: found.isNew ? [normalized] : []
+    });
+  }
+
+  rscanBeep(true); rscanFlash('rgba(26,156,107,.30)'); if(navigator.vibrate) navigator.vibrate(40);
+  msgEl.style.color='var(--ok)';
+  msgEl.textContent = found.isNew
+    ? '✓ เพิ่มแล้ว: '+esc(it.name)+' (x'+(existing?existing.qty:1)+') — รหัสล็อตใหม่ จะบันทึกเพิ่มเข้า Product code'
+    : '✓ เพิ่มแล้ว: '+esc(it.name)+' (x'+(existing?existing.qty:1)+')';
+
+  renderRscanBatch();
+}
+function renderRscanBatch(){
+  var el = document.getElementById('rscanBatchList');
+  document.getElementById('rscanCountBadge').textContent = RSCAN.batch.reduce(function(s,b){return s+b.qty;},0);
+  document.getElementById('btnRscanSave').disabled = (RSCAN.batch.length === 0);
+
+  if(!RSCAN.batch.length){
+    el.innerHTML = '<div class="rscan-empty">ยังไม่มีรายการ ลองสแกนบาร์โค้ดดูสิ 👆</div>';
+    return;
+  }
+  el.innerHTML = RSCAN.batch.map(function(b, i){
+    return '<div class="rscan-item'+(b.opened?' opened':'')+'" data-i="'+i+'">'+
+      '<div class="ri-info"><div class="ri-name">'+esc(b.name)+'</div><div class="ri-code">รหัส '+esc(b.code)+' &middot; '+esc(b.unit)+
+        ((b.newProductCodes && b.newProductCodes.length) ? ' &middot; <span style="color:var(--ok);font-weight:700;">+ล็อตใหม่</span>' : '')+
+      '</div>'+
+      '<div style="display:flex;align-items:center;gap:6px;margin-top:4px;">'+
+        '<label style="font-size:11px;color:var(--text-soft);white-space:nowrap;">วันหมดอายุ:</label>'+
+        '<input type="date" data-act="expiry" data-i="'+i+'" value="'+esc(b.expiryDate||'')+'" style="font-size:12px;padding:3px 6px;border-radius:6px;border:1.5px solid var(--border);"/>'+
+      '</div>'+
+      '</div>'+
+      '<div class="ri-open-toggle'+(b.opened?' on':'')+'" data-act="toggleopen" data-i="'+i+'"><div class="rot-sw"></div><div class="rot-lbl">เปิดใช้</div></div>'+
+      '<div class="rscan-stepper">'+
+        '<button data-act="dec" data-i="'+i+'">−</button>'+
+        '<span class="rs-qty">'+b.qty+'</span>'+
+        '<button data-act="inc" data-i="'+i+'">+</button>'+
+      '</div>'+
+      '<button class="ri-remove" data-act="remove" data-i="'+i+'">✕</button>'+
+    '</div>';
+  }).join('');
+
+  el.querySelectorAll('input[data-act="expiry"]').forEach(function(elInput){
+    elInput.onchange = function(){
+      var i = Number(this.dataset.i);
+      RSCAN.batch[i].expiryDate = this.value;
+    };
+  });
+
+  el.querySelectorAll('[data-act]:not(input)').forEach(function(elBtn){
+    elBtn.onclick = function(){
+      var i = Number(this.dataset.i), act = this.dataset.act;
+      if(act==='inc'){ RSCAN.batch[i].qty += 1; }
+      else if(act==='dec'){ RSCAN.batch[i].qty = Math.max(1, RSCAN.batch[i].qty - 1); }
+      else if(act==='remove'){ RSCAN.batch.splice(i,1); }
+      else if(act==='toggleopen'){ RSCAN.batch[i].opened = !RSCAN.batch[i].opened; }
+      renderRscanBatch();
+    };
+  });
+}
+document.getElementById('btnGoReceive').onclick = function(){
+  showView('receive');
+  openScanReceive();
+};
+document.getElementById('btnExitReceive').onclick = function(){
+  showView('emp');
+};
+document.getElementById('rscanManualInput').addEventListener('keydown', function(e){
+  if(e.key==='Enter'){
+    var v = this.value.trim();
+    if(v){ handleRscanResult(v); this.value=''; }
+  }
+});
+document.getElementById('btnRscanSave').onclick = function(){
+  var empName = document.getElementById('rscanEmpName').value.trim();
+  var receivedDate = document.getElementById('rscanReceivedDate').value || todayIsoDate_();
+  if(!empName){ alert('กรุณาระบุชื่อผู้รับเข้า'); return; }
+  if(!RSCAN.batch.length){ alert('ยังไม่มีรายการที่สแกน'); return; }
+
+  var payload = {
+    employeeName: empName,
+    receivedDate: receivedDate,
+    items: RSCAN.batch.map(function(b){
+      return { itemCode: b.code, itemName: b.name, qty: b.qty, opened: b.opened, openedDate: b.opened ? receivedDate : '', expiryDate: b.expiryDate || '', newProductCodes: b.newProductCodes || [] };
+    })
+  };
+
+  var btn = this;
+  btn.disabled = true; btn.textContent = 'กำลังบันทึกข้อมูล...';
+
+  google.script.run.withSuccessHandler(function(res){
+    btn.disabled = false; btn.textContent = '✓ บันทึกการรับเข้าทั้งหมด';
+    var failed = (res.results||[]).filter(function(r){ return !r.success; });
+    var okCount = res.receivedCount || 0;
+    var msg = '✅ บันทึกการรับเข้าสำเร็จ '+okCount+' รายการ';
+    if(failed.length){ msg += '\n⚠ ไม่สำเร็จ '+failed.length+' รายการ: '+failed.map(function(f){return f.itemCode+' ('+f.error+')';}).join(', '); }
+    alert(msg);
+    RSCAN.batch = [];
+    renderRscanBatch();
+    document.getElementById('rscanEmpName').value = '';
+    // รีเฟรชรายการสารเคมีในหน้าเช็คของ ให้ยอดคงเหลือล่าสุด
+    google.script.run.withSuccessHandler(function(items){ STATE.items = items; renderCatTabs(); renderItems(); }).withFailureHandler(function(){}).getMasterItems();
+  }).withFailureHandler(function(err){
+    btn.disabled = false; btn.textContent = '✓ บันทึกการรับเข้าทั้งหมด';
+    onError(err);
+  }).receiveChemicalScan(payload);
+};
+
+/* ============================================================
+   ส่งใบตรวจนับ
+   ============================================================ */
+document.getElementById('btnSubmit').onclick=function(){
+  var uncheckedCount = Object.keys(STATE.itemState).filter(function(k){ return !STATE.itemState[k].checked; }).length;
+  if(uncheckedCount>0){ alert('กรุณายืนยันการตรวจนับให้ครบทุกรายการก่อนส่งใบตรวจนับ (ยังเหลืออีก '+uncheckedCount+' รายการ)'); return; }
+  var btn=this; btn.disabled=true; btn.textContent='กำลังส่ง...';
+  var items = STATE.items.map(function(it, idx){
+    var st = STATE.itemState[idx];
+    return { code: it.code, name: it.name, manufacturer: it.manufacturer, expectedQty: it.qty, actualQty: st.actualQty,
+      openBottles: st.openBottles, remark: composeRemark(st), remainingApprox: st.remainingApprox, unit: it.unit, checked: st.checked, checkedAt: st.checkedAt || '', qrCode: st.qrCode || '' };
+  });
+  google.script.run.withSuccessHandler(function(){
+    document.getElementById('modalSuccess').classList.add('open');
+  }).withFailureHandler(function(err){ onError(err); btn.disabled=false; btn.textContent='ส่งใบตรวจนับ'; })
+  .submitChecklist({ employeeName: document.getElementById('employeeName').value.trim(), signatureBase64: STATE.employeeSignature, items: items });
+};
+document.getElementById('btnSuccessClose').onclick=function(){ window.location.reload(); };
+
+/* ============================================================
+   สลับหน้า: พนักงาน <-> หลังบ้าน
+   ============================================================ */
+var CURRENT_VIEW = 'emp';
+function showView(name){
+  if(CURRENT_VIEW === 'receive' && name !== 'receive'){ stopRscanScanner(); }
+  CURRENT_VIEW = name;
+  document.getElementById('viewEmployee').classList.toggle('hidden', name!=='emp');
+  document.getElementById('viewSummary').classList.toggle('hidden', name!=='summary');
+  document.getElementById('viewBackendGate').classList.toggle('hidden', name!=='gate');
+  document.getElementById('viewBackend').classList.toggle('hidden', name!=='backend');
+  document.getElementById('viewReceive').classList.toggle('hidden', name!=='receive');
+}
+document.getElementById('btnGoSummary').onclick=function(){
+  showView('summary');
+  loadPublicSummaryMonths();
+};
+document.getElementById('btnExitSummary').onclick=function(){ showView('emp'); };
+document.getElementById('btnGoBackend').onclick=function(){
+  showView('gate');
+  document.getElementById('gatePinInput').value='';
+  document.getElementById('gatePinError').textContent='';
+  setTimeout(function(){ document.getElementById('gatePinInput').focus(); },200);
+};
+document.getElementById('btnGateBack').onclick=function(){ showView('emp'); };
+document.getElementById('btnExitBackend').onclick=function(){ BE.pin=''; showView('emp'); };
+document.getElementById('gatePinInput').addEventListener('keydown', function(e){ if(e.key==='Enter') submitGatePin(); });
+document.getElementById('btnGatePinConfirm').onclick=submitGatePin;
+
+function submitGatePin(){
+  var pin = document.getElementById('gatePinInput').value.trim();
+  if(!pin){ document.getElementById('gatePinError').textContent='กรุณากรอกรหัส PIN'; return; }
+  var btn = document.getElementById('btnGatePinConfirm');
+  btn.disabled=true; btn.textContent='กำลังตรวจสอบ...';
+  google.script.run.withSuccessHandler(function(items){
+    btn.disabled=false; btn.textContent='เข้าสู่ระบบ';
+    BE.pin = pin; BE.master = items;
+    showView('backend');
+    setActiveBeTab('dash');
+    loadDashboard();
+    google.script.run.withSuccessHandler(function(list){ BE.pending=list; updatePendingBadge(); }).withFailureHandler(function(){}).getPendingSubmissions(pin);
+    google.script.run.withSuccessHandler(function(list){ BE.editRequests=list; updateReqBadge(list.length); }).withFailureHandler(function(){}).getEditRequests(pin);
+  }).withFailureHandler(function(){
+    btn.disabled=false; btn.textContent='เข้าสู่ระบบ';
+    document.getElementById('gatePinError').textContent='รหัส PIN ไม่ถูกต้อง';
+  }).adminGetItems(pin);
+}
+
+/* ============================================================
+   Backend tabs
+   ============================================================ */
+document.querySelectorAll('.be-tab').forEach(function(tab){
+  tab.onclick=function(){ setActiveBeTab(this.dataset.tab); };
+});
+function setActiveBeTab(name){
+  BE.activeTab = name;
+  document.querySelectorAll('.be-tab').forEach(function(t){ t.classList.toggle('active', t.dataset.tab===name); });
+  document.getElementById('beTabDash').classList.toggle('hidden', name!=='dash');
+  document.getElementById('beTabPending').classList.toggle('hidden', name!=='pending');
+  document.getElementById('beTabMaster').classList.toggle('hidden', name!=='master');
+  if(name==='pending') loadPending();
+  if(name==='master') renderAdminList();
+}
+
+function updatePendingBadge(){
+  var total = BE.pending.length + (BE.editRequests? BE.editRequests.length : 0);
+  document.getElementById('statPendingCount').textContent = BE.pending.length;
+  var b=document.getElementById('pendingBadge');
+  if(total){ b.textContent=total; b.classList.remove('hidden'); } else b.classList.add('hidden');
+}
+function updateReqBadge(count){
+  document.getElementById('statReqCount').textContent = count;
+  updatePendingBadge();
+}
+
+/* ---------- Dashboard ---------- */
+function loadDashboard(){
+  document.getElementById('statItemCount').textContent = BE.master.length;
+  loadArchiveMonths();
+}
+function loadArchiveMonths(){
+  var el = document.getElementById('archiveContent');
+  el.innerHTML = '<div class="loading-dots">กำลังโหลด...</div>';
+  google.script.run.withSuccessHandler(function(months){ renderArchiveMonths(months, 'archiveContent'); }).withFailureHandler(onError).getArchiveMonths();
+}
+function loadPublicSummaryMonths(){
+  var el = document.getElementById('publicSummaryContent');
+  el.innerHTML = '<div class="loading-dots">กำลังโหลด...</div>';
+  google.script.run.withSuccessHandler(function(months){ renderArchiveMonths(months, 'publicSummaryContent'); }).withFailureHandler(onError).getArchiveMonths();
+}
+function renderArchiveMonths(months, targetId){
+  var el = document.getElementById(targetId || 'archiveContent');
+  if(!months.length){ el.innerHTML='<div class="empty-state">ยังไม่มีข้อมูลที่อนุมัติแล้ว</div>'; return; }
+  el.innerHTML='';
+  months.forEach(function(m){
+    var card=document.createElement('div');
+    card.className='month-card';
+    card.innerHTML =
+      '<div><div class="m-label">'+esc(m.label)+'</div>'+
+      '<div class="m-meta">'+m.submissionCount+' ใบตรวจนับ &middot; '+m.itemCount+' รายการ'+
+      (m.discrepancyCount>0 ? ' &middot; <span style="color:var(--er);">⚠ '+m.discrepancyCount+' ไม่ตรง</span>' : '')+
+      '</div></div><div class="list-action">ดู ➔</div>';
+    card.onclick=function(){ openMonthDetail(m.monthKey, m.label); };
+    el.appendChild(card);
+  });
+}
+function openMonthDetail(monthKey, label){
+  document.getElementById('monthDetailTitle').textContent = 'สารเคมีคงเหลือ: ' + label;
+  document.getElementById('monthDetailSub').textContent = 'กำลังโหลด...';
+  document.getElementById('monthDetailContent').innerHTML = '<div class="loading-dots">กำลังโหลด...</div>';
+  document.getElementById('modalMonthDetail').classList.add('open');
+  google.script.run.withSuccessHandler(renderMonthDetail).withFailureHandler(onError).getMonthlyRemainingSummary(monthKey);
+}
+document.getElementById('closeMonthDetail').onclick=function(){ document.getElementById('modalMonthDetail').classList.remove('open'); };
+function renderMonthDetail(data){
+  var sub = document.getElementById('monthDetailSub');
+  var el = document.getElementById('monthDetailContent');
+  if(!data.items || !data.items.length){ sub.textContent = 'ไม่มีข้อมูล'; el.innerHTML='<div class="empty-state">ไม่มีข้อมูล</div>'; return; }
+  sub.textContent = 'ตรวจนับแล้ว '+data.totals.checkedCount+'/'+data.totals.itemCount+' รายการ'+
+    (data.totals.discrepancyCount>0 ? (' &middot; ⚠ ไม่ตรงเอกสาร '+data.totals.discrepancyCount+' รายการ') : ' – ครบถ้วนทุกรายการ');
+  var cats = [], grouped = {};
+  data.items.forEach(function(it){ var c = categoryOf(it.code); if(!grouped[c]){ grouped[c]=[]; cats.push(c); } grouped[c].push(it); });
+  var html = '<div class="stat-row">'+
+    '<div class="stat-chip"><div class="s-num">'+data.totals.itemCount+'</div><div class="s-lbl">รายการทั้งหมด</div></div>'+
+    '<div class="stat-chip"><div class="s-num">'+data.totals.checkedCount+'</div><div class="s-lbl">ตรวจนับแล้ว</div></div>'+
+    '<div class="stat-chip warn"><div class="s-num">'+data.totals.discrepancyCount+'</div><div class="s-lbl">ไม่ตรงกับเอกสาร</div></div>'+
+  '</div>';
+  html += '<div class="summary-table-wrap"><table class="summary-table"><thead><tr>'+
+    '<th>ตำแหน่ง</th><th>รายการชื่อสารเคมี/วัสดุ</th><th>ยี่ห้อ</th><th>Product Code (ทั้งหมด)</th>'+
+    '<th>จำนวนคงเหลือจริง</th><th>ขวดที่เปิดใช้อยู่</th><th>เหลือประมาณ (ขวดเปิด)</th><th>หมายเหตุ</th>'+
+  '</tr></thead><tbody>';
+  cats.forEach(function(c){
+    html += '<tr class="cat-row"><td colspan="7">'+esc(c)+'</td></tr>';
+    grouped[c].forEach(function(it){
+      var rowCls = it.hasDiscrepancy ? 'disc-row' : (!it.checked ? 'unchecked-row' : '');
+      var codesHtml = '-';
+      if(it.productCodes && it.productCodes.length && it.productCodes[0]!=='-'){
+        codesHtml = it.productCodes.map(function(pc){ return '<span class="code-pill">'+esc(pc)+'</span>'; }).join('');
+      }
+      var openHtml = (it.openBottles && it.openBottles.length) ? it.openBottles.map(function(pc){ return '<span class="code-pill open">'+esc(pc)+'</span>'; }).join('') : '<span style="color:var(--text-faint);">ไม่มีขวดเปิดใช้</span>';
+      var qtyHtml = it.checked ? (it.actualQty+' '+esc(it.unit||'')) : (it.docQty + ' <span class="unchecked-tag">(ยังไม่ตรวจเดือนนี้)</span>');
+      html += '<tr class="'+rowCls+'">'+
+        '<td class="col-code">'+esc(it.code)+'</td>'+
+        '<td class="col-name">'+esc(it.name)+'</td>'+
+        '<td>'+esc(it.manufacturer)+'</td>'+
+        '<td>'+codesHtml+'</td>'+
+        '<td class="col-qty">'+qtyHtml+'</td>'+
+        '<td>'+openHtml+'</td>'+
+        '<td>'+esc(it.remainingApprox||'-')+'</td>'+
+        '<td>'+esc(it.remark||'-')+'</td>'+
+      '</tr>';
+    });
+  });
+  html += '</tbody></table></div>';
+  el.innerHTML = html;
+}
+
+/* ---------- รอตรวจสอบ / อนุมัติ ---------- */
+function loadPending(){
+  document.getElementById('pendingContent').innerHTML='<div class="loading-dots">กำลังโหลด...</div>';
+  google.script.run.withSuccessHandler(function(list){
+    BE.pending=list; updatePendingBadge();
+    google.script.run.withSuccessHandler(function(reqs){ BE.editRequests=reqs; updateReqBadge(reqs.length); renderPending(); })
+      .withFailureHandler(onError).getEditRequests(BE.pin);
+  }).withFailureHandler(onError).getPendingSubmissions(BE.pin);
+}
+function tsFromId_(id){ var m=String(id).match(/(\d+)$/); return m ? Number(m[1]) : 0; }
+function renderPending(){
+  var el=document.getElementById('pendingContent');
+  var merged = BE.pending.map(function(s){ return { kind:'submission', ts: tsFromId_(s.submissionId), data:s }; })
+    .concat(BE.editRequests.map(function(r){ return { kind:'request', ts: tsFromId_(r.requestId), data:r }; }));
+  merged.sort(function(a,b){ return b.ts - a.ts; });
+  if(!merged.length){ el.innerHTML='<div class="empty-state">ไม่มีรายการรอตรวจสอบ 🎉</div>'; return; }
+  el.innerHTML='';
+  merged.forEach(function(m){
+    if(m.kind==='submission'){
+      var sub=m.data;
+      var card=document.createElement('div');
+      card.className='list-row';
+      card.innerHTML =
+        '<div class="list-info">'+
+          '<div class="list-name">📋 '+esc(sub.employeeName)+'</div>'+
+          '<div class="list-meta">ส่งเมื่อ '+fmtDate(sub.submittedAt)+' &middot; '+(sub.itemCount||0)+' รายการ'+
+          (sub.discrepancyCount>0 ? ' &middot; <span style="color:var(--er);font-weight:700;">⚠ '+sub.discrepancyCount+' ไม่ตรง</span>' : ' &middot; <span style="color:var(--ok);font-weight:700;">✓ ครบถ้วน</span>')+
+          '</div></div><div class="list-action">ตรวจสอบ</div>';
+      card.onclick=function(){ openReviewDetail(sub.submissionId); };
+      el.appendChild(card);
+    } else {
+      var req=m.data;
+      var box=document.createElement('div');
+      box.className='detail-item disc';
+      var typeLabel = req.type==='code_change' ? 'ขอแก้ไขรหัสสินค้า' : 'ขอแก้ไขรายละเอียด';
+      var html = '<div class="detail-item-name">✏ '+esc(typeLabel)+' &middot; '+esc(req.itemCode)+' '+esc(req.itemName)+'</div>'+
+        '<div class="detail-item-row"><span>โดย: <b>'+esc(req.requesterName)+'</b></span><span>'+fmtDate(req.requestedAt)+'</span></div>';
+      if(req.type==='code_change'){
+        if(req.addCodes.length) html += '<div class="detail-item-row"><span>เพิ่ม: <b>'+esc(req.addCodes.join(', '))+'</b></span>'+(req.addReason? ' <span>เหตุผล: '+esc(req.addReason)+'</span>':'')+'</div>';
+        if(req.removeCodes.length) html += '<div class="detail-item-row"><span>ลบ: <b>'+esc(req.removeCodes.join(', '))+'</b></span>'+(req.removeReason? ' <span>เหตุผล: '+esc(req.removeReason)+'</span>':'')+'</div>';
+      }
+      if(req.requestNote) html += '<div class="detail-item-row"><span>หมายเหตุ: '+esc(req.requestNote)+'</span></div>';
+      html += '<div style="display:flex;gap:8px;margin-top:8px;"><button class="btn-ghost req-reject" data-id="'+req.requestId+'" style="flex:1;">ปฏิเสธ</button>'+
+        '<button class="btn-primary req-approve" data-id="'+req.requestId+'" style="flex:1;">อนุมัติ</button></div>';
+      box.innerHTML = html;
+      el.appendChild(box);
+    }
+  });
+  el.querySelectorAll('.req-approve').forEach(function(btn){ btn.onclick=function(){ resolveReq(this.dataset.id,'approve'); }; });
+  el.querySelectorAll('.req-reject').forEach(function(btn){ btn.onclick=function(){ resolveReq(this.dataset.id,'reject'); }; });
+}
+function resolveReq(requestId, action){
+  google.script.run.withSuccessHandler(function(list){
+    BE.editRequests=list; updateReqBadge(list.length); renderPending();
+    if(action==='approve'){ google.script.run.withSuccessHandler(function(items){ BE.master=items; }).adminGetItems(BE.pin); }
+  }).withFailureHandler(onError).resolveEditRequest(BE.pin, requestId, action);
+}
+function openReviewDetail(submissionId){
+  document.getElementById('detailItemsContent').innerHTML='<div class="loading-dots">กำลังโหลด...</div>';
+  document.getElementById('modalReviewDetail').classList.add('open');
+  google.script.run.withSuccessHandler(function(detail){ BE.currentDetail=detail; renderReviewDetail(detail); })
+    .withFailureHandler(onError).getSubmissionDetail(BE.pin, submissionId);
+}
+document.getElementById('closeReviewDetail').onclick=function(){ document.getElementById('modalReviewDetail').classList.remove('open'); };
+
+function renderReviewDetail(detail){
+  document.getElementById('detailEmployeeName').textContent = 'พนักงาน: ' + detail.employeeName;
+  document.getElementById('detailMeta').textContent = 'เวลาส่ง: '+fmtDate(detail.submittedAt);
+  var canEditDirectly = (detail.status !== 'ตรวจสอบแล้ว');
+  var itemsEl=document.getElementById('detailItemsContent');
+  itemsEl.innerHTML='';
+  detail.items.forEach(function(it, idx){
+    var row=document.createElement('div');
+    row.className='detail-item'+(it.hasDiscrepancy?' disc':'');
+    row.innerHTML =
+      '<div class="detail-item-name">'+esc(it.code)+' &middot; '+esc(it.name)+'</div>'+
+      '<div class="detail-item-row"><span>เอกสาร: <b>'+it.expectedQty+'</b></span><span>นับได้จริง: <b>'+it.actualQty+'</b></span></div>'+
+      (it.checkedAt? '<div class="detail-item-row"><span>เวลาตรวจเช็ค: <b>'+esc(it.checkedAt)+'</b></span></div>' : '')+
+      (it.qrCode? '<div class="detail-item-row"><span>สแกนยืนยันรหัส: <b>'+esc(it.qrCode)+'</b></span></div>' : '')+
+      (it.remainingApprox? '<div class="detail-item-row"><span>เหลือประมาณ (ขวดเปิด): '+esc(it.remainingApprox)+'</span></div>' : '')+
+      (it.remark? '<div class="detail-item-row"><span>หมายเหตุ: '+esc(it.remark)+'</span></div>' : '')+
+      (canEditDirectly ? '<div class="link-text link-edit-item" data-idx="'+idx+'">✎ แก้ไขรายการนี้</div>' : '')+
+      '<div class="detail-item-edit hidden" id="editBox_'+idx+'">'+
+        '<div class="field-row"><label>ชื่อรายการ</label><input type="text" class="input" id="editName_'+idx+'" value="'+esc(it.name)+'"/></div>'+
+        '<div class="field-row"><label>ผู้ผลิต</label><input type="text" class="input" id="editMfr_'+idx+'" value="'+esc(it.manufacturer)+'"/></div>'+
+        '<div class="field-row"><label>จำนวนนับได้จริง</label><input type="number" min="0" class="input" id="editQty_'+idx+'" value="'+it.actualQty+'"/></div>'+
+        '<div class="field-row"><label>เหลือประมาณ (ขวดเปิด)</label><input type="text" class="input" id="editRemaining_'+idx+'" value="'+esc(it.remainingApprox||'')+'"/></div>'+
+        '<div class="field-row"><label>หมายเหตุ</label><input type="text" class="input" id="editRemark_'+idx+'" value="'+esc(it.remark)+'"/></div>'+
+        '<button class="btn-mini btn-save-item-edit" data-idx="'+idx+'" style="margin-top:8px;">บันทึกการแก้ไข</button>'+
+      '</div>';
+    itemsEl.appendChild(row);
+  });
+  itemsEl.querySelectorAll('.link-edit-item').forEach(function(link){
+    link.onclick=function(){ document.getElementById('editBox_'+this.dataset.idx).classList.toggle('hidden'); };
+  });
+  itemsEl.querySelectorAll('.btn-save-item-edit').forEach(function(btn){
+    btn.onclick=function(){
+      var idx=this.dataset.idx, it=detail.items[idx];
+      var newData = { name: document.getElementById('editName_'+idx).value.trim(), manufacturer: document.getElementById('editMfr_'+idx).value.trim(),
+        actualQty: document.getElementById('editQty_'+idx).value, remark: document.getElementById('editRemark_'+idx).value.trim(),
+        remainingApprox: document.getElementById('editRemaining_'+idx).value.trim() };
+      var thisBtn=this; thisBtn.disabled=true; thisBtn.textContent='กำลังบันทึก...';
+      google.script.run.withSuccessHandler(function(freshDetail){ BE.currentDetail=freshDetail; renderReviewDetail(freshDetail); })
+        .withFailureHandler(function(err){ thisBtn.disabled=false; thisBtn.textContent='บันทึกการแก้ไข'; onError(err); })
+        .updateSubmissionItemDetail(BE.pin, detail.submissionId, it.code, it.name, newData);
+    };
+  });
+
+  var approveEl = document.getElementById('detailApproveSection');
+  if(detail.status==='ตรวจสอบแล้ว'){
+    approveEl.innerHTML = '<div style="text-align:center;padding:12px;border-radius:12px;background:var(--ok-lt);color:var(--ok);font-weight:700;font-size:13px;">✓ ตรวจสอบและอนุมัติแล้วโดย '+esc(detail.reviewerName)+'</div>';
+  } else {
+    approveEl.innerHTML =
+      '<div class="field-row"><label>ชื่อ-สกุลผู้ตรวจสอบ</label><input type="text" class="input" id="reviewerName" placeholder="พิมพ์ชื่อ-นามสกุล"/></div>'+
+      '<button class="btn-primary btn-block" id="btnOpenReviewerSign" style="margin-top:10px;">ลงลายเซ็นและอนุมัติ</button>';
+    document.getElementById('btnOpenReviewerSign').onclick=function(){
+      var nm=document.getElementById('reviewerName').value.trim();
+      if(!nm){ alert('กรุณาระบุชื่อผู้ตรวจสอบ'); return; }
+      BE.reviewerName = nm;
+      document.getElementById('modalSignReviewer').classList.add('open');
+      if(!reviewerSigPad){ reviewerSigPad=makeSigPad('sigCanvasReviewer','sigHintReviewer'); } else reviewerSigPad.resize();
+    };
+  }
+}
+document.getElementById('closeSignReviewer').onclick=function(){ document.getElementById('modalSignReviewer').classList.remove('open'); };
+document.getElementById('clearSigReviewer').onclick=function(){ reviewerSigPad.clear(); };
+document.getElementById('saveSigReviewer').onclick=function(){
+  if(reviewerSigPad.isEmpty()){ alert('กรุณาวาดลายเซ็นก่อน'); return; }
+  var sig = reviewerSigPad.toDataURL();
+  var btn=this; btn.disabled=true; btn.textContent='กำลังบันทึก...';
+  google.script.run.withSuccessHandler(function(){
+    btn.disabled=false; btn.textContent='ยืนยันลายเซ็น';
+    document.getElementById('modalSignReviewer').classList.remove('open');
+    document.getElementById('modalReviewDetail').classList.remove('open');
+    loadPending(); loadArchiveMonths();
+  }).withFailureHandler(function(err){ onError(err); btn.disabled=false; btn.textContent='ยืนยันลายเซ็น'; })
+  .approveSubmission(BE.pin, BE.currentDetail.submissionId, BE.reviewerName, sig);
+};
+
+/* ---------- รายการหลัก (Master items) ---------- */
+function renderAdminList(){
+  google.script.run.withSuccessHandler(function(items){
+    BE.master = items;
+    document.getElementById('statItemCount').textContent = items.length;
+    var el = document.getElementById('adminListContent');
+    el.innerHTML='';
+    if(!items.length){ el.innerHTML='<div class="empty-state">ยังไม่มีรายการ แตะ "+ เพิ่มรายการใหม่" ด้านบน</div>'; return; }
+    items.forEach(function(it){
+      var row=document.createElement('div');
+      row.className='list-row';
+      row.style.cursor='default';
+      row.innerHTML =
+        '<div class="list-info"><div class="list-name">'+esc(it.code)+' &middot; '+esc(it.name)+'</div>'+
+        '<div class="list-meta">'+esc(it.manufacturer||'-')+' &middot; คงเหลือตามเอกสาร '+it.qty+' '+esc(it.unit||'')+'</div></div>'+
+        '<div style="display:flex;gap:6px;flex-shrink:0;">'+
+        '<button class="btn-ghost" style="padding:7px 10px; color:var(--ok); font-weight:bold;" data-action="receive" data-row="'+it.rowIndex+'" title="รับเข้าสารเคมี">📥</button>'+
+        '<button class="btn-ghost" style="padding:7px 10px;" data-action="edit" data-row="'+it.rowIndex+'">✎</button>'+
+        '<button class="btn-ghost" style="padding:7px 10px;" data-action="delete" data-row="'+it.rowIndex+'">🗑</button></div>';
+      el.appendChild(row);
+    });
+    el.querySelectorAll('[data-action]').forEach(function(btn){
+      btn.onclick=function(e){
+        e.stopPropagation();
+        var rowIndex = Number(this.dataset.row), action=this.dataset.action;
+        var item = BE.master.find(function(x){ return x.rowIndex===rowIndex; });
+        if(!item) return;
+        
+        if(action==='edit'){ openAdminEdit(item); } 
+        else if(action==='receive'){ openReceiveModal(item); }
+        else { adminDeleteFlow(item); }
+      };
+    });
+  }).withFailureHandler(onError).adminGetItems(BE.pin);
+}
+document.getElementById('btnAdminAddNew').onclick=function(){ openAdminEdit(null); };
+document.getElementById('closeAdminEdit').onclick=function(){ document.getElementById('modalAdminEdit').classList.remove('open'); };
+function openAdminEdit(item){
+  BE.editingRowIndex = item ? item.rowIndex : null;
+  document.getElementById('adminEditTitle').textContent = item ? 'แก้ไขรายการ' : 'เพิ่มรายการใหม่';
+  document.getElementById('adminFieldCode').value = item ? item.code : '';
+  document.getElementById('adminFieldName').value = item ? item.name : '';
+  document.getElementById('adminFieldMfr').value = item ? item.manufacturer : '';
+  document.getElementById('adminFieldCodes').value = item ? (item.productCodes||[]).join(', ') : '';
+  document.getElementById('adminFieldQty').value = item ? item.qty : 0;
+  document.getElementById('adminFieldUnit').value = item ? (item.unit||'ขวด') : 'ขวด';
+  document.getElementById('adminFieldNote').value = item ? item.note : '';
+  document.getElementById('btnAdminDeleteConfirm').classList.toggle('hidden', !item);
+  document.getElementById('modalAdminEdit').classList.add('open');
+}
+function readAdminForm_(){
+  return {
+    code: document.getElementById('adminFieldCode').value.trim() || '-',
+    name: document.getElementById('adminFieldName').value.trim(),
+    manufacturer: document.getElementById('adminFieldMfr').value.trim(),
+    productCodes: document.getElementById('adminFieldCodes').value.split(',').map(function(s){ return s.trim(); }).filter(function(s){ return s; }),
+    qty: Number(document.getElementById('adminFieldQty').value) || 0,
+    unit: document.getElementById('adminFieldUnit').value.trim() || 'ขวด',
+    note: document.getElementById('adminFieldNote').value.trim()
+  };
+}
+document.getElementById('btnAdminSave').onclick=function(){
+  var payload = readAdminForm_();
+  if(!payload.name){ alert('กรุณาระบุชื่อรายการ'); return; }
+  var btn=this; btn.disabled=true; btn.textContent='กำลังบันทึก...';
+  function onSaved(){ btn.disabled=false; btn.textContent='บันทึก'; document.getElementById('modalAdminEdit').classList.remove('open'); renderAdminList(); }
+  function onSaveError(err){ btn.disabled=false; btn.textContent='บันทึก'; onError(err); }
+  if(BE.editingRowIndex){
+    google.script.run.withSuccessHandler(onSaved).withFailureHandler(onSaveError).adminUpdateItem(BE.pin, BE.editingRowIndex, payload);
+  } else {
+    google.script.run.withSuccessHandler(onSaved).withFailureHandler(onSaveError).adminAddItem(BE.pin, payload);
+  }
+};
+document.getElementById('btnAdminDeleteConfirm').onclick=function(){
+  var item = BE.master.find(function(x){ return x.rowIndex===BE.editingRowIndex; });
+  if(!item) return;
+  if(!confirm('ยืนยันการลบ "'+item.name+'" ?')) return;
+  var btn=this; btn.disabled=true; btn.textContent='กำลังลบ...';
+  google.script.run.withSuccessHandler(function(){ btn.disabled=false; btn.textContent='ลบรายการนี้'; document.getElementById('modalAdminEdit').classList.remove('open'); renderAdminList(); })
+    .withFailureHandler(function(err){ btn.disabled=false; btn.textContent='ลบรายการนี้'; onError(err); }).adminDeleteItem(BE.pin, BE.editingRowIndex);
+};
+function adminDeleteFlow(item){
+  if(!confirm('ยืนยันการลบ "'+item.name+'" ?')) return;
+  google.script.run.withSuccessHandler(function(){ renderAdminList(); }).withFailureHandler(onError).adminDeleteItem(BE.pin, item.rowIndex);
+}
+
+/* ---------- คำขอแก้ไข: รวมเข้ากับแท็บรอตรวจสอบแล้ว ---------- */
+
+
+/* ---------- ระบบรับเข้าสารเคมี (Receiving) ---------- */
+var receiveTargetItem = null;
+
+function openReceiveModal(item) {
+  receiveTargetItem = item;
+  document.getElementById('receiveItemTitle').innerHTML = 
+    '<b>' + esc(item.code) + '</b> &middot; ' + esc(item.name) + 
+    '<br><span style="color:var(--text-faint);">ยอดคงเหลือปัจจุบัน: ' + item.qty + ' ' + esc(item.unit||'ขวด') + '</span>';
+  
+  document.getElementById('receiveEmpName').value = '';
+  document.getElementById('receiveQty').value = '';
+  document.getElementById('receiveRemark').value = '';
+  document.getElementById('modalReceive').classList.add('open');
+}
+
+document.getElementById('closeReceive').onclick = function() { 
+  document.getElementById('modalReceive').classList.remove('open'); 
+};
+
+document.getElementById('btnReceiveSave').onclick = function() {
+  if (!receiveTargetItem) return;
+  var empName = document.getElementById('receiveEmpName').value.trim();
+  var qty = Number(document.getElementById('receiveQty').value);
+  var remark = document.getElementById('receiveRemark').value.trim();
+
+  if (!empName) { alert('กรุณาระบุชื่อผู้รับเข้า'); return; }
+  if (!qty || qty <= 0) { alert('กรุณาระบุจำนวนที่รับเข้า (ต้องมากกว่า 0)'); return; }
+
+  var payload = {
+    itemCode: receiveTargetItem.code,
+    itemName: receiveTargetItem.name,
+    employeeName: empName,
+    receiveQty: qty,
+    remark: remark
+  };
+
+  var btn = this; 
+  btn.disabled = true; 
+  btn.textContent = 'กำลังบันทึกข้อมูล...';
+
+  google.script.run.withSuccessHandler(function(res) {
+    btn.disabled = false; 
+    btn.textContent = 'ยืนยันการรับเข้า';
+    document.getElementById('modalReceive').classList.remove('open');
+    alert('✅ รับเข้าสำเร็จ!\nสารเคมี: ' + payload.itemName + '\nยอดใหม่: ' + res.newQty);
+    renderAdminList(); // รีเฟรชรายการให้ยอดอัปเดตทันที
+    loadDashboard();   // รีเฟรชยอดรวมหน้าแรก
+  }).withFailureHandler(function(err) {
+    btn.disabled = false; 
+    btn.textContent = 'ยืนยันการรับเข้า';
+    onError(err);
+  }).receiveChemical(BE.pin, payload);
+};
+
+</script>
+</body>
+</html>
