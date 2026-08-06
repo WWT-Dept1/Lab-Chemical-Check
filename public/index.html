@@ -536,7 +536,7 @@ textarea.input{resize:vertical; min-height:64px; line-height:1.5;}
         <div class="scanbox-flash" id="qrScanFlash"></div>
         <div class="scanbox-success" id="qrScanSuccess"></div>
         <button type="button" class="scanbox-torch" id="qrScanTorch" style="display:none;">🔦</button>
-        <div class="scanbox-tip">ถือกล้องนิ่ง ๆ ให้บาร์โค้ดเต็มกรอบเขียว ห่างประมาณ 5–8 ซม. (ยิ่งใกล้ยิ่งชัด)</div>
+        <div class="scanbox-tip">ถือกล้องนิ่ง ๆ ให้บาร์โค้ดเต็มกรอบเขียว ห่างประมาณ 5–8 ซม. — ถ้ามีบาร์โค้ดอื่นชิดกัน ให้เอานิ้ว/กระดาษบังบาร์โค้ดข้างเคียงไว้ก่อนสแกน</div>
       </div>
     </div>
     <div id="qrScanMsg" style="font-size:12.5px;font-weight:600;text-align:center;margin-top:10px;min-height:18px;"></div>
@@ -567,7 +567,7 @@ textarea.input{resize:vertical; min-height:64px; line-height:1.5;}
         <div id="cScanFlash" class="scanbox-flash"></div>
         <div class="scanbox-success" id="cScanSuccess"></div>
         <button type="button" class="scanbox-torch" id="cScanTorch" style="display:none;">🔦</button>
-        <div class="scanbox-tip">ถือกล้องนิ่ง ๆ ให้บาร์โค้ดเต็มกรอบเขียว ห่างประมาณ 5–8 ซม. (ยิ่งใกล้ยิ่งชัด)</div>
+        <div class="scanbox-tip">ถือกล้องนิ่ง ๆ ให้บาร์โค้ดเต็มกรอบเขียว ห่างประมาณ 5–8 ซม. — ถ้ามีบาร์โค้ดอื่นชิดกัน ให้เอานิ้ว/กระดาษบังบาร์โค้ดข้างเคียงไว้ก่อนสแกน</div>
       </div>
     </div>
     <div style="padding:10px 16px;flex-shrink:0;">
@@ -603,7 +603,7 @@ textarea.input{resize:vertical; min-height:64px; line-height:1.5;}
       <div class="rscan-flash" id="rscanFlash"></div>
       <div class="scanbox-success" id="rscanSuccess"></div>
       <button type="button" class="scanbox-torch" id="rscanTorch" style="display:none;">🔦</button>
-      <div class="scanbox-tip">ถือกล้องนิ่ง ๆ ให้บาร์โค้ดเต็มกรอบเขียว ห่างประมาณ 5–8 ซม. (ยิ่งใกล้ยิ่งชัด)</div>
+      <div class="scanbox-tip">ถือกล้องนิ่ง ๆ ให้บาร์โค้ดเต็มกรอบเขียว ห่างประมาณ 5–8 ซม. — ถ้ามีบาร์โค้ดอื่นชิดกัน ให้เอานิ้ว/กระดาษบังบาร์โค้ดข้างเคียงไว้ก่อนสแกน</div>
     </div>
     <div class="rscan-msg" id="rscanMsg">เล็งกล้องไปที่บาร์โค้ด/QR ของสารเคมี...</div>
     <div class="rscan-manual" style="padding-bottom:14px;">
@@ -1174,13 +1174,15 @@ document.getElementById('saveSigEmployee').onclick=function(){
 function barcodeQrbox(viewfinderWidth, viewfinderHeight){
   /* กรอบแคบ (แนวนอน) เพื่อไม่ให้ครอบโดนบาร์โค้ดแถวข้างๆ เวลาสแกนจากตาราง label ที่พิมพ์ชิดกัน
      ผู้ใช้ควรเข้าใกล้/ซูมให้บาร์โค้ดเป้าหมายเติมเต็มกรอบก่อนสแกน
-     ปรับกว้างขึ้นเล็กน้อยจากเดิม (230→260) เผื่อ "แดนเงียบ" (quiet zone) ซ้าย-ขวาของบาร์โค้ดพอดี
-     ไม่งั้นถ้ากรอบแคบไปจนตัดขอบบาร์โค้ด/แดนเงียบ ตัวถอดรหัสจะอ่านไม่ออกเลยทั้งที่ภาพคมชัดดี */
-  var w = Math.floor(Math.min(viewfinderWidth * 0.68, 260));
-  /* ลดสัดส่วนความสูงลงจาก 0.30 → 0.24 เพื่อลดโอกาสครอบโดนขอบบาร์โค้ดแถวบน/ล่างที่ติดกัน
-     (ตัวถอดรหัส JS ล้วนที่ iOS ใช้ ไวต่อการมีเส้นบาร์โค้ดของแถวข้างๆ หลุดเข้ามาในกรอบมากกว่า
-     ตัวถอดรหัสฮาร์ดแวร์ที่ Android Chrome ใช้ ทำให้อ่านสับสน/ไม่ติดง่ายกว่าบนแผ่นป้ายที่วางชิดกัน) */
-  var h = Math.max(46, Math.floor(w * 0.24));
+     [แก้บั๊ก: สแกนเล็งถูกขวด แต่ระบบอ่านได้รหัสของขวดข้างๆ] จากรูปจริงที่ผู้ใช้ส่งมา ป้าย label
+     บนแผ่นพิมพ์วางชิดกันมากทั้งแนวตั้ง-แนวนอน (คอลัมน์ซ้าย-ขวา และแถวบน-ล่างของบาร์โค้ดถัดไปอยู่ห่าง
+     กันไม่กี่มิลลิเมตร) กรอบเดิม (68% ของความกว้าง หรือสูงสุด 260px) กว้างเกินไปสำหรับกรณีนี้
+     จนหลุดไปกินขอบบาร์โค้ดคอลัมน์ข้าง ๆ ได้ ลดสัดส่วน+เพดานลงอีก (0.68→0.5, 260→200)
+     เพื่อให้กรอบครอบเฉพาะบาร์โค้ดเดียวเป็นหลัก ผู้ใช้ต้องเข้าใกล้ขึ้นอีกนิดให้บาร์โค้ดเป้าหมายเต็มกรอบ
+     แต่จะลดโอกาสอ่านโดนรหัสข้างๆ ผิดลงมาก */
+  var w = Math.floor(Math.min(viewfinderWidth * 0.5, 200));
+  /* ลดสัดส่วนความสูงลงอีก (0.24→0.20) ด้วยเหตุผลเดียวกัน — แถวบน-ล่างของ label ก็ชิดกันมากเช่นกัน */
+  var h = Math.max(40, Math.floor(w * 0.20));
   return { width: w, height: h };
 }
 /* ตั้งค่ากล้องกลาง ใช้ร่วมกันทั้งโหมดสแกนทีละรายการและสแกนต่อเนื่อง
@@ -1373,7 +1375,15 @@ function isIOSDevice_(){
    ให้สูงขึ้นอีกเผื่อเครื่องที่รองรับ (ideal เป็นแค่คำขอ ถ้าเครื่องไม่รองรับจะได้ค่าสูงสุดเท่าที่ทำได้เอง
    ไม่ error) ความละเอียดที่สูงขึ้นช่วยให้พื้นที่ถอดรหัส (qrbox) มีพิกเซลของบาร์โค้ดมากขึ้น
    ทดแทนการซูมเลนส์จริงที่ทำผ่านเว็บไม่ได้ */
-var SCAN_VIDEO_CONSTRAINTS_IOS = { width: { ideal: 3840 }, height: { ideal: 2160 } };
+/* [แก้บั๊ก iOS สแกนไม่ติดเลย ไม่ค้าง ไม่ error แค่ไม่เคยอ่านออก]
+   เดิมขอ 3840x2160 (4K) บน iOS โดยหวังว่าเส้นบาร์โค้ดจะคมขึ้น แต่ iOS Safari ไม่มี
+   native BarcodeDetector (ต่างจาก Android Chrome) ตัวถอดรหัสเป็น JavaScript ล้วนที่ทำงาน
+   บน canvas ทุกเฟรม — การป้อนเฟรม 4K เข้าตัวถอดรหัส JS ทุก ๆ 1/10 วินาที เป็นภาระ CPU สูงมาก
+   บนเครื่องที่ไม่แรงพอ (โดยเฉพาะใน LINE in-app browser/WKWebView ที่จำกัดทรัพยากรกว่า Safari ปกติ)
+   ผลคือเฟรมแทบไม่เคยถูกประมวลผลจบทัน ทำให้ "ไม่อ่านค่าเลย" ทั้งที่กล้องเปิดติดปกติ
+   ลดกลับมาให้เท่า Android (1920x1080) แล้วให้ autoApplyZoomBoost_ (digital zoom) ช่วยขยาย
+   บาร์โค้ดในกรอบแทน ซึ่งเบากว่าการเพิ่มความละเอียดจับภาพทั้งเฟรมมาก */
+var SCAN_VIDEO_CONSTRAINTS_IOS = { width: { ideal: 1920 }, height: { ideal: 1080 } };
 function getSafeVideoConstraints_(){
   return isIOSDevice_() ? SCAN_VIDEO_CONSTRAINTS_IOS : SCAN_VIDEO_CONSTRAINTS;
 }
@@ -1638,7 +1648,7 @@ function handleQrResult(code){
     }, 550);
   } else {
     msgEl.style.color='var(--er)';
-    msgEl.textContent='✗ รหัสนี้ไม่ตรงกับรายการ "'+esc(it.name)+'" กรุณาลองใหม่';
+    msgEl.textContent='✗ สแกนได้รหัส "'+esc(normalized)+'" ซึ่งไม่ตรงกับรายการ "'+esc(it.name)+'" (ต้องเป็น '+esc(codes.join(', '))+') กรุณาลองใหม่';
     playScanBeep(false);
     var qrFlashEl2 = document.getElementById('qrScanFlash');
     if(qrFlashEl2){ qrFlashEl2.style.background='rgba(209,82,74,.35)'; setTimeout(function(){ qrFlashEl2.style.background='rgba(0,0,0,0)'; }, 200); }
