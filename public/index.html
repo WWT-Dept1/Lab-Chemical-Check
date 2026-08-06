@@ -1186,10 +1186,18 @@ function getRunningFacingMode_(scannerInstance){
 }
 /* ไล่ลองกล้องทีละตัวตามลำดับ candidates จนกว่าจะเจอตัวที่ยืนยันได้ว่าไม่ใช่กล้องหน้า
    (หรือลองครบทุกตัวแล้วไม่มีอันไหนยืนยันได้ ก็ยอมรับตัวแรกที่ start ได้ ดีกว่าไม่มีกล้องเลย) */
+/* เรียก start() ซ้ำบน scannerInstance เดิมได้อย่างปลอดภัย โดยแทรก stop() คั่นก่อนเสมอ
+   (ป้องกัน "Cannot clear while scan is ongoing" ที่เกิดตอน start() ครั้งก่อนหน้าล้มเหลว
+   แล้วโค้ดเดิมเรียก start() ซ้ำทันทีบน instance เดิมโดยไม่ stop() คั่นก่อน) */
+function safeRestart_(scannerInstance, selector, scanConfig, onDecode, onFrameMiss){
+  return scannerInstance.stop().catch(function(){}).then(function(){
+    return scannerInstance.start(selector, scanConfig, onDecode, onFrameMiss);
+  });
+}
 function tryBackCameraCandidates_(scannerInstance, candidates, i, scanConfig, onDecode, onFrameMiss){
   if(i >= candidates.length){
     return scannerInstance.start(SCAN_CAMERA_SELECTOR, scanConfig, onDecode, onFrameMiss)
-      .catch(function(){ return scannerInstance.start(SCAN_CAMERA_SELECTOR_FALLBACK, scanConfig, onDecode, onFrameMiss); });
+      .catch(function(){ return safeRestart_(scannerInstance, SCAN_CAMERA_SELECTOR_FALLBACK, scanConfig, onDecode, onFrameMiss); });
   }
   var id = candidates[i];
   return scannerInstance.start({ deviceId: { exact: id } }, scanConfig, onDecode, onFrameMiss).then(function(res){
@@ -1203,7 +1211,10 @@ function tryBackCameraCandidates_(scannerInstance, candidates, i, scanConfig, on
     _verifiedBackCameraId = id; /* จำไว้ใช้ครั้งหน้า ไม่ต้องไล่ใหม่ */
     return res;
   }).catch(function(){
-    return tryBackCameraCandidates_(scannerInstance, candidates, i+1, scanConfig, onDecode, onFrameMiss);
+    /* start() ครั้งนี้ล้มเหลว - ต้อง stop() คั่นก่อนลองตัวถัดไปบน instance เดิม กัน "Cannot clear" */
+    return scannerInstance.stop().catch(function(){}).then(function(){
+      return tryBackCameraCandidates_(scannerInstance, candidates, i+1, scanConfig, onDecode, onFrameMiss);
+    });
   });
 }
 function startScannerBackCamera(scannerInstance, scanConfig, onDecode, onFrameMiss){
@@ -1215,7 +1226,7 @@ function startScannerBackCamera(scannerInstance, scanConfig, onDecode, onFrameMi
     }
     if(candidates.length === 0){
       return scannerInstance.start(SCAN_CAMERA_SELECTOR, scanConfig, onDecode, onFrameMiss)
-        .catch(function(){ return scannerInstance.start(SCAN_CAMERA_SELECTOR_FALLBACK, scanConfig, onDecode, onFrameMiss); });
+        .catch(function(){ return safeRestart_(scannerInstance, SCAN_CAMERA_SELECTOR_FALLBACK, scanConfig, onDecode, onFrameMiss); });
     }
     return tryBackCameraCandidates_(scannerInstance, candidates, 0, scanConfig, onDecode, onFrameMiss);
   });
