@@ -1171,23 +1171,51 @@ function isRunningFrontCamera_(scannerInstance){
   }catch(e){}
   return false;
 }
+/* บั๊กตัวจริงของปัญหากล้องหน้า (เกิดทั้ง iOS และ Android ไม่ใช่แค่ LINE webview):
+   ไลบรารี html5-qrcode เวอร์ชันที่ใช้ (2.3.8) ภายในฟังก์ชัน start() มีโค้ดประมาณนี้
+     var videoConstraints = areVideoConstraintsEnabled
+         ? internalConfig.videoConstraints      // ถ้า config พารามิเตอร์ที่ 2 มี videoConstraints ที่ valid
+         : createVideoConstraints(cameraIdOrConfig); // ไม่งั้นค่อยแปลง selector พารามิเตอร์แรกมาใช้
+   นั่นคือ ถ้า config (พารามิเตอร์ที่ 2) มี key "videoConstraints" อยู่ (เราใส่ SCAN_VIDEO_CONSTRAINTS
+   ที่มีแค่ width/height) ไลบรารีจะ "ทิ้ง" พารามิเตอร์แรก (facingMode/deviceId ที่เราเลือกกล้องหลังไว้)
+   ไปเลยทั้งก้อน แล้วส่ง getUserMedia ด้วย {width, height} เฉยๆ ไม่มีการระบุกล้องเลย เบราว์เซอร์เลย
+   เลือกกล้อง default เอง (บ่อยครั้งคือกล้องหน้า) — เกิดขึ้นแน่นอน 100% ทุกครั้ง ไม่ใช่ edge case
+   ทางแก้ที่ถูกต้อง: ต้องรวม facingMode/deviceId เข้าไปเป็นส่วนหนึ่งของ object เดียวกับ videoConstraints
+   (width/height) แทนที่จะแยกส่งเป็นพารามิเตอร์แรก เพราะพารามิเตอร์แรกจะถูกมองข้ามอยู่ดีเมื่อพารามิเตอร์
+   ที่ 2 มี videoConstraints */
+function mergeVideoConstraints_(selector){
+  var vc = { width: SCAN_VIDEO_CONSTRAINTS.width, height: SCAN_VIDEO_CONSTRAINTS.height };
+  if(selector){
+    var key = Object.keys(selector)[0];
+    vc[key] = selector[key];
+  }
+  return vc;
+}
+function withCameraSelector_(scanConfig, selector){
+  var merged = {};
+  for(var k in scanConfig){ if(Object.prototype.hasOwnProperty.call(scanConfig, k)) merged[k] = scanConfig[k]; }
+  merged.videoConstraints = mergeVideoConstraints_(selector);
+  return merged;
+}
 function startScannerSimple_(scannerInstance, scanConfig, onDecode, onFrameMiss){
   return listCamerasSafe_().then(function(cameras){
     var id = pickBackCameraId_(cameras, null);
     var selector = id ? { deviceId: { exact: id } } : SCAN_CAMERA_SELECTOR;
     return delay_(200).then(function(){ /* กันชน getUserMedia ชั่วคราวจาก getCameras() เอง (Android) */
-      return scannerInstance.start(selector, scanConfig, onDecode, onFrameMiss);
+      return scannerInstance.start(selector, withCameraSelector_(scanConfig, selector), onDecode, onFrameMiss);
     }).then(function(res){
       if(!isRunningFrontCamera_(scannerInstance)) return res;
       /* ยืนยันแล้วว่าได้กล้องหน้าจริง (เช่น iOS/LINE เพิกเฉยต่อ constraint) แก้ไขอีก 1 ครั้งเท่านั้น */
       return listCamerasSafe_().then(function(freshCameras){
         var otherId = pickBackCameraId_(freshCameras, id);
+        var fallbackSelector = otherId ? { deviceId: { exact: otherId } } : SCAN_CAMERA_SELECTOR_FALLBACK;
         return delay_(150).then(function(){ return scannerInstance.stop().catch(function(){}); })
           .then(function(){
             return delay_(150).then(function(){
               return scannerInstance.start(
-                otherId ? { deviceId: { exact: otherId } } : SCAN_CAMERA_SELECTOR_FALLBACK,
-                scanConfig, onDecode, onFrameMiss
+                fallbackSelector,
+                withCameraSelector_(scanConfig, fallbackSelector),
+                onDecode, onFrameMiss
               );
             });
           });
@@ -1195,7 +1223,11 @@ function startScannerSimple_(scannerInstance, scanConfig, onDecode, onFrameMiss)
     });
   }).catch(function(){
     return delay_(200).then(function(){
-      return scannerInstance.start(SCAN_CAMERA_SELECTOR_FALLBACK, scanConfig, onDecode, onFrameMiss);
+      return scannerInstance.start(
+        SCAN_CAMERA_SELECTOR_FALLBACK,
+        withCameraSelector_(scanConfig, SCAN_CAMERA_SELECTOR_FALLBACK),
+        onDecode, onFrameMiss
+      );
     });
   });
 }
