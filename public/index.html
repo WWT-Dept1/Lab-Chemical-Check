@@ -313,14 +313,17 @@ textarea.input{resize:vertical; min-height:64px; line-height:1.5;}
 .rscan-header .modal-close{position:static; background:rgba(255,255,255,.2); color:#fff; flex-shrink:0;}
 .rscan-cam{position:relative; width:100%; flex:0 0 auto; height:46vh; min-height:220px; max-height:340px; background:#000; overflow:hidden;}
 .rscan-corner{position:absolute; width:30px; height:30px; border:4px solid #35e6ab; pointer-events:none; filter:drop-shadow(0 0 6px rgba(53,230,171,.6));}
-.rscan-corner.tl{top:38%; left:8%; border-right:none; border-bottom:none; border-top-left-radius:10px;}
-.rscan-corner.tr{top:38%; right:8%; border-left:none; border-bottom:none; border-top-right-radius:10px;}
-.rscan-corner.bl{bottom:38%; left:8%; border-right:none; border-top:none; border-bottom-left-radius:10px;}
-.rscan-corner.br{bottom:38%; right:8%; border-left:none; border-top:none; border-bottom-right-radius:10px;}
-.rscan-scanline{position:absolute; left:8%; right:8%; height:2px; border-radius:2px;
+/* [แก้บั๊กกรอบเขียวไม่ตรงพื้นที่ decode จริง] ดูคอมเมนต์อธิบายเต็มที่ .scanbox-corner ด้านบน — จุดเดียวกัน
+   ใช้ตัวแปร CSS ชุดเดียวกัน (--stb-*) ได้เพราะ custom property ผูกกับ element ตัวเอง (.rscan-cam) เอง
+   ไม่ชนกับ #qrScanBox/#cScanBox ที่ set ค่าของตัวเองแยกกัน */
+.rscan-corner.tl{top:var(--stb-top,38%); left:var(--stb-left,8%); border-right:none; border-bottom:none; border-top-left-radius:10px;}
+.rscan-corner.tr{top:var(--stb-top,38%); right:var(--stb-right,8%); border-left:none; border-bottom:none; border-top-right-radius:10px;}
+.rscan-corner.bl{bottom:var(--stb-bottom,38%); left:var(--stb-left,8%); border-right:none; border-top:none; border-bottom-left-radius:10px;}
+.rscan-corner.br{bottom:var(--stb-bottom,38%); right:var(--stb-right,8%); border-left:none; border-top:none; border-bottom-right-radius:10px;}
+.rscan-scanline{position:absolute; left:var(--stb-left,8%); right:var(--stb-right,8%); height:2px; border-radius:2px;
   background:linear-gradient(90deg,transparent,#35e6ab,transparent); box-shadow:0 0 10px 1px rgba(53,230,171,.7);
   animation:rscanMove 1.8s ease-in-out infinite; pointer-events:none;}
-@keyframes rscanMove{0%{top:38%;}50%{top:62%;}100%{top:38%;}}
+@keyframes rscanMove{0%{top:var(--stb-top,38%);}50%{top:var(--stb-top-end,62%);}100%{top:var(--stb-top,38%);}}
 .rscan-flash{position:absolute; inset:0; pointer-events:none; background:rgba(26,156,107,0); transition:background .15s;}
 .rscan-msg{padding:10px 16px 0; font-size:14px; font-weight:700; text-align:center; min-height:22px; color:var(--text-soft); flex-shrink:0;}
 .rscan-manual{display:flex; gap:8px; padding:8px 16px 0; flex-shrink:0;}
@@ -368,15 +371,22 @@ textarea.input{resize:vertical; min-height:64px; line-height:1.5;}
   background:radial-gradient(ellipse at center, rgba(0,0,0,0) 42%, rgba(0,0,0,.45) 100%);}
 .scanbox-corner{position:absolute; width:34px; height:34px; border:4px solid #35e6ab; pointer-events:none; z-index:3;
   filter:drop-shadow(0 0 7px rgba(53,230,171,.65)); animation:scanboxPulse 2.2s ease-in-out infinite;}
-.scanbox-corner.tl{top:38%; left:9%; border-right:none; border-bottom:none; border-top-left-radius:12px;}
-.scanbox-corner.tr{top:38%; right:9%; border-left:none; border-bottom:none; border-top-right-radius:12px;}
-.scanbox-corner.bl{bottom:38%; left:9%; border-right:none; border-top:none; border-bottom-left-radius:12px;}
-.scanbox-corner.br{bottom:38%; right:9%; border-left:none; border-top:none; border-bottom-right-radius:12px;}
+/* [แก้บั๊กกรอบเขียวไม่ตรงพื้นที่ decode จริง] เดิม top/left/right/bottom เป็น % คงที่ ล้อกับสัดส่วน
+   คอนเทนเนอร์เฉยๆ ไม่เกี่ยวกับพื้นที่ decode จริงที่ barcodeQrbox() คำนวณเป็นพิกเซลคงที่ (min(w*.68,260))
+   ทำให้กรอบที่เห็นกับพื้นที่ที่ระบบอ่านจริงคลาดกัน โดยเฉพาะจอ/อัตราส่วนที่ต่างจากตอน dev — ผู้ใช้เล็ง
+   บาร์โค้ดใบที่ต้องการเข้ากรอบเขียว แต่ระบบกลับถอดรหัสบาร์โค้ดใบข้างเคียงที่อยู่นอกกรอบแทน
+   ตอนนี้ค่า top/left/right/bottom อ่านจาก CSS custom property ที่ syncScanTargetBox_() เซ็ตให้ตรงกับ
+   ตำแหน่งจริงของ #qr-shaded-region (ที่ไลบรารีคำนวณ) แบบพิกเซล ทุกครั้งหลังกล้องเปิด/resize
+   ค่า % เดิมยังคงไว้เป็น fallback เผื่อกรณี sync ยังไม่ทัน (เช่น เฟรมแรกก่อนกล้อง render เสร็จ) */
+.scanbox-corner.tl{top:var(--stb-top,38%); left:var(--stb-left,9%); border-right:none; border-bottom:none; border-top-left-radius:12px;}
+.scanbox-corner.tr{top:var(--stb-top,38%); right:var(--stb-right,9%); border-left:none; border-bottom:none; border-top-right-radius:12px;}
+.scanbox-corner.bl{bottom:var(--stb-bottom,38%); left:var(--stb-left,9%); border-right:none; border-top:none; border-bottom-left-radius:12px;}
+.scanbox-corner.br{bottom:var(--stb-bottom,38%); right:var(--stb-right,9%); border-left:none; border-top:none; border-bottom-right-radius:12px;}
 @keyframes scanboxPulse{0%,100%{opacity:1;}50%{opacity:.55;}}
-.scanbox-scanline{position:absolute; left:9%; right:9%; height:2.5px; border-radius:2px; z-index:3;
+.scanbox-scanline{position:absolute; left:var(--stb-left,9%); right:var(--stb-right,9%); height:2.5px; border-radius:2px; z-index:3;
   background:linear-gradient(90deg,transparent,#35e6ab,transparent); box-shadow:0 0 12px 1.5px rgba(53,230,171,.75);
   animation:scanboxMove 1.8s ease-in-out infinite; pointer-events:none;}
-@keyframes scanboxMove{0%{top:38%;}50%{top:62%;}100%{top:38%;}}
+@keyframes scanboxMove{0%{top:var(--stb-top,38%);}50%{top:var(--stb-top-end,62%);}100%{top:var(--stb-top,38%);}}
 .scanbox-flash{position:absolute; inset:0; pointer-events:none; z-index:4; background:rgba(26,156,107,0); transition:background .15s;}
 .scanbox-tip{position:absolute; left:0; right:0; bottom:10px; z-index:3; text-align:center; pointer-events:none;
   font-size:11px; font-weight:600; color:rgba(255,255,255,.85); text-shadow:0 1px 3px rgba(0,0,0,.6); padding:0 14px;}
@@ -1215,6 +1225,57 @@ function barcodeQrbox(viewfinderWidth, viewfinderHeight){
   var h = Math.max(46, Math.floor(w * 0.24));
   return { width: w, height: h };
 }
+
+/* ============================================================
+   [แก้บั๊กกรอบเขียวไม่ตรงพื้นที่ decode จริง]
+   ก่อนหน้านี้กรอบเขียว (.scanbox-corner/.rscan-corner) เป็นแค่ตำแหน่ง % คงที่ วาดตกแต่งอย่างเดียว
+   ไม่เกี่ยวข้องกับพื้นที่ decode จริงที่ barcodeQrbox() คำนวณเป็นพิกเซล (min(width*.68,260))
+   แล้วส่งให้ html5-qrcode ไปสร้าง div id="qr-shaded-region" ครอบพื้นที่นั้นจริง (เราซ่อนกรอบขาว
+   ของ div นี้ไว้ด้วย CSS แต่ตัวพื้นที่ยังใช้ decode จริงตามเดิม) — สอง % นี้ไม่ตรงกันเสมอไป
+   โดยเฉพาะเมื่ออัตราส่วนคอนเทนเนอร์บนอุปกรณ์จริงต่างจากตอนออกแบบ ผลคือผู้ใช้เล็งบาร์โค้ดเข้ากรอบ
+   เขียวที่เห็น แต่ระบบกลับถอดรหัสบาร์โค้ดใบข้างเคียงที่อยู่นอกกรอบ (คนละใบ) แทน
+
+   ฟังก์ชันนี้อ่านตำแหน่งจริงของ #qr-shaded-region หลังกล้อง render แล้ว set เป็น CSS custom
+   property (px) บน container ให้กรอบเขียว/เส้นสแกนขยับไปตรงตำแหน่ง decode จริงเป๊ะ ============ */
+function syncScanTargetBox_(containerEl, readerBoxId){
+  if(!containerEl) return false;
+  var shaded = document.querySelector('#'+readerBoxId+' #qr-shaded-region');
+  if(!shaded) return false;
+  var contRect = containerEl.getBoundingClientRect();
+  var shRect = shaded.getBoundingClientRect();
+  if(!shRect.width || !shRect.height || !contRect.width || !contRect.height) return false;
+  var top = shRect.top - contRect.top;
+  var left = shRect.left - contRect.left;
+  var right = contRect.right - shRect.right;
+  var bottom = contRect.bottom - shRect.bottom;
+  containerEl.style.setProperty('--stb-top', top+'px');
+  containerEl.style.setProperty('--stb-left', left+'px');
+  containerEl.style.setProperty('--stb-right', right+'px');
+  containerEl.style.setProperty('--stb-bottom', bottom+'px');
+  containerEl.style.setProperty('--stb-top-end', (top+shRect.height)+'px');
+  return true;
+}
+/* #qr-shaded-region ถูกไลบรารีแทรก/จัดขนาดหลัง video เริ่มเล่นจริง มีดีเลย์เล็กน้อยไม่แน่นอน
+   จึง poll สั้นๆ ช่วงแรกจนกว่าจะอ่านตำแหน่งได้ (หรือครบจำนวนครั้ง) แล้วยังฟัง resize/orientation
+   ต่อไว้ตลอดที่กล้องเปิดอยู่ เผื่อผู้ใช้หมุนจอ/ขนาด viewport เปลี่ยนระหว่างสแกน คืนฟังก์ชันไว้เลิกฟังตอนปิดกล้อง */
+function watchSyncScanTargetBox_(containerEl, readerBoxId){
+  var tries = 0, maxTries = 20, poll;
+  function tick(){
+    tries++;
+    var ok = syncScanTargetBox_(containerEl, readerBoxId);
+    if(ok || tries >= maxTries){ clearInterval(poll); }
+  }
+  poll = setInterval(tick, 150);
+  tick();
+  var onResize = function(){ syncScanTargetBox_(containerEl, readerBoxId); };
+  window.addEventListener('resize', onResize);
+  window.addEventListener('orientationchange', onResize);
+  return function stopWatch(){
+    clearInterval(poll);
+    window.removeEventListener('resize', onResize);
+    window.removeEventListener('orientationchange', onResize);
+  };
+}
 /* ตั้งค่ากล้องกลาง ใช้ร่วมกันทั้งโหมดสแกนทีละรายการและสแกนต่อเนื่อง
    - ขอ resolution สูงขึ้น เพื่อให้เส้นบาร์โค้ด Code128 ที่บางและชิดกันคมชัดพอ decode ได้
    - focusMode: continuous ให้กล้องปรับโฟกัสต่อเนื่องอัตโนมัติ (ไม่ใช่โฟกัสค้างครั้งเดียวตอนเปิดกล้อง) */
@@ -1559,6 +1620,7 @@ function watchScannerFreeze_(containerId, restartFn){
 var qrScanner = null;
 var qrScanTargetIdx = null;
 var qrScanFreezeTimer = null;
+var qrScanBoxSyncStop = null;
 
 function openQrScan(idx){
   var it = STATE.items[idx];
@@ -1612,6 +1674,8 @@ function startQrScanner(){
         qrScanRetried = false;
         wireTorchButton_('qrScanTorch', function(){ return qrScanner; });
         autoApplyZoomBoost_(qrScanner, 'qrReaderBox', 2);
+        if(qrScanBoxSyncStop){ qrScanBoxSyncStop(); }
+        qrScanBoxSyncStop = watchSyncScanTargetBox_(document.getElementById('qrScanBox'), 'qrReaderBox');
         if(qrScanFreezeTimer){ clearInterval(qrScanFreezeTimer); }
         qrScanFreezeTimer = watchScannerFreeze_('qrReaderBox', function(){
           forceResetReaderBox_('qrReaderBox');
@@ -1644,6 +1708,7 @@ function startQrScanner(){
 }
 function stopQrScanner(cb){
   if(qrScanFreezeTimer){ clearInterval(qrScanFreezeTimer); qrScanFreezeTimer = null; }
+  if(qrScanBoxSyncStop){ qrScanBoxSyncStop(); qrScanBoxSyncStop = null; }
   if(qrScanner){
     var s = qrScanner; qrScanner=null;
     var finish = function(){ try{ s.clear(); }catch(e){} if(cb) cb(); };
@@ -1711,6 +1776,7 @@ var cScanHistoryLog = [];
 var cScanStarting = false; /* กันเปิดกล้องซ้อนขณะกำลังเปิดอยู่ */
 var cScanRetried = false;  /* กันวน retry ไม่รู้จบ */
 var cScanFreezeTimer = null;
+var cScanBoxSyncStop = null;
 
 function openContinuousScan(){
   document.getElementById('cScanHistory').innerHTML = renderCScanHistory();
@@ -1744,6 +1810,8 @@ function startContinuousScanner(){
         cScanRetried = false;
         wireTorchButton_('cScanTorch', function(){ return cScanScanner; });
         autoApplyZoomBoost_(cScanScanner, 'cScanReaderBox', 2);
+        if(cScanBoxSyncStop){ cScanBoxSyncStop(); }
+        cScanBoxSyncStop = watchSyncScanTargetBox_(document.getElementById('cScanBox'), 'cScanReaderBox');
         if(cScanFreezeTimer){ clearInterval(cScanFreezeTimer); }
         cScanFreezeTimer = watchScannerFreeze_('cScanReaderBox', function(){
           forceResetReaderBox_('cScanReaderBox');
@@ -1776,6 +1844,7 @@ function startContinuousScanner(){
 }
 function stopContinuousScanner(cb){
   if(cScanFreezeTimer){ clearInterval(cScanFreezeTimer); cScanFreezeTimer = null; }
+  if(cScanBoxSyncStop){ cScanBoxSyncStop(); cScanBoxSyncStop = null; }
   if(cScanScanner){
     var s = cScanScanner; cScanScanner=null;
     var finish = function(){ try{ s.clear(); }catch(e){} if(cb) cb(); };
@@ -1910,6 +1979,7 @@ var RSCAN = { batch: [], scanner: null, lastCode: '', lastTime: 0 };
 var rscanStarting = false; /* กันเปิดกล้องซ้อนขณะกำลังเปิดอยู่ */
 var rscanRetried = false;  /* กันวน retry ไม่รู้จบ */
 var rscanFreezeTimer = null;
+var rscanBoxSyncStop = null;
 
 function todayIsoDate_(){
   var d = new Date();
@@ -1951,6 +2021,8 @@ function startRscanScanner(){
         rscanRetried = false;
         wireTorchButton_('rscanTorch', function(){ return RSCAN.scanner; });
         autoApplyZoomBoost_(RSCAN.scanner, 'rscanReaderBox', 2);
+        if(rscanBoxSyncStop){ rscanBoxSyncStop(); }
+        rscanBoxSyncStop = watchSyncScanTargetBox_(document.getElementById('rscanCam'), 'rscanReaderBox');
         if(rscanFreezeTimer){ clearInterval(rscanFreezeTimer); }
         rscanFreezeTimer = watchScannerFreeze_('rscanReaderBox', function(){
           forceResetReaderBox_('rscanReaderBox');
@@ -1983,6 +2055,7 @@ function startRscanScanner(){
 }
 function stopRscanScanner(cb){
   if(rscanFreezeTimer){ clearInterval(rscanFreezeTimer); rscanFreezeTimer = null; }
+  if(rscanBoxSyncStop){ rscanBoxSyncStop(); rscanBoxSyncStop = null; }
   if(RSCAN.scanner){
     var s = RSCAN.scanner; RSCAN.scanner=null;
     var finish = function(){ try{ s.clear(); }catch(e){} if(cb) cb(); };
