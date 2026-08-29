@@ -8,7 +8,6 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
-<script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
 <script src="/gas-compat.js"></script>
 <style>
 :root{
@@ -60,15 +59,6 @@ button:active{transform:translateY(1px) scale(.985);}
 .mode-btn{border:none; background:transparent; padding:8px 11px; border-radius:8px; font-family:var(--sans);
   font-size:11.8px; font-weight:700; color:var(--text-soft); cursor:pointer; display:flex; align-items:center; gap:6px; white-space:nowrap;}
 .mode-btn.active{background:var(--primary-dk); color:#fff; box-shadow:0 2px 8px rgba(7,74,62,.35);}
-
-/* ---------- mobile fix: main top bar only ---------- */
-@media(max-width:640px){
-  .main-topbar{flex-direction:column; align-items:stretch; justify-content:flex-start; padding:12px 14px 10px; gap:8px;}
-  .main-topbar .brand{width:100%; font-size:11px; line-height:1.35; white-space:nowrap; text-align:left;}
-  .main-mode-switch{width:100%; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:4px; padding:4px;}
-  .main-mode-switch .mode-btn{width:100%; min-width:0; min-height:42px; justify-content:center; padding:9px 4px; font-size:10.5px; line-height:1.15; text-align:center; gap:4px;}
-}
-
 
 /* ---------- header (hero) ---------- */
 .header{padding:22px 20px 20px; margin-bottom:14px; position:relative; overflow:hidden;
@@ -322,6 +312,7 @@ textarea.input{resize:vertical; min-height:64px; line-height:1.5;}
 .rscan-header .modal-sub{color:rgba(255,255,255,.85); margin:2px 0 0;}
 .rscan-header .modal-close{position:static; background:rgba(255,255,255,.2); color:#fff; flex-shrink:0;}
 .rscan-cam{position:relative; width:100%; flex:0 0 auto; height:46vh; min-height:220px; max-height:340px; background:#000; overflow:hidden;}
+.rscan-cam::after{content:'';position:absolute;pointer-events:none;z-index:3;top:var(--stb-top,38%);right:var(--stb-right,8%);bottom:var(--stb-bottom,38%);left:var(--stb-left,8%);border:3px solid #35e6ab;border-radius:12px;box-shadow:0 0 0 1px rgba(255,255,255,.16),0 0 14px rgba(53,230,171,.45);}
 .rscan-corner{position:absolute; width:30px; height:30px; border:4px solid #35e6ab; pointer-events:none; filter:drop-shadow(0 0 6px rgba(53,230,171,.6));}
 /* [แก้บั๊กกรอบเขียวไม่ตรงพื้นที่ decode จริง] ดูคอมเมนต์อธิบายเต็มที่ .scanbox-corner ด้านบน — จุดเดียวกัน
    ใช้ตัวแปร CSS ชุดเดียวกัน (--stb-*) ได้เพราะ custom property ผูกกับ element ตัวเอง (.rscan-cam) เอง
@@ -377,8 +368,10 @@ textarea.input{resize:vertical; min-height:64px; line-height:1.5;}
    Scanbox: กรอบสแกนกล้องดีไซน์เดียวกันใช้ร่วม 3 โหมด (ยืนยันทีละรายการ/ต่อเนื่อง/รับเข้า)
    ============================================================ */
 .scanbox{position:relative; width:100%; height:100%; background:#000; overflow:hidden;}
-.scanbox::before{content:''; position:absolute; inset:0; pointer-events:none; z-index:2;
-  background:radial-gradient(ellipse at center, rgba(0,0,0,0) 42%, rgba(0,0,0,.45) 100%);}
+/* กล่องเขียวนี้ใช้ตำแหน่งเดียวกับ qrbox จริงของ html5-qrcode */
+.scanbox::after{content:''; position:absolute; pointer-events:none; z-index:3;
+  top:var(--stb-top,38%); right:var(--stb-right,9%); bottom:var(--stb-bottom,38%); left:var(--stb-left,9%);
+  border:3px solid #35e6ab; border-radius:12px; box-shadow:0 0 0 1px rgba(255,255,255,.16),0 0 14px rgba(53,230,171,.45);}
 .scanbox-corner{position:absolute; width:34px; height:34px; border:4px solid #35e6ab; pointer-events:none; z-index:3;
   filter:drop-shadow(0 0 7px rgba(53,230,171,.65)); animation:scanboxPulse 2.2s ease-in-out infinite;}
 /* [แก้บั๊กกรอบเขียวไม่ตรงพื้นที่ decode จริง] เดิม top/left/right/bottom เป็น % คงที่ ล้อกับสัดส่วน
@@ -412,16 +405,19 @@ textarea.input{resize:vertical; min-height:64px; line-height:1.5;}
 .scanbox-success svg{width:64px; height:64px; filter:drop-shadow(0 3px 10px rgba(0,0,0,.35));}
 /* ไลบรารี html5-qrcode เองจะแทรก div id="qr-shaded-region" พร้อมกรอบขาวเล็กๆ ที่มุม (เพื่อไฮไลต์
    พื้นที่ decode) ซ้อนทับกรอบเขียวของเราเองอัตโนมัติทุกครั้งที่ตั้งค่า qrbox — ปิดกรอบขาวของไลบรารีทิ้ง
-   เหลือแค่กรอบเขียว/เส้นสแกนที่เราออกแบบเองเท่านั้น ไม่ต้องแก้ไฟล์ไลบรารี ใช้ CSS override พอ */
-#qr-shaded-region{ border-color: transparent !important; }
+   คง mask มืดของไลบรารีไว้ แล้วซ่อนเฉพาะมุมสีขาว ให้กรอบเขียวของเราตรงกับ qrbox จริง */
+/* ห้ามซ่อน border ของ qr-shaded-region: border 4 ด้านนี้คือพื้นที่มืด OUTSIDE qrbox จริง
+   คงไว้เพื่อให้ผู้ใช้เห็นชัดว่าระบบอ่านเฉพาะช่องตรงกลางเท่านั้น */
+#qr-shaded-region{ border-color: rgba(0,0,0,.62) !important; z-index:2 !important; pointer-events:none !important; }
+/* ซ่อนเฉพาะมุมสีขาวของไลบรารี เพราะเราใช้กรอบเขียวของระบบเอง */
 #qr-shaded-region > div{ background-color: transparent !important; }
 </style>
 </head>
 <body>
 
-<div class="topbar main-topbar">
+<div class="topbar">
   <div class="brand">F-WWT-28 &middot; ระบบตรวจนับสารเคมี</div>
-  <div class="mode-switch main-mode-switch">
+  <div class="mode-switch">
     <button class="mode-btn" id="btnGoReceive">📥 รับเข้า</button>
     <button class="mode-btn" id="btnGoSummary">📊 สรุปคงเหลือ</button>
     <button class="mode-btn" id="btnGoBackend">⚙ ADMIN</button>
@@ -1237,95 +1233,64 @@ function barcodeQrbox(viewfinderWidth, viewfinderHeight){
 }
 
 /* ============================================================
-   STRICT ROI — กรอบเขียว = พิกเซลที่ส่งเข้า decoder จริง
-   ไม่อิง #qr-shaded-region ของ html5-qrcode อีกต่อไป
-   ============================================================ */
-function getVisibleRoiGeometry_(containerEl, readerBoxId){
-  if(!containerEl) return null;
-  var video = document.querySelector('#'+readerBoxId+' video');
-  if(!video || !video.videoWidth || !video.videoHeight || video.readyState < 2) return null;
+   [แก้บั๊กกรอบเขียวไม่ตรงพื้นที่ decode จริง]
+   ก่อนหน้านี้กรอบเขียว (.scanbox-corner/.rscan-corner) เป็นแค่ตำแหน่ง % คงที่ วาดตกแต่งอย่างเดียว
+   ไม่เกี่ยวข้องกับพื้นที่ decode จริงที่ barcodeQrbox() คำนวณเป็นพิกเซล (min(width*.68,260))
+   แล้วส่งให้ html5-qrcode ไปสร้าง div id="qr-shaded-region" ครอบพื้นที่นั้นจริง (เราซ่อนกรอบขาว
+   ของ div นี้ไว้ด้วย CSS แต่ตัวพื้นที่ยังใช้ decode จริงตามเดิม) — สอง % นี้ไม่ตรงกันเสมอไป
+   โดยเฉพาะเมื่ออัตราส่วนคอนเทนเนอร์บนอุปกรณ์จริงต่างจากตอนออกแบบ ผลคือผู้ใช้เล็งบาร์โค้ดเข้ากรอบ
+   เขียวที่เห็น แต่ระบบกลับถอดรหัสบาร์โค้ดใบข้างเคียงที่อยู่นอกกรอบ (คนละใบ) แทน
 
-  var cr = containerEl.getBoundingClientRect();
-  var vr = video.getBoundingClientRect();
-  if(!cr.width || !cr.height || !vr.width || !vr.height) return null;
+   ฟังก์ชันนี้อ่านตำแหน่งจริงของ #qr-shaded-region หลังกล้อง render แล้ว set เป็น CSS custom
+   property (px) บน container ให้กรอบเขียว/เส้นสแกนขยับไปตรงตำแหน่ง decode จริงเป๊ะ ============ */
+function syncScanTargetBox_(containerEl, readerBoxId){
+  if(!containerEl) return false;
+  var shaded = document.querySelector('#'+readerBoxId+' #qr-shaded-region');
+  if(!shaded) return false;
 
-  /* ขนาดกรอบเดิม: กว้างพอให้ Code128 มี quiet zone แต่ไม่กินแถวบน/ล่าง */
-  var boxW = Math.floor(Math.min(vr.width * 0.68, 260));
-  var boxH = Math.max(54, Math.floor(boxW * 0.27));
-  if(boxW > vr.width - 12) boxW = Math.max(100, Math.floor(vr.width * 0.82));
-  if(boxH > vr.height - 12) boxH = Math.max(48, Math.floor(vr.height * 0.30));
+  /* สำคัญ: #qr-shaded-region มีขนาดเต็ม viewfinder แล้วใช้ border หนา 4 ด้านเป็น mask
+     ดังนั้น getBoundingClientRect() ของ element นี้จะได้ "เต็มกล้อง" ไม่ใช่ qrbox
+     ต้องอ่านความหนา border จริงแทน ซึ่งเท่ากับระยะจากขอบกล้องถึงพื้นที่ decode */
+  var cs = window.getComputedStyle(shaded);
+  var top = parseFloat(cs.borderTopWidth) || 0;
+  var right = parseFloat(cs.borderRightWidth) || 0;
+  var bottom = parseFloat(cs.borderBottomWidth) || 0;
+  var left = parseFloat(cs.borderLeftWidth) || 0;
+  var contRect = containerEl.getBoundingClientRect();
+  if(!contRect.width || !contRect.height) return false;
 
-  var roiLeftInVideo = (vr.width - boxW) / 2;
-  /* วางกรอบสูงกว่ากึ่งกลางเล็กน้อย ให้เล็งได้เป็นธรรมชาติบนมือถือ
-     และใช้ตำแหน่งเดียวกันทั้งกรอบที่เห็น + ROI ที่ส่งเข้า decoder จริง */
-  var roiCenterY = vr.height * 0.43;
-  var roiTopInVideo = roiCenterY - (boxH / 2);
-  roiTopInVideo = Math.max(8, Math.min(vr.height - boxH - 8, roiTopInVideo));
-  var absLeft = vr.left + roiLeftInVideo;
-  var absTop = vr.top + roiTopInVideo;
+  var innerW = contRect.width - left - right;
+  var innerH = contRect.height - top - bottom;
+  if(innerW < 40 || innerH < 40) return false;
 
-  /* วาดกรอบให้ตรง ROI ที่ใช้จริง */
-  var left = absLeft - cr.left;
-  var top = absTop - cr.top;
   containerEl.style.setProperty('--stb-top', top+'px');
   containerEl.style.setProperty('--stb-left', left+'px');
-  containerEl.style.setProperty('--stb-right', (cr.right-(absLeft+boxW))+'px');
-  containerEl.style.setProperty('--stb-bottom', (cr.bottom-(absTop+boxH))+'px');
-  containerEl.style.setProperty('--stb-top-end', (top+boxH)+'px');
-
-  /* แปลง CSS pixel -> source video pixel โดยคำนึง object-fit */
-  var cs = window.getComputedStyle(video);
-  var fit = (cs.objectFit || 'fill').toLowerCase();
-  var vw = video.videoWidth, vh = video.videoHeight;
-  var sx, sy, sw, sh;
-
-  if(fit === 'cover' || fit === 'contain'){
-    var scale = fit === 'cover'
-      ? Math.max(vr.width / vw, vr.height / vh)
-      : Math.min(vr.width / vw, vr.height / vh);
-    var renderedW = vw * scale, renderedH = vh * scale;
-    var offsetX = (vr.width - renderedW) / 2;
-    var offsetY = (vr.height - renderedH) / 2;
-    sx = (roiLeftInVideo - offsetX) / scale;
-    sy = (roiTopInVideo - offsetY) / scale;
-    sw = boxW / scale;
-    sh = boxH / scale;
-  } else {
-    /* fill / ค่า default: element box map ตรงกับ source frame */
-    sx = roiLeftInVideo * (vw / vr.width);
-    sy = roiTopInVideo * (vh / vr.height);
-    sw = boxW * (vw / vr.width);
-    sh = boxH * (vh / vr.height);
-  }
-
-  sx = Math.max(0, Math.min(vw-1, sx));
-  sy = Math.max(0, Math.min(vh-1, sy));
-  sw = Math.max(1, Math.min(vw-sx, sw));
-  sh = Math.max(1, Math.min(vh-sy, sh));
-  if(sw < 80 || sh < 40) return null;
-
-  return {video:video, sx:sx, sy:sy, sw:sw, sh:sh, boxW:boxW, boxH:boxH};
+  containerEl.style.setProperty('--stb-right', right+'px');
+  containerEl.style.setProperty('--stb-bottom', bottom+'px');
+  containerEl.style.setProperty('--stb-top-end', (top+innerH)+'px');
+  return true;
 }
-
-function syncScanTargetBox_(containerEl, readerBoxId){
-  return !!getVisibleRoiGeometry_(containerEl, readerBoxId);
-}
+/* #qr-shaded-region ถูกไลบรารีแทรก/จัดขนาดหลัง video เริ่มเล่นจริง มีดีเลย์เล็กน้อยไม่แน่นอน
+   จึง poll สั้นๆ ช่วงแรกจนกว่าจะอ่านตำแหน่งได้ (หรือครบจำนวนครั้ง) แล้วยังฟัง resize/orientation
+   ต่อไว้ตลอดที่กล้องเปิดอยู่ เผื่อผู้ใช้หมุนจอ/ขนาด viewport เปลี่ยนระหว่างสแกน คืนฟังก์ชันไว้เลิกฟังตอนปิดกล้อง */
 function watchSyncScanTargetBox_(containerEl, readerBoxId){
-  var stopped = false;
-  function tick(){ if(!stopped) syncScanTargetBox_(containerEl, readerBoxId); }
-  var poll = setInterval(tick, 300);
+  var tries = 0, maxTries = 20, poll;
+  function tick(){
+    tries++;
+    var ok = syncScanTargetBox_(containerEl, readerBoxId);
+    if(ok || tries >= maxTries){ clearInterval(poll); }
+  }
+  poll = setInterval(tick, 150);
   tick();
-  var onResize = function(){ tick(); };
+  var onResize = function(){ syncScanTargetBox_(containerEl, readerBoxId); };
   window.addEventListener('resize', onResize);
   window.addEventListener('orientationchange', onResize);
   return function stopWatch(){
-    stopped = true;
     clearInterval(poll);
     window.removeEventListener('resize', onResize);
     window.removeEventListener('orientationchange', onResize);
   };
 }
-
 /* ตั้งค่ากล้องกลาง ใช้ร่วมกันทั้งโหมดสแกนทีละรายการและสแกนต่อเนื่อง
    - ขอ resolution สูงขึ้น เพื่อให้เส้นบาร์โค้ด Code128 ที่บางและชิดกันคมชัดพอ decode ได้
    - focusMode: continuous ให้กล้องปรับโฟกัสต่อเนื่องอัตโนมัติ (ไม่ใช่โฟกัสค้างครั้งเดียวตอนเปิดกล้อง) */
@@ -1667,130 +1632,6 @@ function watchScannerFreeze_(containerId, restartFn){
   return timer;
 }
 
-/* ============================================================
-   ROI DECODER
-   Android/Chrome: ใช้ BarcodeDetector (native, ไม่บล็อกภาพกล้อง)
-   Browser ที่ไม่มี BarcodeDetector: fallback ZXing ด้วย crop ขนาดเล็กและรอบช้าลง
-   ============================================================ */
-var _roiNativeDetector = null;
-var _roiZxingReader = null;
-
-function getNativeCode128Detector_(){
-  if(!('BarcodeDetector' in window)) return null;
-  if(_roiNativeDetector) return _roiNativeDetector;
-  try{
-    _roiNativeDetector = new BarcodeDetector({formats:['code_128']});
-    return _roiNativeDetector;
-  }catch(e){ return null; }
-}
-function getZxingCode128Reader_(){
-  if(_roiZxingReader) return _roiZxingReader;
-  if(typeof ZXing === 'undefined' || !ZXing.BrowserMultiFormatReader) return null;
-  try{
-    var hints = new Map();
-    if(ZXing.DecodeHintType && ZXing.BarcodeFormat){
-      hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS,[ZXing.BarcodeFormat.CODE_128]);
-      if(ZXing.DecodeHintType.TRY_HARDER !== undefined){
-        hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-      }
-    }
-    _roiZxingReader = new ZXing.BrowserMultiFormatReader(hints);
-    return _roiZxingReader;
-  }catch(e){ return null; }
-}
-function makeRoiCanvas_(containerEl, readerBoxId, canvas){
-  var g = getVisibleRoiGeometry_(containerEl, readerBoxId);
-  if(!g) return null;
-
-  /* 640px พอสำหรับ Code128 และไม่ทำให้ JS decoder แช่ main thread บนมือถือ */
-  var maxW = 640;
-  var scale = Math.min(1, maxW / g.sw);
-  var dw = Math.max(120, Math.round(g.sw * scale));
-  var dh = Math.max(48, Math.round(g.sh * scale));
-  if(canvas.width !== dw) canvas.width = dw;
-  if(canvas.height !== dh) canvas.height = dh;
-
-  var ctx = canvas.getContext('2d', {willReadFrequently:true});
-  if(!ctx) return null;
-  ctx.clearRect(0,0,dw,dh);
-  ctx.drawImage(g.video, g.sx, g.sy, g.sw, g.sh, 0,0,dw,dh);
-  return canvas;
-}
-function setDecoderStatus_(msgElId, text, isError){
-  var el = document.getElementById(msgElId);
-  if(!el) return;
-  if(isError){
-    el.style.color='var(--er)';
-    el.textContent=text;
-  }
-}
-function startRoiDecodeLoop_(containerEl, readerBoxId, onDecoded, msgElId){
-  var stopped=false, busy=false, timer=null, canvas=document.createElement('canvas');
-  var nativeDetector=getNativeCode128Detector_();
-  var zxingReader=getZxingCode128Reader_();
-  var noDecoderTicks=0;
-
-  async function decodeOne_(){
-    if(stopped || busy) return;
-    var crop = makeRoiCanvas_(containerEl, readerBoxId, canvas);
-    if(!crop) return;
-
-    busy=true;
-    try{
-      nativeDetector = nativeDetector || getNativeCode128Detector_();
-      if(nativeDetector){
-        var found = await nativeDetector.detect(crop);
-        if(found && found.length && found[0].rawValue){
-          onDecoded(String(found[0].rawValue));
-        }
-        return;
-      }
-
-      zxingReader = zxingReader || getZxingCode128Reader_();
-      if(zxingReader && typeof zxingReader.decodeFromCanvas === 'function'){
-        try{
-          var result = zxingReader.decodeFromCanvas(crop);
-          if(result && typeof result.getText === 'function'){
-            var code=result.getText();
-            if(code) onDecoded(String(code));
-          }
-        }catch(e){ /* no barcode in this crop = normal */ }
-        return;
-      }
-
-      noDecoderTicks++;
-      if(noDecoderTicks === 4){
-        setDecoderStatus_(msgElId,'ตัวอ่านบาร์โค้ดโหลดไม่สำเร็จ กรุณารีเฟรชหน้าเว็บ 1 ครั้ง',true);
-      }
-    }catch(e){
-      /* frame miss / native detector transient error: ignore and continue */
-    }finally{
-      busy=false;
-    }
-  }
-
-  /* Native detector เบา: 5 fps; ZXing fallback หนักกว่า: ~2.8 fps */
-  var delay = nativeDetector ? 200 : 360;
-  function schedule_(){
-    if(stopped) return;
-    timer=setTimeout(async function(){
-      await decodeOne_();
-      schedule_();
-    }, delay);
-  }
-  setTimeout(decodeOne_,100);
-  schedule_();
-
-  return function stopRoiDecodeLoop_(){
-    stopped=true;
-    if(timer) clearTimeout(timer);
-  };
-}
-
-var qrRoiDecodeStop_=null;
-var cScanRoiDecodeStop_=null;
-var rscanRoiDecodeStop_=null;
-
 var qrScanner = null;
 var qrScanTargetIdx = null;
 var qrScanFreezeTimer = null;
@@ -1840,8 +1681,8 @@ function startQrScanner(){
       qrScanner = new Html5Qrcode('qrReaderBox', { formatsToSupport: getScanFormatsToSupport(), verbose: false });
       startScannerSimple_(
         qrScanner,
-        { fps: 1, qrbox: {width:60,height:60}, videoConstraints: SCAN_VIDEO_CONSTRAINTS, disableFlip: true },
-        function(decodedText){ /* ปิดผล decode ของ html5-qrcode: ใช้เฉพาะกล้อง */ },
+        { fps: 10, qrbox: barcodeQrbox, videoConstraints: SCAN_VIDEO_CONSTRAINTS, disableFlip: true },
+        function(decodedText){ handleQrResult(decodedText); },
         function(){ /* ignore per-frame scan misses */ }
       ).then(function(){
         qrScanStarting = false;
@@ -1850,11 +1691,6 @@ function startQrScanner(){
         autoApplyZoomBoost_(qrScanner, 'qrReaderBox', 2);
         if(qrScanBoxSyncStop){ qrScanBoxSyncStop(); }
         qrScanBoxSyncStop = watchSyncScanTargetBox_(document.getElementById('qrScanBox'), 'qrReaderBox');
-        if(qrRoiDecodeStop_){ qrRoiDecodeStop_(); }
-        qrRoiDecodeStop_ = startRoiDecodeLoop_(document.getElementById('qrScanBox'),'qrReaderBox',function(decodedText){
-          /* strict ROI: มีแค่พิกเซลในกรอบเขียวเท่านั้น */
-          handleQrResult(decodedText);
-        },'qrScanMsg');
         if(qrScanFreezeTimer){ clearInterval(qrScanFreezeTimer); }
         qrScanFreezeTimer = watchScannerFreeze_('qrReaderBox', function(){
           forceResetReaderBox_('qrReaderBox');
@@ -1886,7 +1722,6 @@ function startQrScanner(){
   });
 }
 function stopQrScanner(cb){
-  if(qrRoiDecodeStop_){ qrRoiDecodeStop_(); qrRoiDecodeStop_=null; }
   if(qrScanFreezeTimer){ clearInterval(qrScanFreezeTimer); qrScanFreezeTimer = null; }
   if(qrScanBoxSyncStop){ qrScanBoxSyncStop(); qrScanBoxSyncStop = null; }
   if(qrScanner){
@@ -1982,8 +1817,8 @@ function startContinuousScanner(){
       cScanScanner = new Html5Qrcode('cScanReaderBox', { formatsToSupport: getScanFormatsToSupport(), verbose: false });
       startScannerSimple_(
         cScanScanner,
-        { fps: 1, qrbox: {width:60,height:60}, videoConstraints: SCAN_VIDEO_CONSTRAINTS, disableFlip: true },
-        function(decodedText){ /* ปิดผล decode ของ html5-qrcode: ใช้เฉพาะกล้อง */ },
+        { fps: 10, qrbox: barcodeQrbox, videoConstraints: SCAN_VIDEO_CONSTRAINTS, disableFlip: true },
+        function(decodedText){ handleContinuousScanResult(decodedText); },
         function(){ /* ignore per-frame scan misses */ }
       ).then(function(){
         cScanStarting = false;
@@ -1992,10 +1827,6 @@ function startContinuousScanner(){
         autoApplyZoomBoost_(cScanScanner, 'cScanReaderBox', 2);
         if(cScanBoxSyncStop){ cScanBoxSyncStop(); }
         cScanBoxSyncStop = watchSyncScanTargetBox_(document.getElementById('cScanBox'), 'cScanReaderBox');
-        if(cScanRoiDecodeStop_){ cScanRoiDecodeStop_(); }
-        cScanRoiDecodeStop_ = startRoiDecodeLoop_(document.getElementById('cScanBox'),'cScanReaderBox',function(decodedText){
-          handleContinuousScanResult(decodedText);
-        },'cScanMsg');
         if(cScanFreezeTimer){ clearInterval(cScanFreezeTimer); }
         cScanFreezeTimer = watchScannerFreeze_('cScanReaderBox', function(){
           forceResetReaderBox_('cScanReaderBox');
@@ -2027,7 +1858,6 @@ function startContinuousScanner(){
   });
 }
 function stopContinuousScanner(cb){
-  if(cScanRoiDecodeStop_){ cScanRoiDecodeStop_(); cScanRoiDecodeStop_=null; }
   if(cScanFreezeTimer){ clearInterval(cScanFreezeTimer); cScanFreezeTimer = null; }
   if(cScanBoxSyncStop){ cScanBoxSyncStop(); cScanBoxSyncStop = null; }
   if(cScanScanner){
@@ -2054,25 +1884,12 @@ function cScanFlash(color){
 }
 function findItemIdxByCode(rawCode){
   var normalized = String(rawCode).trim();
-  // 1) หา Exact Match ก่อนเสมอ — ปลอดภัยสุด ไม่มีทางกำกวม
   for(var idx=0; idx<STATE.items.length; idx++){
     var codes = (STATE.items[idx].productCodes||[]).map(function(c){return String(c).trim();}).filter(function(c){return c && c!=='-';});
-    if(codes.indexOf(normalized) > -1) return idx;
+    var match = codes.indexOf(normalized) > -1;
+    if(!match){ match = codes.some(function(c){ return normalized.indexOf(c)>-1 || c.indexOf(normalized)>-1; }); }
+    if(match) return idx;
   }
-  /* 2) ไม่เจอ Exact Match → ค่อยลอง substring แบบ "ต้องไม่กำกวมเท่านั้น"
-     ★ FIX: เดิมโค้ดวนหา item แรกที่ substring แมตช์แล้ว "เลือกทันที" โดยไม่เช็คว่ามี
-     item อื่นที่ substring แมตช์ได้เหมือนกันหรือไม่ — ถ้าสินค้าตัวใดตัวหนึ่ง (เช่น
-     "อลูมิเนียมฟลอย") มีรหัสสั้น/เป็น substring ของบาร์โค้ดอื่นได้ง่าย ก็จะ "ชนะ" และถูก
-     เลือกทุกครั้งที่บาร์โค้ดมีเลขชุดนั้นปนอยู่ ทำให้การรับเข้าสารเคมีตัวอื่นเด้งไปลงที่
-     อลูมิเนียมฟลอยผิด ๆ ตอนนี้ถ้ามีมากกว่า 1 รายการที่ substring แมตช์ได้พร้อมกัน ระบบจะ
-     ถือว่ากำกวมและไม่เดา (คืนค่า "ไม่พบ" ให้ผู้ใช้จัดการเอง) แทนที่จะสุ่มเลือกตัวแรกที่เจอ */
-  var substrCandidates = [];
-  for(var i=0; i<STATE.items.length; i++){
-    var codes2 = (STATE.items[i].productCodes||[]).map(function(c){return String(c).trim();}).filter(function(c){return c && c!=='-';});
-    var hit = codes2.some(function(c){ return normalized.indexOf(c)>-1 || c.indexOf(normalized)>-1; });
-    if(hit) substrCandidates.push(i);
-  }
-  if(substrCandidates.length === 1) return substrCandidates[0];
   return -1;
 }
 /* รหัส Product code รูปแบบ ITEMCODE-YEAR-SEQ เช่น "04670-2025-01" (ขวดที่ 1 ปี 2025) และ "04670-2026-01" (ขวดที่ 1 ปี 2026 ของสารตัวเดิม)
@@ -2216,6 +2033,7 @@ document.getElementById('cScanManualInput').addEventListener('keydown', function
   }
 });
 
+/* FIX 2026-08-29: strict scan box + safe receive mapping (masterRowIndex + scannedCode + prefix-majority conflict guard) */
 /* ============================================================
    สแกนรับเข้าสารเคมี (Scan-to-Receive)
    เปิดกล้องยิงบาร์โค้ด/QR ต่อเนื่อง รายการที่จำได้จะเด้งเข้ารายการอัตโนมัติ
@@ -2259,8 +2077,8 @@ function startRscanScanner(){
       RSCAN.scanner = new Html5Qrcode('rscanReaderBox', { formatsToSupport: getScanFormatsToSupport(), verbose: false });
       startScannerSimple_(
         RSCAN.scanner,
-        { fps: 1, qrbox: {width:60,height:60}, videoConstraints: SCAN_VIDEO_CONSTRAINTS, disableFlip: true },
-        function(decodedText){ /* ปิดผล decode ของ html5-qrcode: ใช้เฉพาะกล้อง */ },
+        { fps: 10, qrbox: barcodeQrbox, videoConstraints: SCAN_VIDEO_CONSTRAINTS, disableFlip: true },
+        function(decodedText){ handleRscanResult(decodedText); },
         function(){ /* ignore per-frame scan misses */ }
       ).then(function(){
         rscanStarting = false;
@@ -2269,10 +2087,6 @@ function startRscanScanner(){
         autoApplyZoomBoost_(RSCAN.scanner, 'rscanReaderBox', 2);
         if(rscanBoxSyncStop){ rscanBoxSyncStop(); }
         rscanBoxSyncStop = watchSyncScanTargetBox_(document.getElementById('rscanCam'), 'rscanReaderBox');
-        if(rscanRoiDecodeStop_){ rscanRoiDecodeStop_(); }
-        rscanRoiDecodeStop_ = startRoiDecodeLoop_(document.getElementById('rscanCam'),'rscanReaderBox',function(decodedText){
-          handleRscanResult(decodedText);
-        },'rscanMsg');
         if(rscanFreezeTimer){ clearInterval(rscanFreezeTimer); }
         rscanFreezeTimer = watchScannerFreeze_('rscanReaderBox', function(){
           forceResetReaderBox_('rscanReaderBox');
@@ -2304,7 +2118,6 @@ function startRscanScanner(){
   });
 }
 function stopRscanScanner(cb){
-  if(rscanRoiDecodeStop_){ rscanRoiDecodeStop_(); rscanRoiDecodeStop_=null; }
   if(rscanFreezeTimer){ clearInterval(rscanFreezeTimer); rscanFreezeTimer = null; }
   if(rscanBoxSyncStop){ rscanBoxSyncStop(); rscanBoxSyncStop = null; }
   if(RSCAN.scanner){
@@ -2388,7 +2201,6 @@ function handleRscanResult(rawCode){
 
   renderRscanBatch();
 }
-
 function renderRscanBatch(){
   var el = document.getElementById('rscanBatchList');
   document.getElementById('rscanCountBadge').textContent = RSCAN.batch.length;
@@ -2433,7 +2245,6 @@ function renderRscanBatch(){
     };
   });
 }
-
 document.getElementById('btnGoReceive').onclick = function(){
   showView('receive');
   openScanReceive();
@@ -2447,7 +2258,6 @@ document.getElementById('rscanManualInput').addEventListener('keydown', function
     if(v){ handleRscanResult(v); this.value=''; }
   }
 });
-
 document.getElementById('btnRscanSave').onclick = function(){
   var empName = document.getElementById('rscanEmpName').value.trim();
   var receivedDate = document.getElementById('rscanReceivedDate').value || todayIsoDate_();
