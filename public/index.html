@@ -443,8 +443,8 @@ textarea.input{resize:vertical; min-height:64px; line-height:1.5;}
   left:50% !important;
   right:auto !important;
   bottom:auto !important;
-  width:min(72%, 300px) !important;
-  height:88px !important;
+  width:min(84%, 340px) !important;
+  height:112px !important;
   transform:translate(-50%,-50%) !important;
   border:3px solid #35e6ab !important;
   border-radius:14px !important;
@@ -460,8 +460,8 @@ textarea.input{resize:vertical; min-height:64px; line-height:1.5;}
 
 /* เส้นเล็งอยู่กึ่งกลางกรอบ ไม่วิ่งลงด้านล่าง */
 .rscan-scanline{
-  left:calc(50% - min(36%, 150px)) !important;
-  right:calc(50% - min(36%, 150px)) !important;
+  left:calc(50% - min(42%, 170px)) !important;
+  right:calc(50% - min(42%, 170px)) !important;
   top:50% !important;
   transform:translateY(-50%) !important;
   animation:none !important;
@@ -2128,8 +2128,8 @@ function rscanTargetRect_(){
   var cr = cam.getBoundingClientRect();
   if(!cr.width || !cr.height) return null;
 
-  var boxW = Math.min(cr.width * 0.72, 300);
-  var boxH = 88;
+  var boxW = Math.min(cr.width * 0.84, 340);
+  var boxH = 112;
   if(boxW > cr.width - 16) boxW = cr.width - 16;
   if(boxH > cr.height - 16) boxH = Math.max(56, cr.height - 16);
 
@@ -2193,7 +2193,11 @@ function rscanCropCanvas_(canvas){
   if(!ctx) return null;
 
   ctx.clearRect(0,0,outW,outH);
+
+  /* เพิ่ม contrast เล็กน้อยให้เส้นดำ/ขาวของ Code128 แยกกันชัดขึ้น */
+  try{ ctx.filter = 'contrast(1.22) brightness(1.04)'; }catch(e){}
   ctx.drawImage(g.video, g.sx,g.sy,g.sw,g.sh, 0,0,outW,outH);
+  try{ ctx.filter = 'none'; }catch(e){}
 
   return canvas;
 }
@@ -2225,6 +2229,34 @@ function getRscanZxingReader_(){
   }
 }
 
+
+function tuneRscanCameraForBarcode_(){
+  try{
+    var video = document.querySelector('#rscanReaderBox video');
+    var stream = video && video.srcObject;
+    var track = stream && stream.getVideoTracks && stream.getVideoTracks()[0];
+    if(!track) return;
+
+    var caps = (typeof track.getCapabilities === 'function') ? track.getCapabilities() : {};
+    var advanced = [];
+
+    /* โฟกัสต่อเนื่องช่วยมากกับ Code128 เส้นถี่ */
+    if(caps && Array.isArray(caps.focusMode) && caps.focusMode.indexOf('continuous') > -1){
+      advanced.push({focusMode:'continuous'});
+    }
+
+    /* ซูมเพียงเล็กน้อย ไม่ใช่ 2x แบบเดิม เพื่อขยายเส้นแต่ไม่ตัด quiet zone */
+    if(caps && caps.zoom && typeof caps.zoom.min === 'number' && typeof caps.zoom.max === 'number'){
+      var z = Math.min(caps.zoom.max, Math.max(caps.zoom.min, 1.15));
+      advanced.push({zoom:z});
+    }
+
+    if(advanced.length && typeof track.applyConstraints === 'function'){
+      track.applyConstraints({advanced:advanced}).catch(function(){});
+    }
+  }catch(e){}
+}
+
 function startRscanCenterDecodeLoop_(){
   if(rscanDecodeStop_){ rscanDecodeStop_(); rscanDecodeStop_=null; }
 
@@ -2241,14 +2273,17 @@ function startRscanCenterDecodeLoop_(){
     handleRscanResult(code);
   }
 
+  var frameNo = 0;
+
   async function run(){
     if(stopped || busy) return;
     var crop = rscanCropCanvas_(canvas);
     if(!crop) return;
 
     busy = true;
+    frameNo++;
     try{
-      /* Android/Chrome: native detector เร็วและแม่นกว่า JS */
+      /* Native BarcodeDetector: ลองทุกเฟรม */
       if(detector){
         try{
           var hits = await detector.detect(crop);
@@ -2260,8 +2295,9 @@ function startRscanCenterDecodeLoop_(){
         }catch(e){}
       }
 
-      /* Safari / browser ที่ไม่มี BarcodeDetector */
-      if(zreader){
+      /* ZXing: ลองทุกเฟรมเมื่อไม่มี native detector
+         ถ้ามี native detectorแล้ว ให้ ZXing ช่วยทุก 2 เฟรม ลด CPU แต่ยังตอบสนองเร็ว */
+      if(zreader && (!detector || frameNo % 2 === 0)){
         try{
           var result = zreader.decodeFromCanvas(crop);
           var code = result && typeof result.getText === 'function'
@@ -2278,9 +2314,9 @@ function startRscanCenterDecodeLoop_(){
     }
   }
 
-  /* ~8 fps: พอสำหรับ Code128 และไม่ทำให้มือถือหนัก */
-  timer = setInterval(run, 125);
-  setTimeout(run, 120);
+  /* ~14 fps — เร็วขึ้นจากเดิม ~8 fps */
+  timer = setInterval(run, 70);
+  setTimeout(run, 60);
 
   rscanDecodeStop_ = function(){
     stopped = true;
@@ -2289,8 +2325,8 @@ function startRscanCenterDecodeLoop_(){
 }
 
 function rscanCenteredQrbox_(viewfinderWidth, viewfinderHeight){
-  var w = Math.min(viewfinderWidth * 0.72, 300);
-  var h = Math.min(88, Math.max(56, viewfinderHeight - 16));
+  var w = Math.min(viewfinderWidth * 0.84, 340);
+  var h = Math.min(112, Math.max(64, viewfinderHeight - 16));
   return {width:Math.floor(w), height:Math.floor(h)};
 }
 
@@ -2320,7 +2356,7 @@ function startRscanScanner(){
       RSCAN.scanner = new Html5Qrcode('rscanReaderBox', { formatsToSupport: getScanFormatsToSupport(), verbose: false });
       startScannerSimple_(
         RSCAN.scanner,
-        { fps: 8, qrbox: rscanCenteredQrbox_, videoConstraints: getSafeVideoConstraints_(), disableFlip: true },
+        { fps: 12, qrbox: rscanCenteredQrbox_, videoConstraints: getSafeVideoConstraints_(), disableFlip: true },
         function(decodedText){ /* รับเข้าใช้ Center ROI decoder ด้านล่าง ไม่รับผลจาก html5-qrcode */ },
         function(){ /* ignore per-frame scan misses */ }
       ).then(function(){
@@ -2330,6 +2366,7 @@ function startRscanScanner(){
         /* ไม่บังคับซูมอัตโนมัติในหน้ารับเข้า */
         /* RECEIVE: กรอบถูกล็อกกลางด้วย CSS/geometry ของเราเอง */
         if(rscanBoxSyncStop){ rscanBoxSyncStop(); rscanBoxSyncStop=null; }
+        setTimeout(tuneRscanCameraForBarcode_, 180);
         startRscanCenterDecodeLoop_();
         if(rscanFreezeTimer){ clearInterval(rscanFreezeTimer); }
         rscanFreezeTimer = watchScannerFreeze_('rscanReaderBox', function(){
