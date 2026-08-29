@@ -412,51 +412,6 @@ textarea.input{resize:vertical; min-height:64px; line-height:1.5;}
 /* ซ่อนเฉพาะมุมสีขาวของไลบรารี เพราะเราใช้กรอบเขียวของระบบเอง */
 #qr-shaded-region > div{ background-color: transparent !important; }
 </style>
-
-
-<style id="rscan-center-overlay-safe-v8">
-/* =========================================================
-   RECEIVE — VISUAL FRAME ONLY
-   ไม่แตะ video / camera / decoder
-   ========================================================= */
-
-#rscanCam .rscan-corner{
-  display:none !important;
-}
-
-#rscanCam::after{
-  content:'' !important;
-  position:absolute !important;
-  z-index:8 !important;
-  pointer-events:none !important;
-
-  left:50% !important;
-  top:50% !important;
-  right:auto !important;
-  bottom:auto !important;
-
-  width:var(--rscan-visual-w,260px) !important;
-  height:var(--rscan-visual-h,62px) !important;
-  transform:translate(-50%,-50%) !important;
-
-  border:3px solid #35e6ab !important;
-  border-radius:12px !important;
-  box-shadow:
-    0 0 0 1px rgba(255,255,255,.15),
-    0 0 14px rgba(53,230,171,.50) !important;
-}
-
-#rscanCam .rscan-scanline{
-  z-index:9 !important;
-  left:50% !important;
-  right:auto !important;
-  top:50% !important;
-  width:var(--rscan-visual-w,260px) !important;
-  transform:translate(-50%,-50%) !important;
-  animation:none !important;
-}
-</style>
-
 </head>
 <body>
 
@@ -2096,23 +2051,6 @@ function todayIsoDate_(){
   return d.getFullYear()+'-'+mm+'-'+dd;
 }
 
-
-/* กรอบภาพเท่านั้น: ใช้สูตรเดียวกับ barcodeQrbox() เดิม
-   เพื่อให้กรอบเขียวกลางจอตรงกับขนาด qrbox โดยไม่แตะ Scanner */
-function updateRscanVisualFrame_(){
-  var cam = document.getElementById('rscanCam');
-  if(!cam) return;
-
-  var w = cam.clientWidth || cam.getBoundingClientRect().width || 0;
-  if(!w) return;
-
-  var boxW = Math.floor(Math.min(w * 0.68, 260));
-  var boxH = Math.max(46, Math.floor(boxW * 0.24));
-
-  cam.style.setProperty('--rscan-visual-w', boxW+'px');
-  cam.style.setProperty('--rscan-visual-h', boxH+'px');
-}
-
 function openScanReceive(){
   RSCAN.batch = [];
   document.getElementById('rscanEmpName').value = '';
@@ -2122,7 +2060,6 @@ function openScanReceive(){
   msgEl.textContent = 'เล็งกล้องไปที่บาร์โค้ด/QR ของสารเคมี...';
   renderRscanBatch();
   rscanRetried = false;
-  updateRscanVisualFrame_();
   startRscanScanner();
 }
 function startRscanScanner(){
@@ -2146,7 +2083,6 @@ function startRscanScanner(){
       ).then(function(){
         rscanStarting = false;
         rscanRetried = false;
-        updateRscanVisualFrame_();
         wireTorchButton_('rscanTorch', function(){ return RSCAN.scanner; });
         autoApplyZoomBoost_(RSCAN.scanner, 'rscanReaderBox', 2);
         if(rscanBoxSyncStop){ rscanBoxSyncStop(); }
@@ -2831,15 +2767,6 @@ document.getElementById('btnReceiveSave').onclick = function() {
     onError(err);
   }).receiveChemical(BE.pin, payload);
 };
-
-
-
-window.addEventListener('resize', function(){
-  if(document.getElementById('viewReceive') &&
-     !document.getElementById('viewReceive').classList.contains('hidden')){
-    updateRscanVisualFrame_();
-  }
-});
 
 </script>
 </body>
