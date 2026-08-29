@@ -412,79 +412,6 @@ textarea.input{resize:vertical; min-height:64px; line-height:1.5;}
 /* ซ่อนเฉพาะมุมสีขาวของไลบรารี เพราะเราใช้กรอบเขียวของระบบเอง */
 #qr-shaded-region > div{ background-color: transparent !important; }
 </style>
-
-<style id="receive-ui-only-v3">
-/* Mobile receive-page appearance only. */
-@media(max-width:600px){
-  body > .topbar{
-    padding:12px 14px 7px !important;
-    display:block !important;
-  }
-  body > .topbar > .brand{
-    margin-bottom:10px !important;
-    font-size:12.5px !important;
-  }
-  body > .topbar > .mode-switch{
-    width:100% !important;
-    display:grid !important;
-    grid-template-columns:repeat(3,minmax(0,1fr)) !important;
-    gap:7px !important;
-    padding:0 !important;
-    background:transparent !important;
-  }
-  body > .topbar > .mode-switch .mode-btn{
-    min-width:0 !important;
-    min-height:42px !important;
-    padding:7px 5px !important;
-    justify-content:center !important;
-    border:1px solid var(--border) !important;
-    border-radius:12px !important;
-    background:#fff !important;
-    box-shadow:0 2px 7px rgba(15,32,29,.045) !important;
-    font-size:11.5px !important;
-  }
-
-  #viewReceive > .topbar{
-    padding:8px 0 9px !important;
-    display:flex !important;
-    align-items:center !important;
-    gap:8px !important;
-  }
-  #viewReceive > .topbar > .brand{
-    flex:1 !important;
-    margin:0 !important;
-    font-size:16px !important;
-    font-weight:800 !important;
-    color:var(--primary-dk) !important;
-  }
-  #viewReceive > .topbar > #btnExitReceive{
-    min-height:34px !important;
-    padding:6px 8px !important;
-    border:0 !important;
-    background:transparent !important;
-    box-shadow:none !important;
-    color:var(--text-soft) !important;
-    font-size:11.5px !important;
-  }
-
-  #viewReceive > .rscan-header{
-    padding:12px 14px !important;
-    margin-bottom:14px !important;
-    border-radius:14px !important;
-    box-shadow:0 5px 14px rgba(26,156,107,.13) !important;
-  }
-  #viewReceive > .rscan-header .modal-title{
-    font-size:15px !important;
-    line-height:1.3 !important;
-    margin:0 0 2px !important;
-  }
-  #viewReceive > .rscan-header .modal-sub{
-    margin:0 !important;
-    font-size:10.8px !important;
-    line-height:1.45 !important;
-  }
-}
-</style>
 </head>
 <body>
 
@@ -1566,6 +1493,28 @@ var SCAN_VIDEO_CONSTRAINTS_IOS = { width: { ideal: 1920 }, height: { ideal: 1080
 function getSafeVideoConstraints_(){
   return isIOSDevice_() ? SCAN_VIDEO_CONSTRAINTS_IOS : SCAN_VIDEO_CONSTRAINTS;
 }
+
+/* ============================================================
+   RECEIVE SCANNER — DECODE STABILITY
+   คืนค่าฝั่ง "รับเข้า" ให้ใกล้ค่าที่เคยสแกนติด:
+   - 1280x720 ลดภาระ decode ต่อเฟรม
+   - 15 fps เพิ่มโอกาสจับเส้นบาร์โค้ด
+   - ใช้ qrbox แยกเฉพาะหน้ารับเข้า
+   - ไม่บังคับ digital zoom 2x เพราะอาจตัด quiet zone ซ้าย/ขวา
+   กรอบที่เห็นยัง sync กับ #qr-shaded-region จริงเหมือนเดิม
+   ============================================================ */
+var RSCAN_VIDEO_CONSTRAINTS = {
+  width: { ideal: 1280 },
+  height: { ideal: 720 }
+};
+
+function receiveBarcodeQrbox(viewfinderWidth, viewfinderHeight){
+  var w = Math.floor(Math.min(viewfinderWidth * 0.68, 260));
+  var h = Math.max(64, Math.floor(w * 0.28));
+  if(h > 74) h = 74;
+  return { width: w, height: h };
+}
+
 /* จำกัด format ให้ decode เฉพาะ Code128 (รูปแบบบาร์โค้ดจริงที่ใช้บนขวดสารเคมี)
    เดิมไลบรารีจะพยายามถอดรหัสทุก format (QR, EAN, UPC, DataMatrix ฯลฯ) ทุกเฟรม
    ทำให้กินแรงประมวลผลเกินจำเป็นและอัตราสแกนติดต่ำลง */
@@ -2150,14 +2099,17 @@ function startRscanScanner(){
       RSCAN.scanner = new Html5Qrcode('rscanReaderBox', { formatsToSupport: getScanFormatsToSupport(), verbose: false });
       startScannerSimple_(
         RSCAN.scanner,
-        { fps: 10, qrbox: barcodeQrbox, videoConstraints: SCAN_VIDEO_CONSTRAINTS, disableFlip: true },
+        { fps: 15, qrbox: receiveBarcodeQrbox, videoConstraints: RSCAN_VIDEO_CONSTRAINTS, disableFlip: true },
         function(decodedText){ handleRscanResult(decodedText); },
         function(){ /* ignore per-frame scan misses */ }
       ).then(function(){
         rscanStarting = false;
         rscanRetried = false;
         wireTorchButton_('rscanTorch', function(){ return RSCAN.scanner; });
-        autoApplyZoomBoost_(RSCAN.scanner, 'rscanReaderBox', 2);
+        /* ไม่บังคับซูม 2x ในหน้ารับเข้า: ป้องกันปลาย/quiet zone ของ Barcode ถูก crop */
+        try{
+          if(typeof renderZoomButtons_ === 'function') renderZoomButtons_('rscanZoomCtrl', RSCAN.scanner);
+        }catch(e){}
         if(rscanBoxSyncStop){ rscanBoxSyncStop(); }
         rscanBoxSyncStop = watchSyncScanTargetBox_(document.getElementById('rscanCam'), 'rscanReaderBox');
         if(rscanFreezeTimer){ clearInterval(rscanFreezeTimer); }
