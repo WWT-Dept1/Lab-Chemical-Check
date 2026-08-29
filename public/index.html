@@ -413,6 +413,54 @@ textarea.input{resize:vertical; min-height:64px; line-height:1.5;}
 /* ซ่อนเฉพาะมุมสีขาวของไลบรารี เพราะเราใช้กรอบเขียวของระบบเอง */
 #qr-shaded-region > div{ background-color: transparent !important; }
 </style>
+
+
+<style id="receive-center-roi-v2">
+/* ============================================================
+   RECEIVE CAMERA — CENTERED ROI
+   Only affects the receive camera viewport.
+   ============================================================ */
+#rscanCam{
+  position:relative !important;
+  overflow:hidden !important;
+}
+
+#rscanReaderBox{
+  position:absolute !important;
+  inset:0 !important;
+  width:100% !important;
+  height:100% !important;
+  overflow:hidden !important;
+  background:#000 !important;
+}
+
+#rscanReaderBox video{
+  position:absolute !important;
+  inset:0 !important;
+  width:100% !important;
+  height:100% !important;
+  max-width:none !important;
+  max-height:none !important;
+  margin:0 !important;
+  padding:0 !important;
+  object-fit:cover !important;
+  object-position:50% 50% !important;
+}
+
+/* Receive mode does NOT use html5-qrcode decode results.
+   Hide its tiny shaded qrbox so the only visible target is our real ROI. */
+#rscanReaderBox #qr-shaded-region{
+  display:none !important;
+}
+
+/* Keep the targeting overlay above the video. */
+#rscanCam::after,
+#rscanCam .rscan-corner,
+#rscanCam .rscan-scanline{
+  z-index:5 !important;
+}
+</style>
+
 </head>
 <body>
 
@@ -1246,30 +1294,31 @@ function barcodeQrbox(viewfinderWidth, viewfinderHeight){
    property (px) บน container ให้กรอบเขียว/เส้นสแกนขยับไปตรงตำแหน่ง decode จริงเป๊ะ ============ */
 function strictRoiGeometry_(containerEl, readerBoxId){
   if(!containerEl) return null;
+
   var video = document.querySelector('#'+readerBoxId+' video');
-  if(!video || !video.videoWidth || !video.videoHeight) return null;
+  if(!video || !video.videoWidth || !video.videoHeight || video.readyState < 2) return null;
 
   var cr = containerEl.getBoundingClientRect();
-  var vr = video.getBoundingClientRect();
-  if(!cr.width || !cr.height || !vr.width || !vr.height) return null;
+  if(!cr.width || !cr.height) return null;
 
-  /* STRICT ROI:
-     กรอบเขียวคำนวณจาก VIDEO ที่ผู้ใช้เห็นจริง และพิกัดชุดเดียวกันนี้จะถูกแปลง
-     ไปเป็นพิกเซลของ sensor frame สำหรับ Crop ก่อน Decode
-     จึงไม่มีกรณี "กรอบอยู่ตรงนี้ แต่ Decoder อ่านอีกตำแหน่ง" */
-  var boxW = Math.floor(Math.min(vr.width * 0.68, 260));
-  var boxH = Math.max(46, Math.floor(boxW * 0.24));
+  /* ==========================================================
+     กรอบเขียว = อยู่กึ่งกลาง CAMERA VIEWPORT เสมอ
+     ไม่อิงตำแหน่ง/ขนาด DOM ของ video ที่ html5-qrcode จัดให้
+     ========================================================== */
+  var cw = cr.width;
+  var ch = cr.height;
 
-  if(boxH > vr.height - 8) boxH = Math.max(40, Math.floor(vr.height * 0.42));
-  if(boxW > vr.width - 8) boxW = Math.max(80, Math.floor(vr.width * 0.84));
+  var boxW = Math.min(cw * 0.74, 300);
+  boxW = Math.max(210, boxW);
 
-  var absLeft = vr.left + (vr.width - boxW) / 2;
-  var absTop  = vr.top  + (vr.height - boxH) / 2;
+  /* Code128 ต้องมีความสูงพอให้เส้นเต็ม ไม่ทำกรอบเตี้ยเกิน */
+  var boxH = Math.min(86, Math.max(70, boxW * 0.27));
+  if(boxH > ch - 24) boxH = Math.max(56, ch - 24);
 
-  var left   = absLeft - cr.left;
-  var top    = absTop - cr.top;
-  var right  = cr.right - (absLeft + boxW);
-  var bottom = cr.bottom - (absTop + boxH);
+  var left = (cw - boxW) / 2;
+  var top  = (ch - boxH) / 2;
+  var right = cw - left - boxW;
+  var bottom = ch - top - boxH;
 
   containerEl.style.setProperty('--stb-top', top+'px');
   containerEl.style.setProperty('--stb-left', left+'px');
@@ -1277,19 +1326,44 @@ function strictRoiGeometry_(containerEl, readerBoxId){
   containerEl.style.setProperty('--stb-bottom', bottom+'px');
   containerEl.style.setProperty('--stb-top-end', (top+boxH)+'px');
 
-  /* CSS pixel -> sensor pixel
-     เฉพาะพิกเซลในกรอบนี้เท่านั้นที่จะเข้า ZXing */
-  var sx = Math.max(0, (absLeft - vr.left) * (video.videoWidth / vr.width));
-  var sy = Math.max(0, (absTop  - vr.top)  * (video.videoHeight / vr.height));
-  var sw = Math.min(video.videoWidth - sx, boxW * (video.videoWidth / vr.width));
-  var sh = Math.min(video.videoHeight - sy, boxH * (video.videoHeight / vr.height));
+  /* ==========================================================
+     Map CENTERED CSS ROI -> sensor pixels for object-fit:cover
 
-  if(sw < 40 || sh < 30) return null;
+     source image: video.videoWidth x video.videoHeight
+     viewport:     cw x ch
+
+     coverScale makes source fill viewport, then excess is cropped
+     equally around center because object-position = 50% 50%.
+     ========================================================== */
+  var vw = video.videoWidth;
+  var vh = video.videoHeight;
+
+  var coverScale = Math.max(cw / vw, ch / vh);
+  if(!isFinite(coverScale) || coverScale <= 0) return null;
+
+  var renderedW = vw * coverScale;
+  var renderedH = vh * coverScale;
+
+  var cropOffsetX = (cw - renderedW) / 2;  /* <= 0 when horizontally cropped */
+  var cropOffsetY = (ch - renderedH) / 2;  /* <= 0 when vertically cropped */
+
+  var sx = (left - cropOffsetX) / coverScale;
+  var sy = (top  - cropOffsetY) / coverScale;
+  var sw = boxW / coverScale;
+  var sh = boxH / coverScale;
+
+  /* Clamp to actual sensor frame. */
+  sx = Math.max(0, Math.min(vw - 1, sx));
+  sy = Math.max(0, Math.min(vh - 1, sy));
+  sw = Math.max(1, Math.min(vw - sx, sw));
+  sh = Math.max(1, Math.min(vh - sy, sh));
+
+  if(sw < 120 || sh < 40) return null;
 
   return {
-    video: video,
-    sx: sx, sy: sy, sw: sw, sh: sh,
-    boxW: boxW, boxH: boxH
+    video:video,
+    sx:sx, sy:sy, sw:sw, sh:sh,
+    boxW:boxW, boxH:boxH
   };
 }
 
@@ -2128,6 +2202,9 @@ function getRscanStrictZxingReader_(){
         ZXing.DecodeHintType.POSSIBLE_FORMATS,
         [ZXing.BarcodeFormat.CODE_128]
       );
+      if(ZXing.DecodeHintType.TRY_HARDER !== undefined){
+        hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+      }
     }
     _rscanStrictZxingReader_ = new ZXing.BrowserMultiFormatReader(hints);
     return _rscanStrictZxingReader_;
@@ -2196,8 +2273,8 @@ function startRscanStrictCropDecodeLoop_(containerEl, readerBoxId, onDecoded){
   }
 
   /* ~7 fps สำหรับ Code128 พอ และไม่หนักมือถือ */
-  timer = setInterval(run, 140);
-  setTimeout(run, 80);
+  timer = setInterval(run, 100);
+  setTimeout(run, 60);
 
   return function stopRscanStrictCropLoop_(){
     stopped = true;
@@ -2211,7 +2288,7 @@ function openScanReceive(){
   document.getElementById('rscanReceivedDate').value = todayIsoDate_();
   var msgEl = document.getElementById('rscanMsg');
   msgEl.style.color = 'var(--text-soft)';
-  msgEl.textContent = 'วางบาร์โค้ดที่ต้องการให้อยู่ในกรอบเขียวเท่านั้น';
+  msgEl.textContent = 'วางบาร์โค้ดที่ต้องการไว้กลางกรอบเขียว';
   renderRscanBatch();
   rscanRetried = false;
   resetReceiveScanGate_(rscanStableGate_);
@@ -2240,7 +2317,7 @@ function startRscanScanner(){
         rscanStarting = false;
         rscanRetried = false;
         wireTorchButton_('rscanTorch', function(){ return RSCAN.scanner; });
-        autoApplyZoomBoost_(RSCAN.scanner, 'rscanReaderBox', 2);
+        /* Receive mode: ไม่บังคับซูมอัตโนมัติ เพื่อไม่ตัด quiet zone ของ Code128 */
         if(rscanBoxSyncStop){ rscanBoxSyncStop(); }
         rscanBoxSyncStop = watchSyncScanTargetBox_(document.getElementById('rscanCam'), 'rscanReaderBox');
         if(rscanStrictCropStop_){ rscanStrictCropStop_(); }
@@ -2248,10 +2325,9 @@ function startRscanScanner(){
           document.getElementById('rscanCam'),
           'rscanReaderBox',
           function(decodedText){
-            /* ต้องเห็นรหัสเดียวกัน 2 ครั้งติดกันก่อนยอมรับ */
-            if(receiveStableHit_(rscanStableGate_, decodedText, 2, 700)){
-              handleRscanResult(decodedText);
-            }
+            /* STRICT ROI แล้ว: รหัสนอกกรอบไม่มีพิกเซลเข้า decoder
+               จึงรับผลสำเร็จครั้งแรกทันทีเพื่อให้สแกนไว */
+            handleRscanResult(decodedText);
           }
         );
         if(rscanFreezeTimer){ clearInterval(rscanFreezeTimer); }
