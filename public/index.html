@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
 <script src="/gas-compat.js"></script>
 <style>
 :root{
@@ -1243,32 +1244,57 @@ function barcodeQrbox(viewfinderWidth, viewfinderHeight){
 
    ฟังก์ชันนี้อ่านตำแหน่งจริงของ #qr-shaded-region หลังกล้อง render แล้ว set เป็น CSS custom
    property (px) บน container ให้กรอบเขียว/เส้นสแกนขยับไปตรงตำแหน่ง decode จริงเป๊ะ ============ */
-function syncScanTargetBox_(containerEl, readerBoxId){
-  if(!containerEl) return false;
-  var shaded = document.querySelector('#'+readerBoxId+' #qr-shaded-region');
-  if(!shaded) return false;
+function strictRoiGeometry_(containerEl, readerBoxId){
+  if(!containerEl) return null;
+  var video = document.querySelector('#'+readerBoxId+' video');
+  if(!video || !video.videoWidth || !video.videoHeight) return null;
 
-  /* สำคัญ: #qr-shaded-region มีขนาดเต็ม viewfinder แล้วใช้ border หนา 4 ด้านเป็น mask
-     ดังนั้น getBoundingClientRect() ของ element นี้จะได้ "เต็มกล้อง" ไม่ใช่ qrbox
-     ต้องอ่านความหนา border จริงแทน ซึ่งเท่ากับระยะจากขอบกล้องถึงพื้นที่ decode */
-  var cs = window.getComputedStyle(shaded);
-  var top = parseFloat(cs.borderTopWidth) || 0;
-  var right = parseFloat(cs.borderRightWidth) || 0;
-  var bottom = parseFloat(cs.borderBottomWidth) || 0;
-  var left = parseFloat(cs.borderLeftWidth) || 0;
-  var contRect = containerEl.getBoundingClientRect();
-  if(!contRect.width || !contRect.height) return false;
+  var cr = containerEl.getBoundingClientRect();
+  var vr = video.getBoundingClientRect();
+  if(!cr.width || !cr.height || !vr.width || !vr.height) return null;
 
-  var innerW = contRect.width - left - right;
-  var innerH = contRect.height - top - bottom;
-  if(innerW < 40 || innerH < 40) return false;
+  /* STRICT ROI:
+     กรอบเขียวคำนวณจาก VIDEO ที่ผู้ใช้เห็นจริง และพิกัดชุดเดียวกันนี้จะถูกแปลง
+     ไปเป็นพิกเซลของ sensor frame สำหรับ Crop ก่อน Decode
+     จึงไม่มีกรณี "กรอบอยู่ตรงนี้ แต่ Decoder อ่านอีกตำแหน่ง" */
+  var boxW = Math.floor(Math.min(vr.width * 0.68, 260));
+  var boxH = Math.max(46, Math.floor(boxW * 0.24));
+
+  if(boxH > vr.height - 8) boxH = Math.max(40, Math.floor(vr.height * 0.42));
+  if(boxW > vr.width - 8) boxW = Math.max(80, Math.floor(vr.width * 0.84));
+
+  var absLeft = vr.left + (vr.width - boxW) / 2;
+  var absTop  = vr.top  + (vr.height - boxH) / 2;
+
+  var left   = absLeft - cr.left;
+  var top    = absTop - cr.top;
+  var right  = cr.right - (absLeft + boxW);
+  var bottom = cr.bottom - (absTop + boxH);
 
   containerEl.style.setProperty('--stb-top', top+'px');
   containerEl.style.setProperty('--stb-left', left+'px');
   containerEl.style.setProperty('--stb-right', right+'px');
   containerEl.style.setProperty('--stb-bottom', bottom+'px');
-  containerEl.style.setProperty('--stb-top-end', (top+innerH)+'px');
-  return true;
+  containerEl.style.setProperty('--stb-top-end', (top+boxH)+'px');
+
+  /* CSS pixel -> sensor pixel
+     เฉพาะพิกเซลในกรอบนี้เท่านั้นที่จะเข้า ZXing */
+  var sx = Math.max(0, (absLeft - vr.left) * (video.videoWidth / vr.width));
+  var sy = Math.max(0, (absTop  - vr.top)  * (video.videoHeight / vr.height));
+  var sw = Math.min(video.videoWidth - sx, boxW * (video.videoWidth / vr.width));
+  var sh = Math.min(video.videoHeight - sy, boxH * (video.videoHeight / vr.height));
+
+  if(sw < 40 || sh < 30) return null;
+
+  return {
+    video: video,
+    sx: sx, sy: sy, sw: sw, sh: sh,
+    boxW: boxW, boxH: boxH
+  };
+}
+
+function syncScanTargetBox_(containerEl, readerBoxId){
+  return !!strictRoiGeometry_(containerEl, readerBoxId);
 }
 /* #qr-shaded-region ถูกไลบรารีแทรก/จัดขนาดหลัง video เริ่มเล่นจริง มีดีเลย์เล็กน้อยไม่แน่นอน
    จึง poll สั้นๆ ช่วงแรกจนกว่าจะอ่านตำแหน่งได้ (หรือครบจำนวนครั้ง) แล้วยังฟัง resize/orientation
@@ -1493,28 +1519,6 @@ var SCAN_VIDEO_CONSTRAINTS_IOS = { width: { ideal: 1920 }, height: { ideal: 1080
 function getSafeVideoConstraints_(){
   return isIOSDevice_() ? SCAN_VIDEO_CONSTRAINTS_IOS : SCAN_VIDEO_CONSTRAINTS;
 }
-
-/* ============================================================
-   RECEIVE SCANNER — DECODE STABILITY
-   คืนค่าฝั่ง "รับเข้า" ให้ใกล้ค่าที่เคยสแกนติด:
-   - 1280x720 ลดภาระ decode ต่อเฟรม
-   - 15 fps เพิ่มโอกาสจับเส้นบาร์โค้ด
-   - ใช้ qrbox แยกเฉพาะหน้ารับเข้า
-   - ไม่บังคับ digital zoom 2x เพราะอาจตัด quiet zone ซ้าย/ขวา
-   กรอบที่เห็นยัง sync กับ #qr-shaded-region จริงเหมือนเดิม
-   ============================================================ */
-var RSCAN_VIDEO_CONSTRAINTS = {
-  width: { ideal: 1280 },
-  height: { ideal: 720 }
-};
-
-function receiveBarcodeQrbox(viewfinderWidth, viewfinderHeight){
-  var w = Math.floor(Math.min(viewfinderWidth * 0.68, 260));
-  var h = Math.max(64, Math.floor(w * 0.28));
-  if(h > 74) h = 74;
-  return { width: w, height: h };
-}
-
 /* จำกัด format ให้ decode เฉพาะ Code128 (รูปแบบบาร์โค้ดจริงที่ใช้บนขวดสารเคมี)
    เดิมไลบรารีจะพยายามถอดรหัสทุก format (QR, EAN, UPC, DataMatrix ฯลฯ) ทุกเฟรม
    ทำให้กินแรงประมวลผลเกินจำเป็นและอัตราสแกนติดต่ำลง */
@@ -2073,15 +2077,144 @@ function todayIsoDate_(){
   return d.getFullYear()+'-'+mm+'-'+dd;
 }
 
+
+/* ============================================================
+   RECEIVE — STRICT PIXEL ROI DECODER
+   html5-qrcode = เปิด/แสดงกล้องเท่านั้น
+   ZXing = Decode จาก Canvas ที่ Crop เฉพาะกรอบเขียวจริง
+
+   ผล: Barcode ที่อยู่เหนือ/ใต้/ข้างกรอบ ไม่มีพิกเซลเข้า Decoder
+   ============================================================ */
+function newReceiveScanGate_(){
+  return { code:'', hits:0, lastAt:0 };
+}
+function resetReceiveScanGate_(gate){
+  gate.code=''; gate.hits=0; gate.lastAt=0;
+}
+function receiveStableHit_(gate, rawCode, requiredHits, maxGapMs){
+  var code = String(rawCode==null?'':rawCode).trim();
+  if(!code){
+    resetReceiveScanGate_(gate);
+    return false;
+  }
+  var now = Date.now();
+  if(gate.code === code && (now - gate.lastAt) <= maxGapMs){
+    gate.hits += 1;
+  }else{
+    gate.code = code;
+    gate.hits = 1;
+  }
+  gate.lastAt = now;
+
+  if(gate.hits >= requiredHits){
+    resetReceiveScanGate_(gate);
+    return true;
+  }
+  return false;
+}
+
+var rscanStableGate_ = newReceiveScanGate_();
+var rscanStrictCropStop_ = null;
+var _rscanStrictZxingReader_ = null;
+
+function getRscanStrictZxingReader_(){
+  if(_rscanStrictZxingReader_) return _rscanStrictZxingReader_;
+  if(typeof ZXing === 'undefined' || !ZXing.BrowserMultiFormatReader) return null;
+
+  try{
+    var hints = new Map();
+    if(ZXing.DecodeHintType && ZXing.BarcodeFormat){
+      hints.set(
+        ZXing.DecodeHintType.POSSIBLE_FORMATS,
+        [ZXing.BarcodeFormat.CODE_128]
+      );
+    }
+    _rscanStrictZxingReader_ = new ZXing.BrowserMultiFormatReader(hints);
+    return _rscanStrictZxingReader_;
+  }catch(e){
+    return null;
+  }
+}
+
+function makeRscanStrictCropCanvas_(containerEl, readerBoxId, canvas){
+  var g = strictRoiGeometry_(containerEl, readerBoxId);
+  if(!g || !g.video || g.video.readyState < 2) return null;
+
+  var w = Math.max(1, Math.round(g.sw));
+  var h = Math.max(1, Math.round(g.sh));
+
+  /* จำกัดงาน decode บนมือถือ แต่ยังเก็บสัดส่วนและรายละเอียดบาร์โค้ด */
+  var maxW = 1100;
+  var scale = w > maxW ? (maxW / w) : 1;
+  var dw = Math.max(1, Math.round(w * scale));
+  var dh = Math.max(1, Math.round(h * scale));
+
+  if(canvas.width !== dw) canvas.width = dw;
+  if(canvas.height !== dh) canvas.height = dh;
+
+  var ctx = canvas.getContext('2d', {willReadFrequently:true});
+  if(!ctx) return null;
+
+  ctx.clearRect(0,0,dw,dh);
+  ctx.drawImage(
+    g.video,
+    g.sx, g.sy, g.sw, g.sh,
+    0, 0, dw, dh
+  );
+  return canvas;
+}
+
+function startRscanStrictCropDecodeLoop_(containerEl, readerBoxId, onDecoded){
+  var stopped = false;
+  var busy = false;
+  var canvas = document.createElement('canvas');
+  var reader = getRscanStrictZxingReader_();
+  var timer = null;
+
+  function run(){
+    if(stopped || busy) return;
+
+    reader = reader || getRscanStrictZxingReader_();
+    if(!reader) return;
+
+    var crop = makeRscanStrictCropCanvas_(containerEl, readerBoxId, canvas);
+    if(!crop) return;
+
+    busy = true;
+    try{
+      var result = reader.decodeFromCanvas(crop);
+      var code = result && typeof result.getText === 'function'
+        ? result.getText()
+        : '';
+
+      if(code) onDecoded(String(code));
+    }catch(e){
+      /* ไม่เจอรหัสในเฟรมนี้ = ปกติ */
+    }finally{
+      busy = false;
+    }
+  }
+
+  /* ~7 fps สำหรับ Code128 พอ และไม่หนักมือถือ */
+  timer = setInterval(run, 140);
+  setTimeout(run, 80);
+
+  return function stopRscanStrictCropLoop_(){
+    stopped = true;
+    if(timer) clearInterval(timer);
+  };
+}
+
 function openScanReceive(){
   RSCAN.batch = [];
   document.getElementById('rscanEmpName').value = '';
   document.getElementById('rscanReceivedDate').value = todayIsoDate_();
   var msgEl = document.getElementById('rscanMsg');
   msgEl.style.color = 'var(--text-soft)';
-  msgEl.textContent = 'เล็งกล้องไปที่บาร์โค้ด/QR ของสารเคมี...';
+  msgEl.textContent = 'วางบาร์โค้ดที่ต้องการให้อยู่ในกรอบเขียวเท่านั้น';
   renderRscanBatch();
   rscanRetried = false;
+  resetReceiveScanGate_(rscanStableGate_);
   startRscanScanner();
 }
 function startRscanScanner(){
@@ -2099,19 +2232,28 @@ function startRscanScanner(){
       RSCAN.scanner = new Html5Qrcode('rscanReaderBox', { formatsToSupport: getScanFormatsToSupport(), verbose: false });
       startScannerSimple_(
         RSCAN.scanner,
-        { fps: 15, qrbox: receiveBarcodeQrbox, videoConstraints: RSCAN_VIDEO_CONSTRAINTS, disableFlip: true },
-        function(decodedText){ handleRscanResult(decodedText); },
+        /* html5-qrcode เปิดกล้องอย่างเดียว ผล Decode ของมันถูกทิ้งทั้งหมด */
+        { fps: 1, qrbox: {width:50,height:50}, videoConstraints: SCAN_VIDEO_CONSTRAINTS, disableFlip: true },
+        function(decodedText){ /* STRICT ROI: intentionally ignored */ },
         function(){ /* ignore per-frame scan misses */ }
       ).then(function(){
         rscanStarting = false;
         rscanRetried = false;
         wireTorchButton_('rscanTorch', function(){ return RSCAN.scanner; });
-        /* ไม่บังคับซูม 2x ในหน้ารับเข้า: ป้องกันปลาย/quiet zone ของ Barcode ถูก crop */
-        try{
-          if(typeof renderZoomButtons_ === 'function') renderZoomButtons_('rscanZoomCtrl', RSCAN.scanner);
-        }catch(e){}
+        autoApplyZoomBoost_(RSCAN.scanner, 'rscanReaderBox', 2);
         if(rscanBoxSyncStop){ rscanBoxSyncStop(); }
         rscanBoxSyncStop = watchSyncScanTargetBox_(document.getElementById('rscanCam'), 'rscanReaderBox');
+        if(rscanStrictCropStop_){ rscanStrictCropStop_(); }
+        rscanStrictCropStop_ = startRscanStrictCropDecodeLoop_(
+          document.getElementById('rscanCam'),
+          'rscanReaderBox',
+          function(decodedText){
+            /* ต้องเห็นรหัสเดียวกัน 2 ครั้งติดกันก่อนยอมรับ */
+            if(receiveStableHit_(rscanStableGate_, decodedText, 2, 700)){
+              handleRscanResult(decodedText);
+            }
+          }
+        );
         if(rscanFreezeTimer){ clearInterval(rscanFreezeTimer); }
         rscanFreezeTimer = watchScannerFreeze_('rscanReaderBox', function(){
           forceResetReaderBox_('rscanReaderBox');
@@ -2145,6 +2287,8 @@ function startRscanScanner(){
 function stopRscanScanner(cb){
   if(rscanFreezeTimer){ clearInterval(rscanFreezeTimer); rscanFreezeTimer = null; }
   if(rscanBoxSyncStop){ rscanBoxSyncStop(); rscanBoxSyncStop = null; }
+  if(rscanStrictCropStop_){ rscanStrictCropStop_(); rscanStrictCropStop_ = null; }
+  resetReceiveScanGate_(rscanStableGate_);
   if(RSCAN.scanner){
     var s = RSCAN.scanner; RSCAN.scanner=null;
     var finish = function(){ try{ s.clear(); }catch(e){} if(cb) cb(); };
