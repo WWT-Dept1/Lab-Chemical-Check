@@ -415,49 +415,57 @@ textarea.input{resize:vertical; min-height:64px; line-height:1.5;}
 </style>
 
 
-<style id="receive-center-roi-v2">
-/* ============================================================
-   RECEIVE CAMERA — CENTERED ROI
-   Only affects the receive camera viewport.
-   ============================================================ */
-#rscanCam{
-  position:relative !important;
-  overflow:hidden !important;
-}
-
-#rscanReaderBox{
-  position:absolute !important;
-  inset:0 !important;
+<style id="rscan-center-roi-v6">
+/* RECEIVE SCANNER ONLY — กรอบอยู่กึ่งกลางกล้องเสมอ */
+#rscanReaderBox,
+#rscanReaderBox > div{
   width:100% !important;
   height:100% !important;
-  overflow:hidden !important;
-  background:#000 !important;
 }
 
 #rscanReaderBox video{
-  position:absolute !important;
-  inset:0 !important;
   width:100% !important;
   height:100% !important;
-  max-width:none !important;
-  max-height:none !important;
-  margin:0 !important;
-  padding:0 !important;
   object-fit:cover !important;
-  object-position:50% 50% !important;
+  object-position:center center !important;
 }
 
-/* Receive mode does NOT use html5-qrcode decode results.
-   Hide its tiny shaded qrbox so the only visible target is our real ROI. */
+/* ซ่อน mask/กรอบของ html5-qrcode เฉพาะหน้ารับเข้า
+   เพราะหน้ารับเข้าใช้ ROI ของเราเอง */
 #rscanReaderBox #qr-shaded-region{
+  opacity:0 !important;
+  pointer-events:none !important;
+}
+
+/* กรอบเป้าหมายจริง: กึ่งกลางแนวนอน + แนวตั้ง */
+.rscan-cam::after{
+  top:50% !important;
+  left:50% !important;
+  right:auto !important;
+  bottom:auto !important;
+  width:min(72%, 300px) !important;
+  height:88px !important;
+  transform:translate(-50%,-50%) !important;
+  border:3px solid #35e6ab !important;
+  border-radius:14px !important;
+  box-shadow:
+    0 0 0 999px rgba(0,0,0,.18),
+    0 0 16px rgba(53,230,171,.55) !important;
+}
+
+/* ใช้กรอบเต็มอันเดียว ไม่ให้ corner 4 ตัวไหลตำแหน่ง */
+.rscan-corner{
   display:none !important;
 }
 
-/* Keep the targeting overlay above the video. */
-#rscanCam::after,
-#rscanCam .rscan-corner,
-#rscanCam .rscan-scanline{
-  z-index:5 !important;
+/* เส้นเล็งอยู่กึ่งกลางกรอบ ไม่วิ่งลงด้านล่าง */
+.rscan-scanline{
+  left:calc(50% - min(36%, 150px)) !important;
+  right:calc(50% - min(36%, 150px)) !important;
+  top:50% !important;
+  transform:translateY(-50%) !important;
+  animation:none !important;
+  z-index:4 !important;
 }
 </style>
 
@@ -1292,83 +1300,32 @@ function barcodeQrbox(viewfinderWidth, viewfinderHeight){
 
    ฟังก์ชันนี้อ่านตำแหน่งจริงของ #qr-shaded-region หลังกล้อง render แล้ว set เป็น CSS custom
    property (px) บน container ให้กรอบเขียว/เส้นสแกนขยับไปตรงตำแหน่ง decode จริงเป๊ะ ============ */
-function strictRoiGeometry_(containerEl, readerBoxId){
-  if(!containerEl) return null;
+function syncScanTargetBox_(containerEl, readerBoxId){
+  if(!containerEl) return false;
+  var shaded = document.querySelector('#'+readerBoxId+' #qr-shaded-region');
+  if(!shaded) return false;
 
-  var video = document.querySelector('#'+readerBoxId+' video');
-  if(!video || !video.videoWidth || !video.videoHeight || video.readyState < 2) return null;
+  /* สำคัญ: #qr-shaded-region มีขนาดเต็ม viewfinder แล้วใช้ border หนา 4 ด้านเป็น mask
+     ดังนั้น getBoundingClientRect() ของ element นี้จะได้ "เต็มกล้อง" ไม่ใช่ qrbox
+     ต้องอ่านความหนา border จริงแทน ซึ่งเท่ากับระยะจากขอบกล้องถึงพื้นที่ decode */
+  var cs = window.getComputedStyle(shaded);
+  var top = parseFloat(cs.borderTopWidth) || 0;
+  var right = parseFloat(cs.borderRightWidth) || 0;
+  var bottom = parseFloat(cs.borderBottomWidth) || 0;
+  var left = parseFloat(cs.borderLeftWidth) || 0;
+  var contRect = containerEl.getBoundingClientRect();
+  if(!contRect.width || !contRect.height) return false;
 
-  var cr = containerEl.getBoundingClientRect();
-  if(!cr.width || !cr.height) return null;
-
-  /* ==========================================================
-     กรอบเขียว = อยู่กึ่งกลาง CAMERA VIEWPORT เสมอ
-     ไม่อิงตำแหน่ง/ขนาด DOM ของ video ที่ html5-qrcode จัดให้
-     ========================================================== */
-  var cw = cr.width;
-  var ch = cr.height;
-
-  var boxW = Math.min(cw * 0.74, 300);
-  boxW = Math.max(210, boxW);
-
-  /* Code128 ต้องมีความสูงพอให้เส้นเต็ม ไม่ทำกรอบเตี้ยเกิน */
-  var boxH = Math.min(86, Math.max(70, boxW * 0.27));
-  if(boxH > ch - 24) boxH = Math.max(56, ch - 24);
-
-  var left = (cw - boxW) / 2;
-  var top  = (ch - boxH) / 2;
-  var right = cw - left - boxW;
-  var bottom = ch - top - boxH;
+  var innerW = contRect.width - left - right;
+  var innerH = contRect.height - top - bottom;
+  if(innerW < 40 || innerH < 40) return false;
 
   containerEl.style.setProperty('--stb-top', top+'px');
   containerEl.style.setProperty('--stb-left', left+'px');
   containerEl.style.setProperty('--stb-right', right+'px');
   containerEl.style.setProperty('--stb-bottom', bottom+'px');
-  containerEl.style.setProperty('--stb-top-end', (top+boxH)+'px');
-
-  /* ==========================================================
-     Map CENTERED CSS ROI -> sensor pixels for object-fit:cover
-
-     source image: video.videoWidth x video.videoHeight
-     viewport:     cw x ch
-
-     coverScale makes source fill viewport, then excess is cropped
-     equally around center because object-position = 50% 50%.
-     ========================================================== */
-  var vw = video.videoWidth;
-  var vh = video.videoHeight;
-
-  var coverScale = Math.max(cw / vw, ch / vh);
-  if(!isFinite(coverScale) || coverScale <= 0) return null;
-
-  var renderedW = vw * coverScale;
-  var renderedH = vh * coverScale;
-
-  var cropOffsetX = (cw - renderedW) / 2;  /* <= 0 when horizontally cropped */
-  var cropOffsetY = (ch - renderedH) / 2;  /* <= 0 when vertically cropped */
-
-  var sx = (left - cropOffsetX) / coverScale;
-  var sy = (top  - cropOffsetY) / coverScale;
-  var sw = boxW / coverScale;
-  var sh = boxH / coverScale;
-
-  /* Clamp to actual sensor frame. */
-  sx = Math.max(0, Math.min(vw - 1, sx));
-  sy = Math.max(0, Math.min(vh - 1, sy));
-  sw = Math.max(1, Math.min(vw - sx, sw));
-  sh = Math.max(1, Math.min(vh - sy, sh));
-
-  if(sw < 120 || sh < 40) return null;
-
-  return {
-    video:video,
-    sx:sx, sy:sy, sw:sw, sh:sh,
-    boxW:boxW, boxH:boxH
-  };
-}
-
-function syncScanTargetBox_(containerEl, readerBoxId){
-  return !!strictRoiGeometry_(containerEl, readerBoxId);
+  containerEl.style.setProperty('--stb-top-end', (top+innerH)+'px');
+  return true;
 }
 /* #qr-shaded-region ถูกไลบรารีแทรก/จัดขนาดหลัง video เริ่มเล่นจริง มีดีเลย์เล็กน้อยไม่แน่นอน
    จึง poll สั้นๆ ช่วงแรกจนกว่าจะอ่านตำแหน่งได้ (หรือครบจำนวนครั้ง) แล้วยังฟัง resize/orientation
@@ -2153,133 +2110,188 @@ function todayIsoDate_(){
 
 
 /* ============================================================
-   RECEIVE — STRICT PIXEL ROI DECODER
-   html5-qrcode = เปิด/แสดงกล้องเท่านั้น
-   ZXing = Decode จาก Canvas ที่ Crop เฉพาะกรอบเขียวจริง
+   RECEIVE SCANNER V6 — CENTER ROI + MULTI ENGINE DECODER
 
-   ผล: Barcode ที่อยู่เหนือ/ใต้/ข้างกรอบ ไม่มีพิกเซลเข้า Decoder
+   1) ROI อยู่กึ่งกลาง .rscan-cam เสมอ
+   2) Crop จาก video เฉพาะ ROI เท่านั้น
+   3) Android Chrome: ใช้ native BarcodeDetector ก่อน
+   4) ถ้าไม่มี: fallback ZXing
+   5) html5-qrcode ใช้เปิดกล้องเท่านั้น ไม่ใช้ผล decode ของมัน
    ============================================================ */
-function newReceiveScanGate_(){
-  return { code:'', hits:0, lastAt:0 };
-}
-function resetReceiveScanGate_(gate){
-  gate.code=''; gate.hits=0; gate.lastAt=0;
-}
-function receiveStableHit_(gate, rawCode, requiredHits, maxGapMs){
-  var code = String(rawCode==null?'':rawCode).trim();
-  if(!code){
-    resetReceiveScanGate_(gate);
-    return false;
-  }
-  var now = Date.now();
-  if(gate.code === code && (now - gate.lastAt) <= maxGapMs){
-    gate.hits += 1;
-  }else{
-    gate.code = code;
-    gate.hits = 1;
-  }
-  gate.lastAt = now;
+var rscanDecodeStop_ = null;
+var rscanNativeDetector_ = null;
+var rscanZxingReader_ = null;
 
-  if(gate.hits >= requiredHits){
-    resetReceiveScanGate_(gate);
-    return true;
-  }
-  return false;
+function rscanTargetRect_(){
+  var cam = document.getElementById('rscanCam');
+  if(!cam) return null;
+  var cr = cam.getBoundingClientRect();
+  if(!cr.width || !cr.height) return null;
+
+  var boxW = Math.min(cr.width * 0.72, 300);
+  var boxH = 88;
+  if(boxW > cr.width - 16) boxW = cr.width - 16;
+  if(boxH > cr.height - 16) boxH = Math.max(56, cr.height - 16);
+
+  return {
+    cam: cam,
+    cr: cr,
+    left: (cr.width - boxW) / 2,
+    top: (cr.height - boxH) / 2,
+    width: boxW,
+    height: boxH
+  };
 }
 
-var rscanStableGate_ = newReceiveScanGate_();
-var rscanStrictCropStop_ = null;
-var _rscanStrictZxingReader_ = null;
+/* แปลง ROI บนหน้าจอ -> พิกเซลจริงของ video
+   video ถูกบังคับ object-fit:cover + center */
+function rscanVideoCropGeometry_(){
+  var t = rscanTargetRect_();
+  if(!t) return null;
 
-function getRscanStrictZxingReader_(){
-  if(_rscanStrictZxingReader_) return _rscanStrictZxingReader_;
-  if(typeof ZXing === 'undefined' || !ZXing.BrowserMultiFormatReader) return null;
+  var video = document.querySelector('#rscanReaderBox video');
+  if(!video || video.readyState < 2 || !video.videoWidth || !video.videoHeight) return null;
 
+  var dstW = t.cr.width;
+  var dstH = t.cr.height;
+  var srcW = video.videoWidth;
+  var srcH = video.videoHeight;
+
+  var scale = Math.max(dstW / srcW, dstH / srcH);
+  var renderedW = srcW * scale;
+  var renderedH = srcH * scale;
+
+  var cropDisplayX = (renderedW - dstW) / 2;
+  var cropDisplayY = (renderedH - dstH) / 2;
+
+  var sx = (cropDisplayX + t.left) / scale;
+  var sy = (cropDisplayY + t.top) / scale;
+  var sw = t.width / scale;
+  var sh = t.height / scale;
+
+  sx = Math.max(0, Math.min(srcW - 1, sx));
+  sy = Math.max(0, Math.min(srcH - 1, sy));
+  sw = Math.max(1, Math.min(srcW - sx, sw));
+  sh = Math.max(1, Math.min(srcH - sy, sh));
+
+  return {video:video, sx:sx, sy:sy, sw:sw, sh:sh};
+}
+
+function rscanCropCanvas_(canvas){
+  var g = rscanVideoCropGeometry_();
+  if(!g) return null;
+
+  /* ขยาย ROI ขึ้นเล็กน้อยตอน decode เพื่อรักษารายละเอียดเส้น Code128 */
+  var outW = Math.max(420, Math.min(1000, Math.round(g.sw)));
+  var ratio = g.sh / g.sw;
+  var outH = Math.max(90, Math.round(outW * ratio));
+
+  if(canvas.width !== outW) canvas.width = outW;
+  if(canvas.height !== outH) canvas.height = outH;
+
+  var ctx = canvas.getContext('2d', {willReadFrequently:true});
+  if(!ctx) return null;
+
+  ctx.clearRect(0,0,outW,outH);
+  ctx.drawImage(g.video, g.sx,g.sy,g.sw,g.sh, 0,0,outW,outH);
+
+  return canvas;
+}
+
+function getRscanNativeDetector_(){
+  if(rscanNativeDetector_) return rscanNativeDetector_;
+  if(typeof BarcodeDetector === 'undefined') return null;
   try{
-    var hints = new Map();
-    if(ZXing.DecodeHintType && ZXing.BarcodeFormat){
-      hints.set(
-        ZXing.DecodeHintType.POSSIBLE_FORMATS,
-        [ZXing.BarcodeFormat.CODE_128]
-      );
-      if(ZXing.DecodeHintType.TRY_HARDER !== undefined){
-        hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-      }
-    }
-    _rscanStrictZxingReader_ = new ZXing.BrowserMultiFormatReader(hints);
-    return _rscanStrictZxingReader_;
+    rscanNativeDetector_ = new BarcodeDetector({formats:['code_128']});
+    return rscanNativeDetector_;
   }catch(e){
     return null;
   }
 }
 
-function makeRscanStrictCropCanvas_(containerEl, readerBoxId, canvas){
-  var g = strictRoiGeometry_(containerEl, readerBoxId);
-  if(!g || !g.video || g.video.readyState < 2) return null;
-
-  var w = Math.max(1, Math.round(g.sw));
-  var h = Math.max(1, Math.round(g.sh));
-
-  /* จำกัดงาน decode บนมือถือ แต่ยังเก็บสัดส่วนและรายละเอียดบาร์โค้ด */
-  var maxW = 1100;
-  var scale = w > maxW ? (maxW / w) : 1;
-  var dw = Math.max(1, Math.round(w * scale));
-  var dh = Math.max(1, Math.round(h * scale));
-
-  if(canvas.width !== dw) canvas.width = dw;
-  if(canvas.height !== dh) canvas.height = dh;
-
-  var ctx = canvas.getContext('2d', {willReadFrequently:true});
-  if(!ctx) return null;
-
-  ctx.clearRect(0,0,dw,dh);
-  ctx.drawImage(
-    g.video,
-    g.sx, g.sy, g.sw, g.sh,
-    0, 0, dw, dh
-  );
-  return canvas;
+function getRscanZxingReader_(){
+  if(rscanZxingReader_) return rscanZxingReader_;
+  if(typeof ZXing === 'undefined' || !ZXing.BrowserMultiFormatReader) return null;
+  try{
+    var hints = new Map();
+    if(ZXing.DecodeHintType && ZXing.BarcodeFormat){
+      hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.CODE_128]);
+      if(ZXing.DecodeHintType.TRY_HARDER) hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+    }
+    rscanZxingReader_ = new ZXing.BrowserMultiFormatReader(hints);
+    return rscanZxingReader_;
+  }catch(e){
+    return null;
+  }
 }
 
-function startRscanStrictCropDecodeLoop_(containerEl, readerBoxId, onDecoded){
+function startRscanCenterDecodeLoop_(){
+  if(rscanDecodeStop_){ rscanDecodeStop_(); rscanDecodeStop_=null; }
+
   var stopped = false;
   var busy = false;
   var canvas = document.createElement('canvas');
-  var reader = getRscanStrictZxingReader_();
+  var detector = getRscanNativeDetector_();
+  var zreader = getRscanZxingReader_();
   var timer = null;
 
-  function run(){
+  function acceptCode_(code){
+    code = String(code||'').trim();
+    if(!code) return;
+    handleRscanResult(code);
+  }
+
+  async function run(){
     if(stopped || busy) return;
-
-    reader = reader || getRscanStrictZxingReader_();
-    if(!reader) return;
-
-    var crop = makeRscanStrictCropCanvas_(containerEl, readerBoxId, canvas);
+    var crop = rscanCropCanvas_(canvas);
     if(!crop) return;
 
     busy = true;
     try{
-      var result = reader.decodeFromCanvas(crop);
-      var code = result && typeof result.getText === 'function'
-        ? result.getText()
-        : '';
+      /* Android/Chrome: native detector เร็วและแม่นกว่า JS */
+      if(detector){
+        try{
+          var hits = await detector.detect(crop);
+          if(hits && hits.length){
+            var hit = hits[0];
+            acceptCode_(hit.rawValue || '');
+            return;
+          }
+        }catch(e){}
+      }
 
-      if(code) onDecoded(String(code));
-    }catch(e){
-      /* ไม่เจอรหัสในเฟรมนี้ = ปกติ */
+      /* Safari / browser ที่ไม่มี BarcodeDetector */
+      if(zreader){
+        try{
+          var result = zreader.decodeFromCanvas(crop);
+          var code = result && typeof result.getText === 'function'
+            ? result.getText()
+            : '';
+          if(code){
+            acceptCode_(code);
+            return;
+          }
+        }catch(e){}
+      }
     }finally{
       busy = false;
     }
   }
 
-  /* ~7 fps สำหรับ Code128 พอ และไม่หนักมือถือ */
-  timer = setInterval(run, 100);
-  setTimeout(run, 60);
+  /* ~8 fps: พอสำหรับ Code128 และไม่ทำให้มือถือหนัก */
+  timer = setInterval(run, 125);
+  setTimeout(run, 120);
 
-  return function stopRscanStrictCropLoop_(){
+  rscanDecodeStop_ = function(){
     stopped = true;
     if(timer) clearInterval(timer);
   };
+}
+
+function rscanCenteredQrbox_(viewfinderWidth, viewfinderHeight){
+  var w = Math.min(viewfinderWidth * 0.72, 300);
+  var h = Math.min(88, Math.max(56, viewfinderHeight - 16));
+  return {width:Math.floor(w), height:Math.floor(h)};
 }
 
 function openScanReceive(){
@@ -2288,10 +2300,9 @@ function openScanReceive(){
   document.getElementById('rscanReceivedDate').value = todayIsoDate_();
   var msgEl = document.getElementById('rscanMsg');
   msgEl.style.color = 'var(--text-soft)';
-  msgEl.textContent = 'วางบาร์โค้ดที่ต้องการไว้กลางกรอบเขียว';
+  msgEl.textContent = 'วางบาร์โค้ดให้อยู่กึ่งกลางกรอบเขียว';
   renderRscanBatch();
   rscanRetried = false;
-  resetReceiveScanGate_(rscanStableGate_);
   startRscanScanner();
 }
 function startRscanScanner(){
@@ -2309,27 +2320,17 @@ function startRscanScanner(){
       RSCAN.scanner = new Html5Qrcode('rscanReaderBox', { formatsToSupport: getScanFormatsToSupport(), verbose: false });
       startScannerSimple_(
         RSCAN.scanner,
-        /* html5-qrcode เปิดกล้องอย่างเดียว ผล Decode ของมันถูกทิ้งทั้งหมด */
-        { fps: 1, qrbox: {width:50,height:50}, videoConstraints: SCAN_VIDEO_CONSTRAINTS, disableFlip: true },
-        function(decodedText){ /* STRICT ROI: intentionally ignored */ },
+        { fps: 8, qrbox: rscanCenteredQrbox_, videoConstraints: getSafeVideoConstraints_(), disableFlip: true },
+        function(decodedText){ /* รับเข้าใช้ Center ROI decoder ด้านล่าง ไม่รับผลจาก html5-qrcode */ },
         function(){ /* ignore per-frame scan misses */ }
       ).then(function(){
         rscanStarting = false;
         rscanRetried = false;
         wireTorchButton_('rscanTorch', function(){ return RSCAN.scanner; });
-        /* Receive mode: ไม่บังคับซูมอัตโนมัติ เพื่อไม่ตัด quiet zone ของ Code128 */
-        if(rscanBoxSyncStop){ rscanBoxSyncStop(); }
-        rscanBoxSyncStop = watchSyncScanTargetBox_(document.getElementById('rscanCam'), 'rscanReaderBox');
-        if(rscanStrictCropStop_){ rscanStrictCropStop_(); }
-        rscanStrictCropStop_ = startRscanStrictCropDecodeLoop_(
-          document.getElementById('rscanCam'),
-          'rscanReaderBox',
-          function(decodedText){
-            /* STRICT ROI แล้ว: รหัสนอกกรอบไม่มีพิกเซลเข้า decoder
-               จึงรับผลสำเร็จครั้งแรกทันทีเพื่อให้สแกนไว */
-            handleRscanResult(decodedText);
-          }
-        );
+        /* ไม่บังคับซูมอัตโนมัติในหน้ารับเข้า */
+        /* RECEIVE: กรอบถูกล็อกกลางด้วย CSS/geometry ของเราเอง */
+        if(rscanBoxSyncStop){ rscanBoxSyncStop(); rscanBoxSyncStop=null; }
+        startRscanCenterDecodeLoop_();
         if(rscanFreezeTimer){ clearInterval(rscanFreezeTimer); }
         rscanFreezeTimer = watchScannerFreeze_('rscanReaderBox', function(){
           forceResetReaderBox_('rscanReaderBox');
@@ -2363,8 +2364,7 @@ function startRscanScanner(){
 function stopRscanScanner(cb){
   if(rscanFreezeTimer){ clearInterval(rscanFreezeTimer); rscanFreezeTimer = null; }
   if(rscanBoxSyncStop){ rscanBoxSyncStop(); rscanBoxSyncStop = null; }
-  if(rscanStrictCropStop_){ rscanStrictCropStop_(); rscanStrictCropStop_ = null; }
-  resetReceiveScanGate_(rscanStableGate_);
+  if(rscanDecodeStop_){ rscanDecodeStop_(); rscanDecodeStop_ = null; }
   if(RSCAN.scanner){
     var s = RSCAN.scanner; RSCAN.scanner=null;
     var finish = function(){ try{ s.clear(); }catch(e){} if(cb) cb(); };
