@@ -78,8 +78,9 @@ async function getMasterItemsWithRow_() {
 }
 
 async function getMasterItems() {
-  const withRow = await getMasterItemsWithRow_();
-  return withRow.map(({ rowIndex, ...rest }) => rest);
+  // ส่ง rowIndex ไปฝั่งหน้าเว็บด้วย เพื่อให้ระบบรับเข้าระบุ Master row ได้แบบไม่กำกวม
+  // (รายการหลายตัวมี itemCode = '-' เหมือนกัน จึงห้ามใช้ itemCode เป็น key หลัก)
+  return getMasterItemsWithRow_();
 }
 
 /* ============================================================ Drafts ============================================================ */
@@ -565,7 +566,7 @@ async function ensureReceivingSheet_() {
   const names = await db.listSheetNames();
   if (names.indexOf(CONFIG.SHEET_RECEIVING) === -1) {
     await db.createSheet(CONFIG.SHEET_RECEIVING,
-      ['receiptId', 'receivedAt', 'employeeName', 'itemCode', 'itemName', 'receiveQty', 'remark', 'previousQty', 'newQty', 'receivedDate', 'openedDate', 'expiryDate']);
+      ['receiptId', 'receivedAt', 'employeeName', 'itemCode', 'itemName', 'receiveQty', 'remark', 'previousQty', 'newQty', 'receivedDate', 'openedDate', 'expiryDate', 'scannedCode']);
     return;
   }
   const rows = await db.getDataRange(CONFIG.SHEET_RECEIVING);
@@ -584,6 +585,16 @@ async function ensureReceivingSheet_() {
     while (newHeader2.length < 11) newHeader2.push('');
     newHeader2[11] = 'expiryDate';
     await db.setRange(CONFIG.SHEET_RECEIVING, 1, 1, [newHeader2]);
+  }
+
+  // เพิ่มคอลัมน์รหัสที่สแกนจริง โดยต่อท้ายเพื่อไม่ทำให้ข้อมูลเก่าเลื่อนคอลัมน์
+  const rows3 = await db.getDataRange(CONFIG.SHEET_RECEIVING);
+  const header3 = (rows3 && rows3[0]) || [];
+  if (header3.indexOf('scannedCode') === -1) {
+    const newHeader3 = header3.slice();
+    while (newHeader3.length < 12) newHeader3.push('');
+    newHeader3[12] = 'scannedCode';
+    await db.setRange(CONFIG.SHEET_RECEIVING, 1, 1, [newHeader3]);
   }
 }
 
@@ -715,68 +726,155 @@ async function receiveChemicalScan(payload) {
   const employeeName = String(payload.employeeName).trim();
   const batchReceivedDate = String(payload.receivedDate || '').trim() || thaiDate(nowIso());
 
+  function norm_(v) { return String(v == null ? '' : v).trim(); }
+  function normName_(v) { return norm_(v).toLowerCase(); }
+  function productPrefix_(code) {
+    const p = norm_(code).split('-');
+    return p.length >= 2 ? p[0] : '';
+  }
+  function codesOfRow_(row) {
+    return norm_(row && row[3]).split(';').map(x => x.trim()).filter(x => x && x !== '-');
+  }
+
   return mutex.runExclusive(async () => {
     await ensureReceivingSheet_();
 
     const mRows = await db.getDataRange(CONFIG.SHEET_MASTER);
-    const rowIndexByCode = {};
-    for (let i = 1; i < mRows.length; i++) {
-      const c = String(mRows[i][0] || '').trim();
-      if (c) rowIndexByCode[c] = i + 1; // 1-based sheet row
-    }
-
     const now = nowIso();
     const logRows = [];
     const results = [];
 
     for (let k = 0; k < payload.items.length; k++) {
       const entry = payload.items[k] || {};
-      const targetCode = String(entry.itemCode || '').trim();
-      const qtyToAdd = Number(entry.qty);
+      const qtyToAdd = Number(entry.qty != null ? entry.qty : entry.receiveQty);
+      const requestedRowIdx = Number(entry.masterRowIndex || entry.rowIndex || 0);
+      const requestedName = norm_(entry.itemName);
+      const requestedCode = norm_(entry.itemCode);
+      const scannedCode = norm_(
+        entry.scannedCode || entry.productCode || entry.barcode ||
+        (Array.isArray(entry.scannedCodes) && entry.scannedCodes[0]) ||
+        (Array.isArray(entry.newProductCodes) && entry.newProductCodes[0]) || ''
+      );
 
-      if (!targetCode || isNaN(qtyToAdd) || qtyToAdd <= 0) {
-        results.push({ itemCode: targetCode, success: false, error: 'ข้อมูลรายการไม่ถูกต้อง' });
+      if (isNaN(qtyToAdd) || qtyToAdd <= 0 || !scannedCode) {
+        results.push({ scannedCode, itemCode: requestedCode, success: false, error: 'ข้อมูลรายการไม่ถูกต้องหรือไม่มีรหัส Barcode' });
         continue;
       }
-      const rowIdx = rowIndexByCode[targetCode];
-      if (!rowIdx) {
-        results.push({ itemCode: targetCode, success: false, error: 'ไม่พบรหัสสารเคมีนี้ในฐานข้อมูล (MasterItems)' });
+
+      let rowIdx = -1;
+      let resolveReason = '';
+
+      // 1) ใช้ Master rowIndex ที่ Frontend เลือกมาเป็นอันดับแรก และตรวจชื่อซ้ำเพื่อกัน rowIndex เก่าหลังมีการลบแถว
+      if (requestedRowIdx >= 2 && requestedRowIdx <= mRows.length) {
+        const row = mRows[requestedRowIdx - 1];
+        if (row && row[1] && (!requestedName || normName_(row[1]) === normName_(requestedName))) {
+          rowIdx = requestedRowIdx;
+          resolveReason = 'masterRowIndex';
+        }
+      }
+
+      // 2) ถ้าไม่มี rowIndex ให้ตัดสินจากตระกูล Barcode ที่มีหลักฐานมากที่สุดใน Master
+      //    เช่น 17216-... หลายรหัสอยู่ Sulfuric Acid แต่มี 1 รหัสหลงไป Aluminum -> ต้องเลือก Sulfuric Acid
+      if (rowIdx === -1) {
+        const prefix = productPrefix_(scannedCode);
+        if (prefix) {
+          const candidates = [];
+          for (let i = 1; i < mRows.length; i++) {
+            if (!mRows[i][1]) continue;
+            const count = codesOfRow_(mRows[i]).filter(c => productPrefix_(c) === prefix).length;
+            if (count > 0) candidates.push({ rowIdx: i + 1, count });
+          }
+          candidates.sort((a, b) => b.count - a.count || a.rowIdx - b.rowIdx);
+          if (candidates.length && (!candidates[1] || candidates[0].count > candidates[1].count)) {
+            rowIdx = candidates[0].rowIdx;
+            resolveReason = 'barcodePrefix';
+          } else if (candidates.length > 1 && candidates[0].count === candidates[1].count) {
+            results.push({ scannedCode, itemCode: requestedCode, success: false, error: `MasterItems มีรหัสตระกูล ${prefix} ซ้ำหลายรายการเท่ากัน ระบบหยุดรับเข้าเพื่อป้องกันข้อมูลผิด` });
+            continue;
+          }
+        }
+      }
+
+      // 3) fallback ด้วยชื่อรายการที่ตรงเพียงแถวเดียว
+      if (rowIdx === -1 && requestedName) {
+        const nameMatches = [];
+        for (let i = 1; i < mRows.length; i++) {
+          if (normName_(mRows[i][1]) === normName_(requestedName)) nameMatches.push(i + 1);
+        }
+        if (nameMatches.length === 1) {
+          rowIdx = nameMatches[0];
+          resolveReason = 'itemName';
+        }
+      }
+
+      // 4) fallback สุดท้าย: itemCode ต้องไม่ใช่ '-' และต้องตรงเพียงแถวเดียวเท่านั้น
+      if (rowIdx === -1 && requestedCode && requestedCode !== '-') {
+        const codeMatches = [];
+        for (let i = 1; i < mRows.length; i++) {
+          if (norm_(mRows[i][0]) === requestedCode) codeMatches.push(i + 1);
+        }
+        if (codeMatches.length === 1) {
+          rowIdx = codeMatches[0];
+          resolveReason = 'itemCode';
+        }
+      }
+
+      if (rowIdx === -1) {
+        results.push({ scannedCode, itemCode: requestedCode, success: false, error: 'ไม่สามารถระบุ Master Item ที่แน่นอนได้' });
         continue;
       }
 
-      const currentQty = Number(mRows[rowIdx - 1][4]) || 0;
+      const masterRow = mRows[rowIdx - 1];
+      const actualItemCode = norm_(masterRow[0]) || '-';
+      const actualItemName = norm_(masterRow[1]);
+      const currentQty = Number(masterRow[4]) || 0;
       const newQty = currentQty + qtyToAdd;
-      await db.setCell(CONFIG.SHEET_MASTER, rowIdx, 5, newQty);
-      mRows[rowIdx - 1][4] = newQty; // sync local copy กันกรณีรหัสซ้ำในชุดเดียวกัน
 
-      // ถ้าสแกนเจอรหัสล็อตใหม่ (Product code) ที่ยังไม่เคยลงทะเบียนไว้ -> เพิ่มเข้าคอลัมน์ productCodes ของสารตัวนี้
-      const newCodes = Array.isArray(entry.newProductCodes) ? entry.newProductCodes.map(c => String(c || '').trim()).filter(Boolean) : [];
-      if (newCodes.length) {
-        const existingCodesRaw = String(mRows[rowIdx - 1][3] || '').trim();
-        const existingCodes = existingCodesRaw ? existingCodesRaw.split(';').map(c => c.trim()).filter(Boolean) : [];
-        let changed = false;
-        for (const nc of newCodes) {
-          if (existingCodes.indexOf(nc) === -1) { existingCodes.push(nc); changed = true; }
-        }
-        if (changed) {
-          const mergedCodes = existingCodes.join(';');
-          await db.setCell(CONFIG.SHEET_MASTER, rowIdx, 4, mergedCodes);
-          mRows[rowIdx - 1][3] = mergedCodes; // sync local copy กันกรณีรหัสซ้ำในชุดเดียวกัน
+      // Barcode หนึ่งรหัสต้องเป็นของ Master Item ได้เพียงรายการเดียว:
+      // ถ้าเคยถูกระบบเก่าเขียนหลงไปแถวอื่น ให้ลบออกจากแถวผิดอัตโนมัติ
+      for (let i = 1; i < mRows.length; i++) {
+        const otherRowIdx = i + 1;
+        if (otherRowIdx === rowIdx || !mRows[i][1]) continue;
+        const otherCodes = codesOfRow_(mRows[i]);
+        if (otherCodes.indexOf(scannedCode) !== -1) {
+          const cleaned = otherCodes.filter(c => c !== scannedCode);
+          const merged = cleaned.join(';');
+          await db.setCell(CONFIG.SHEET_MASTER, otherRowIdx, 4, merged);
+          mRows[i][3] = merged;
         }
       }
 
-      const itemReceivedDate = String(entry.receivedDate || '').trim() || batchReceivedDate;
-      const itemOpenedDate = entry.opened ? (String(entry.openedDate || '').trim() || itemReceivedDate) : '';
-      const itemExpiryDate = String(entry.expiryDate || '').trim();
+      // เพิ่มรหัสที่สแกนจริงเข้า Master Item ที่ถูกต้องเสมอ (ไม่พึ่ง newProductCodes อย่างเดียว)
+      let targetCodes = codesOfRow_(masterRow);
+      if (targetCodes.indexOf(scannedCode) === -1) targetCodes.push(scannedCode);
+      const extraCodes = Array.isArray(entry.newProductCodes)
+        ? entry.newProductCodes.map(c => norm_(c)).filter(Boolean)
+        : [];
+      for (const c of extraCodes) {
+        if (c !== '-' && targetCodes.indexOf(c) === -1) targetCodes.push(c);
+      }
+      const mergedTargetCodes = targetCodes.join(';');
+      if (norm_(masterRow[3]) !== mergedTargetCodes) {
+        await db.setCell(CONFIG.SHEET_MASTER, rowIdx, 4, mergedTargetCodes);
+        masterRow[3] = mergedTargetCodes;
+      }
+
+      await db.setCell(CONFIG.SHEET_MASTER, rowIdx, 5, newQty);
+      masterRow[4] = newQty;
+
+      const itemReceivedDate = norm_(entry.receivedDate) || batchReceivedDate;
+      const itemOpenedDate = entry.opened ? (norm_(entry.openedDate) || itemReceivedDate) : '';
+      const itemExpiryDate = norm_(entry.expiryDate);
 
       const receiptId = 'REC' + Date.now() + '_' + k;
       logRows.push([
-        receiptId, now, employeeName, targetCode,
-        entry.itemName || '', qtyToAdd, entry.remark || '', currentQty, newQty,
-        itemReceivedDate, itemOpenedDate, itemExpiryDate
+        receiptId, now, employeeName, actualItemCode,
+        actualItemName, qtyToAdd, entry.remark || '', currentQty, newQty,
+        itemReceivedDate, itemOpenedDate, itemExpiryDate, scannedCode
       ]);
       results.push({
-        itemCode: targetCode, success: true, receiptId, newQty,
+        itemCode: actualItemCode, itemName: actualItemName, masterRowIndex: rowIdx,
+        scannedCode, success: true, receiptId, newQty, resolveReason,
         receivedDate: itemReceivedDate, openedDate: itemOpenedDate, expiryDate: itemExpiryDate
       });
     }
