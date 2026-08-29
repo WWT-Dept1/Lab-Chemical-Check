@@ -414,41 +414,20 @@ textarea.input{resize:vertical; min-height:64px; line-height:1.5;}
 </style>
 
 
-<style id="rscan-html5-center-v7">
+<style id="rscan-center-overlay-safe-v8">
 /* =========================================================
-   RECEIVE SCANNER — CENTERED TRUE QRBOX
-   ใช้ html5-qrcode เป็น decoder ตามเดิม
-   กรอบเขียวเป็นเพียงภาพของ qrbox ที่อยู่กึ่งกลางจริง
+   RECEIVE — VISUAL FRAME ONLY
+   ไม่แตะ video / camera / decoder
    ========================================================= */
 
-#rscanReaderBox,
-#rscanReaderBox > div{
-  width:100% !important;
-  height:100% !important;
-}
-
-#rscanReaderBox video{
-  width:100% !important;
-  height:100% !important;
-  object-fit:cover !important;
-  object-position:center center !important;
-}
-
-/* ไม่ใช้กรอบของไลบรารีซ้อนกับกรอบเรา */
-#rscanReaderBox #qr-shaded-region{
-  border-color:transparent !important;
-}
-
-/* ซ่อน corner เก่า */
 #rscanCam .rscan-corner{
   display:none !important;
 }
 
-/* กรอบเดียว อยู่กลางภาพเสมอ */
 #rscanCam::after{
   content:'' !important;
   position:absolute !important;
-  z-index:5 !important;
+  z-index:8 !important;
   pointer-events:none !important;
 
   left:50% !important;
@@ -456,24 +435,24 @@ textarea.input{resize:vertical; min-height:64px; line-height:1.5;}
   right:auto !important;
   bottom:auto !important;
 
-  width:min(76%, 300px) !important;
-  height:92px !important;
+  width:var(--rscan-visual-w,260px) !important;
+  height:var(--rscan-visual-h,62px) !important;
   transform:translate(-50%,-50%) !important;
 
   border:3px solid #35e6ab !important;
-  border-radius:14px !important;
+  border-radius:12px !important;
   box-shadow:
     0 0 0 1px rgba(255,255,255,.15),
-    0 0 16px rgba(53,230,171,.48) !important;
+    0 0 14px rgba(53,230,171,.50) !important;
 }
 
-/* เส้นเล็งกลางกรอบ ไม่วิ่งลง */
 #rscanCam .rscan-scanline{
-  z-index:6 !important;
-  left:calc(50% - min(38%, 150px)) !important;
-  right:calc(50% - min(38%, 150px)) !important;
+  z-index:9 !important;
+  left:50% !important;
+  right:auto !important;
   top:50% !important;
-  transform:translateY(-50%) !important;
+  width:var(--rscan-visual-w,260px) !important;
+  transform:translate(-50%,-50%) !important;
   animation:none !important;
 }
 </style>
@@ -1559,47 +1538,9 @@ var SCAN_VIDEO_CONSTRAINTS_IOS = { width: { ideal: 1920 }, height: { ideal: 1080
 function getSafeVideoConstraints_(){
   return isIOSDevice_() ? SCAN_VIDEO_CONSTRAINTS_IOS : SCAN_VIDEO_CONSTRAINTS;
 }
-
-var RSCAN_FAST_VIDEO_CONSTRAINTS = {
-  width:{ ideal:1280 },
-  height:{ ideal:720 }
-};
-
 /* จำกัด format ให้ decode เฉพาะ Code128 (รูปแบบบาร์โค้ดจริงที่ใช้บนขวดสารเคมี)
    เดิมไลบรารีจะพยายามถอดรหัสทุก format (QR, EAN, UPC, DataMatrix ฯลฯ) ทุกเฟรม
    ทำให้กินแรงประมวลผลเกินจำเป็นและอัตราสแกนติดต่ำลง */
-
-/* RECEIVE: qrbox ตัวจริงของ html5-qrcode
-   ใช้ขนาดเดียวกับกรอบเขียวด้านบน และ html5-qrcode จะวางไว้กลาง viewfinder */
-function rscanQrboxCentered_(viewfinderWidth, viewfinderHeight){
-  var w = Math.floor(Math.min(viewfinderWidth * 0.76, 300));
-  var h = 92;
-
-  if(w > viewfinderWidth - 12) w = Math.max(120, Math.floor(viewfinderWidth - 12));
-  if(h > viewfinderHeight - 12) h = Math.max(60, Math.floor(viewfinderHeight - 12));
-
-  return { width:w, height:h };
-}
-
-/* ช่วยโฟกัส Code128 โดยไม่ซูมภาพ */
-function tuneRscanFocusOnly_(){
-  try{
-    var video = document.querySelector('#rscanReaderBox video');
-    var stream = video && video.srcObject;
-    var track = stream && stream.getVideoTracks && stream.getVideoTracks()[0];
-    if(!track || typeof track.getCapabilities !== 'function') return;
-
-    var caps = track.getCapabilities() || {};
-    if(Array.isArray(caps.focusMode) &&
-       caps.focusMode.indexOf('continuous') > -1 &&
-       typeof track.applyConstraints === 'function'){
-      track.applyConstraints({
-        advanced:[{focusMode:'continuous'}]
-      }).catch(function(){});
-    }
-  }catch(e){}
-}
-
 function getScanFormatsToSupport(){
   if (typeof Html5QrcodeSupportedFormats === 'undefined') return undefined;
   return [Html5QrcodeSupportedFormats.CODE_128];
@@ -2155,15 +2096,33 @@ function todayIsoDate_(){
   return d.getFullYear()+'-'+mm+'-'+dd;
 }
 
+
+/* กรอบภาพเท่านั้น: ใช้สูตรเดียวกับ barcodeQrbox() เดิม
+   เพื่อให้กรอบเขียวกลางจอตรงกับขนาด qrbox โดยไม่แตะ Scanner */
+function updateRscanVisualFrame_(){
+  var cam = document.getElementById('rscanCam');
+  if(!cam) return;
+
+  var w = cam.clientWidth || cam.getBoundingClientRect().width || 0;
+  if(!w) return;
+
+  var boxW = Math.floor(Math.min(w * 0.68, 260));
+  var boxH = Math.max(46, Math.floor(boxW * 0.24));
+
+  cam.style.setProperty('--rscan-visual-w', boxW+'px');
+  cam.style.setProperty('--rscan-visual-h', boxH+'px');
+}
+
 function openScanReceive(){
   RSCAN.batch = [];
   document.getElementById('rscanEmpName').value = '';
   document.getElementById('rscanReceivedDate').value = todayIsoDate_();
   var msgEl = document.getElementById('rscanMsg');
   msgEl.style.color = 'var(--text-soft)';
-  msgEl.textContent = 'วางบาร์โค้ดให้อยู่กลางกรอบเขียว แล้วถือให้นิ่งประมาณ 1 วินาที';
+  msgEl.textContent = 'เล็งกล้องไปที่บาร์โค้ด/QR ของสารเคมี...';
   renderRscanBatch();
   rscanRetried = false;
+  updateRscanVisualFrame_();
   startRscanScanner();
 }
 function startRscanScanner(){
@@ -2181,25 +2140,17 @@ function startRscanScanner(){
       RSCAN.scanner = new Html5Qrcode('rscanReaderBox', { formatsToSupport: getScanFormatsToSupport(), verbose: false });
       startScannerSimple_(
         RSCAN.scanner,
-        {
-          fps: 15,
-          qrbox: rscanQrboxCentered_,
-          videoConstraints: RSCAN_FAST_VIDEO_CONSTRAINTS,
-          disableFlip: true
-        },
-        function(decodedText, decodedResult){
-          /* ใช้ decoder เดิมที่สแกนติดของ html5-qrcode โดยตรง */
-          handleRscanResult(decodedText);
-        },
+        { fps: 10, qrbox: barcodeQrbox, videoConstraints: SCAN_VIDEO_CONSTRAINTS, disableFlip: true },
+        function(decodedText){ handleRscanResult(decodedText); },
         function(){ /* ignore per-frame scan misses */ }
       ).then(function(){
         rscanStarting = false;
         rscanRetried = false;
+        updateRscanVisualFrame_();
         wireTorchButton_('rscanTorch', function(){ return RSCAN.scanner; });
-        setTimeout(tuneRscanFocusOnly_, 180);
-        /* ไม่ Sync กรอบรับเข้ากับ qr-shaded-region อีก
-           เพราะ qrbox ของ html5-qrcode และกรอบเขียวถูกกำหนดให้กึ่งกลางและขนาดเดียวกันอยู่แล้ว */
-        if(rscanBoxSyncStop){ rscanBoxSyncStop(); rscanBoxSyncStop = null; }
+        autoApplyZoomBoost_(RSCAN.scanner, 'rscanReaderBox', 2);
+        if(rscanBoxSyncStop){ rscanBoxSyncStop(); }
+        rscanBoxSyncStop = watchSyncScanTargetBox_(document.getElementById('rscanCam'), 'rscanReaderBox');
         if(rscanFreezeTimer){ clearInterval(rscanFreezeTimer); }
         rscanFreezeTimer = watchScannerFreeze_('rscanReaderBox', function(){
           forceResetReaderBox_('rscanReaderBox');
@@ -2880,6 +2831,15 @@ document.getElementById('btnReceiveSave').onclick = function() {
     onError(err);
   }).receiveChemical(BE.pin, payload);
 };
+
+
+
+window.addEventListener('resize', function(){
+  if(document.getElementById('viewReceive') &&
+     !document.getElementById('viewReceive').classList.contains('hidden')){
+    updateRscanVisualFrame_();
+  }
+});
 
 </script>
 </body>
