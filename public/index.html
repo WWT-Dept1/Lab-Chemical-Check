@@ -9,6 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 <script src="/gas-compat.js"></script>
+<!-- Scanner fix v206: narrow-row ROI + geometry/stable-frame gate -->
 <style>
 :root{
   --bg:#f2efe3; --card:#fffdf6; --border:#e1d9bf; --border-soft:#ece5cd;
@@ -1219,13 +1220,104 @@ document.getElementById('saveSigEmployee').onclick=function(){
 /* กล่องสแกนแบบแถบแนวนอน เหมาะกับบาร์โค้ด 1 มิติ (กว้าง-เตี้ย แทนที่จะเป็นสี่เหลี่ยมจัตุรัส)
    html5-qrcode จะถอดรหัสเฉพาะพื้นที่ในกล่องนี้เท่านั้น ทำให้ต้องเล็งบาร์โค้ดให้อยู่ในแถบก่อนถึงจะสแกนติด */
 function barcodeQrbox(viewfinderWidth, viewfinderHeight){
-  /* FIX 2026-08-31: กรอบเดิมกว้างสูงสุดเพียง 260px และสูง ~46-62px
-     ทำให้บาร์โค้ดยาว/QR ถูก crop จน decoder ไม่เห็น quiet zone หรือเห็นข้อมูลไม่ครบ
-     ขยายพื้นที่ decode ให้กินพื้นที่กล้องมากขึ้น แต่ยังเหลือขอบเพื่อช่วยเล็งเป้าหมาย */
-  var w = Math.floor(Math.min(viewfinderWidth * 0.92, 420));
-  var h = Math.floor(Math.min(viewfinderHeight * 0.42, Math.max(120, w * 0.42)));
-  if(h < 100) h = Math.max(80, Math.floor(viewfinderHeight * 0.50));
+  /* FIX v206 — แยกบาร์โค้ดที่วางหลายแถวโดยไม่ทำให้สแกนยาก
+     - คงความกว้างมาก (94%) เพื่อให้ Code128 ยาว + quiet zone อยู่ครบ
+     - ลดเฉพาะความสูงจากเดิม 42% ซึ่งกินได้มากกว่า 1 แถว
+     - แต่ไม่กลับไปเตี้ย 46–60px แบบรุ่นเก่าที่ทำให้ decoder มองเส้นไม่ครบ
+     ช่วงจริงบนมือถือจะอยู่ประมาณ 96–118px ใน modal ปัจจุบัน */
+  var w = Math.floor(Math.min(viewfinderWidth * 0.94, 440));
+  var h = Math.floor(viewfinderHeight * 0.29);
+  h = Math.max(96, Math.min(118, h));
+  if(h >= viewfinderHeight) h = Math.max(60, viewfinderHeight - 16);
   return { width: w, height: h };
+}
+
+/* ============================================================
+   FIX v206 — กัน “เล็งแถวบนแต่ติดแถวล่าง” โดยไม่ลด sensitivity
+
+   API ของ html5-qrcode มีช่อง result.bounds แบบ experimental แต่ decoder ใน 2.3.8
+   ไม่ได้ส่ง geometry กลับมาสม่ำเสมอ จึงห้ามพึ่ง bounds อย่างเดียว มิฉะนั้นบางเครื่อง
+   จะกลับไปสแกนไม่ติด — ถ้ามี bounds ค่อยใช้ตรวจศูนย์กลาง; ถ้าไม่มีให้ขอรหัสเดิม
+   ซ้ำ 2 successful frames แทน
+   ============================================================ */
+var _scanStableCandidate = Object.create(null);
+
+function scanBoundsInfo_(decodedResult, readerBoxId){
+  try{
+    var b = decodedResult && decodedResult.result && decodedResult.result.bounds;
+    if(!b || !isFinite(b.x) || !isFinite(b.y) || !isFinite(b.width) || !isFinite(b.height)) return null;
+
+    var reader = document.getElementById(readerBoxId);
+    if(!reader) return null;
+    var rr = reader.getBoundingClientRect();
+    if(!rr.width || !rr.height) return null;
+
+    var shaded = reader.querySelector('#qr-shaded-region');
+    var top = 0, right = 0, bottom = 0, left = 0;
+    if(shaded){
+      var cs = window.getComputedStyle(shaded);
+      top = parseFloat(cs.borderTopWidth) || 0;
+      right = parseFloat(cs.borderRightWidth) || 0;
+      bottom = parseFloat(cs.borderBottomWidth) || 0;
+      left = parseFloat(cs.borderLeftWidth) || 0;
+    }
+    var roiW = Math.max(1, rr.width - left - right);
+    var roiH = Math.max(1, rr.height - top - bottom);
+
+    var cx = b.x + b.width / 2;
+    var cy = b.y + b.height / 2;
+
+    /* decoder บางตัวรายงานพิกัดอิง canvas/ROI, บางตัวอิง whole stream
+       ถ้าค่าทั้งหมดพอดีอยู่ใน ROI ให้แปลงเป็นพิกัดของ viewfinder */
+    if(b.x >= -2 && b.y >= -2 && (b.x + b.width) <= roiW + 4 && (b.y + b.height) <= roiH + 4){
+      cx += left;
+      cy += top;
+    }
+
+    return {
+      cx: cx, cy: cy,
+      roiLeft: left, roiTop: top,
+      roiRight: rr.width - right,
+      roiBottom: rr.height - bottom,
+      roiW: roiW, roiH: roiH
+    };
+  }catch(e){ return null; }
+}
+
+function isDecodedCodeInAimBand_(decodedResult, readerBoxId){
+  var pos = scanBoundsInfo_(decodedResult, readerBoxId);
+  if(!pos) return null; // null = decoder ไม่มี geometry → ใช้ stable-frame fallback
+
+  /* รับเฉพาะใจกลาง 66% ของ ROI แนวตั้ง + 94% แนวนอน
+     บาร์โค้ดที่โผล่เพียงขอบล่าง/ขอบบนจะไม่ถูกยอมรับ */
+  var padY = pos.roiH * 0.17;
+  var padX = pos.roiW * 0.03;
+  return pos.cx >= (pos.roiLeft + padX)
+      && pos.cx <= (pos.roiRight - padX)
+      && pos.cy >= (pos.roiTop + padY)
+      && pos.cy <= (pos.roiBottom - padY);
+}
+
+function stableScanGate_(channel, decodedText, decodedResult, readerBoxId){
+  var inside = isDecodedCodeInAimBand_(decodedResult, readerBoxId);
+  if(inside === false) return false;
+  if(inside === true){
+    delete _scanStableCandidate[channel];
+    return true;
+  }
+
+  /* ไม่มี bounds (พบบ่อยกับ ZXing/iOS): ต้องอ่านรหัสเดียวกัน 2 ครั้งติดภายใน 850ms
+     ที่ 7fps = ~0.14s เพิ่ม และ 12fps = ~0.08s เพิ่ม แต่ช่วยตัด false hit จากขอบภาพ */
+  var code = String(decodedText || '').trim();
+  if(!code) return false;
+  var now = Date.now();
+  var prev = _scanStableCandidate[channel];
+  if(prev && prev.code === code && (now - prev.time) <= 850){
+    delete _scanStableCandidate[channel];
+    return true;
+  }
+  _scanStableCandidate[channel] = { code: code, time: now };
+  return false;
 }
 
 /* ============================================================
@@ -1657,6 +1749,7 @@ function openQrScan(idx){
   var msgEl = document.getElementById('qrScanMsg');
   msgEl.textContent=''; msgEl.style.color='var(--text-soft)';
   document.getElementById('qrManualInput').value='';
+  delete _scanStableCandidate.qr;
   document.getElementById('modalQrScan').classList.add('open');
   qrScanRetried = false;
   startQrScanner();
@@ -1693,7 +1786,10 @@ function startQrScanner(){
       startScannerSimple_(
         qrScanner,
         { fps: getSafeScanFps_(), qrbox: barcodeQrbox, videoConstraints: getSafeVideoConstraints_(), disableFlip: false },
-        function(decodedText){ handleQrResult(decodedText); },
+        function(decodedText, decodedResult){
+          if(!stableScanGate_('qr', decodedText, decodedResult, 'qrReaderBox')) return;
+          handleQrResult(decodedText);
+        },
         function(){ /* ignore per-frame scan misses */ }
       ).then(function(){
         qrScanStarting = false;
@@ -1806,6 +1902,7 @@ var cScanFreezeTimer = null;
 var cScanBoxSyncStop = null;
 
 function openContinuousScan(){
+  delete _scanStableCandidate.continuous;
   document.getElementById('cScanHistory').innerHTML = renderCScanHistory();
   var msgEl = document.getElementById('cScanMsg');
   msgEl.textContent = 'เล็งกล้องไปที่ QR/บาร์โค้ด...';
@@ -1830,7 +1927,10 @@ function startContinuousScanner(){
       startScannerSimple_(
         cScanScanner,
         { fps: getSafeScanFps_(), qrbox: barcodeQrbox, videoConstraints: getSafeVideoConstraints_(), disableFlip: false },
-        function(decodedText){ handleContinuousScanResult(decodedText); },
+        function(decodedText, decodedResult){
+          if(!stableScanGate_('continuous', decodedText, decodedResult, 'cScanReaderBox')) return;
+          handleContinuousScanResult(decodedText);
+        },
         function(){ /* ignore per-frame scan misses */ }
       ).then(function(){
         cScanStarting = false;
@@ -2065,6 +2165,7 @@ function todayIsoDate_(){
 }
 
 function openScanReceive(){
+  delete _scanStableCandidate.receive;
   RSCAN.batch = [];
   document.getElementById('rscanEmpName').value = '';
   document.getElementById('rscanReceivedDate').value = todayIsoDate_();
@@ -2091,7 +2192,10 @@ function startRscanScanner(){
       startScannerSimple_(
         RSCAN.scanner,
         { fps: getSafeScanFps_(), qrbox: barcodeQrbox, videoConstraints: getSafeVideoConstraints_(), disableFlip: false },
-        function(decodedText){ handleRscanResult(decodedText); },
+        function(decodedText, decodedResult){
+          if(!stableScanGate_('receive', decodedText, decodedResult, 'rscanReaderBox')) return;
+          handleRscanResult(decodedText);
+        },
         function(){ /* ignore per-frame scan misses */ }
       ).then(function(){
         rscanStarting = false;
