@@ -1220,19 +1220,17 @@ document.getElementById('saveSigEmployee').onclick=function(){
 /* กล่องสแกนแบบแถบแนวนอน เหมาะกับบาร์โค้ด 1 มิติ (กว้าง-เตี้ย แทนที่จะเป็นสี่เหลี่ยมจัตุรัส)
    html5-qrcode จะถอดรหัสเฉพาะพื้นที่ในกล่องนี้เท่านั้น ทำให้ต้องเล็งบาร์โค้ดให้อยู่ในแถบก่อนถึงจะสแกนติด */
 function barcodeQrbox(viewfinderWidth, viewfinderHeight){
-  /* FAST CENTER v207 — เป้าหมายเดียว: เล็งบริเวณกึ่งกลางแล้วอ่านให้ไวที่สุด
-     - คืน ROI ให้สูง/กว้างพอเหมือนรุ่นที่สแกนติดง่าย
-     - ไม่บังคับแยกแถว ไม่ยืนยัน 2 เฟรม และไม่กรองตำแหน่งหลัง decode
-     - รองรับบาร์โค้ดยาวโดยเก็บ quiet zone ซ้าย/ขวาไว้มาก */
-  var w = Math.floor(Math.min(viewfinderWidth * 0.96, 460));
-  var h = Math.floor(Math.min(viewfinderHeight * 0.44, Math.max(132, w * 0.44)));
-  if(h < 120) h = Math.max(96, Math.floor(viewfinderHeight * 0.50));
-  if(h >= viewfinderHeight) h = Math.max(80, viewfinderHeight - 12);
+  /* STABLE FAST CENTER v208
+     ย้อนกลับไปใช้ ROI ชุดที่เคยอ่านติดจริง แล้วรับผลทันที
+     ไม่ทำ row-lock / ไม่รอ 2 เฟรม / ไม่ตรวจตำแหน่งหลัง decode */
+  var w = Math.floor(Math.min(viewfinderWidth * 0.92, 420));
+  var h = Math.floor(Math.min(viewfinderHeight * 0.42, Math.max(120, w * 0.42)));
+  if(h < 100) h = Math.max(80, Math.floor(viewfinderHeight * 0.50));
   return { width: w, height: h };
 }
 
 /* ============================================================
-   LEGACY v206 — ฟังก์ชัน row-lock เก็บไว้สำรอง แต่ FAST CENTER v207 ไม่เรียกใช้แล้ว
+   LEGACY v206 — ฟังก์ชัน row-lock เก็บไว้สำรอง แต่ STABLE FAST CENTER v208 ไม่เรียกใช้แล้ว
 
    API ของ html5-qrcode มีช่อง result.bounds แบบ experimental แต่ decoder ใน 2.3.8
    ไม่ได้ส่ง geometry กลับมาสม่ำเสมอ จึงห้ามพึ่ง bounds อย่างเดียว มิฉะนั้นบางเครื่อง
@@ -1585,20 +1583,22 @@ function getSafeVideoConstraints_(){
    ทำให้กินแรงประมวลผลเกินจำเป็นและอัตราสแกนติดต่ำลง */
 function getScanFormatsToSupport(){
   if (typeof Html5QrcodeSupportedFormats === 'undefined') return undefined;
-  /* FAST CENTER v207: ลดจำนวน decoder ที่ต้องลองในแต่ละเฟรม
-     รหัสคลังที่เป็นตัวเลข/ตัวอักษร/ขีดกลางเหมาะกับ Code128/39/93 เป็นหลัก
-     คง QR ไว้เป็น fallback แต่ตัด EAN/UPC ที่ไม่ใช้กับรหัสรูปแบบนี้ */
+  /* STABLE FAST CENTER v208: ห้ามเดาชนิดบาร์โค้ดของฉลาก
+     เปิด format ที่ระบบเคยรองรับทั้งหมด เพื่อไม่ให้เกิดอาการกล้องขึ้นแต่ callback ไม่มา */
   return [
+    Html5QrcodeSupportedFormats.QR_CODE,
     Html5QrcodeSupportedFormats.CODE_128,
     Html5QrcodeSupportedFormats.CODE_39,
     Html5QrcodeSupportedFormats.CODE_93,
-    Html5QrcodeSupportedFormats.QR_CODE
+    Html5QrcodeSupportedFormats.EAN_13,
+    Html5QrcodeSupportedFormats.EAN_8,
+    Html5QrcodeSupportedFormats.UPC_A,
+    Html5QrcodeSupportedFormats.UPC_E
   ].filter(function(v){ return v !== undefined && v !== null; });
 }
 function getSafeScanFps_(){
-  /* FAST CENTER v207: iOS ยังจำกัดไว้เพื่อไม่ให้ JS decoder คิวล้น;
-     Android/Chrome ที่มี native detector เพิ่มรอบตรวจเพื่อให้ตอบสนองไวขึ้น */
-  return isIOSDevice_() ? 8 : 15;
+  /* ใช้ค่าที่เคยเสถียรกว่า: FPS สูงเกินไปบนมือถืออาจทำให้ decoder backlog จนกลับช้าลง */
+  return isIOSDevice_() ? 7 : 12;
 }
 
 /* ============================================================
