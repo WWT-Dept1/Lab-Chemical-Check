@@ -656,8 +656,9 @@ textarea.input{resize:vertical; min-height:64px; line-height:1.5;}
       <div class="scanbox-tip">FAST SCAN v209 · เล็งบาร์โค้ดไว้กึ่งกลางภาพ ห่างประมาณ 10–20 ซม.</div>
     </div>
     <div class="rscan-msg" id="rscanMsg">เล็งกล้องไปที่บาร์โค้ด/QR ของสารเคมี...</div>
-    <div class="rscan-manual" style="padding-bottom:14px;">
-      <input type="text" class="input" id="rscanManualInput" placeholder="หรือพิมพ์รหัสเอง แล้วกด Enter"/>
+    <div class="rscan-manual" style="padding-bottom:14px; display:flex; gap:8px; align-items:stretch;">
+      <input type="text" class="input" id="rscanManualInput" placeholder="พิมพ์รหัสเอง แล้วกดเพิ่มรหัส" autocomplete="off" autocapitalize="off" spellcheck="false" style="flex:1; min-width:0;"/>
+      <button type="button" id="btnRscanManualAdd" style="flex:0 0 auto; border:0; border-radius:12px; padding:0 16px; min-height:48px; font-weight:800; cursor:pointer; background:var(--primary); color:#fff; box-shadow:var(--shadow-sm);">＋ เพิ่มรหัส</button>
     </div>
   </div>
 
@@ -2016,6 +2017,7 @@ function todayIsoDate_(){
 function openScanReceive(){
   RSCAN.batch = [];
   document.getElementById('rscanEmpName').value = '';
+  document.getElementById('rscanManualInput').value = '';
   document.getElementById('rscanReceivedDate').value = todayIsoDate_();
   var msgEl = document.getElementById('rscanMsg');
   msgEl.style.color = 'var(--text-soft)';
@@ -2164,10 +2166,30 @@ function handleRscanResult(rawCode){
 
   renderRscanBatch();
 }
+function syncRscanSaveButton_(){
+  var btn = document.getElementById('btnRscanSave');
+  var manual = document.getElementById('rscanManualInput');
+  if(!btn) return;
+  /* ให้กดบันทึกได้เมื่อมีรายการแล้ว หรือมีรหัสที่พิมพ์ค้างอยู่เพื่อให้ระบบรับรหัสนั้นก่อนบันทึก */
+  btn.disabled = (RSCAN.batch.length === 0 && !(manual && manual.value.trim()));
+}
+function commitRscanManualInput_(){
+  var input = document.getElementById('rscanManualInput');
+  if(!input) return false;
+  var v = input.value.trim();
+  if(!v){ syncRscanSaveButton_(); return false; }
+
+  var before = RSCAN.batch.length;
+  handleRscanResult(v);
+  var added = RSCAN.batch.length > before;
+  if(added){ input.value = ''; }
+  syncRscanSaveButton_();
+  return added;
+}
 function renderRscanBatch(){
   var el = document.getElementById('rscanBatchList');
   document.getElementById('rscanCountBadge').textContent = RSCAN.batch.length;
-  document.getElementById('btnRscanSave').disabled = (RSCAN.batch.length === 0);
+  syncRscanSaveButton_();
 
   if(!RSCAN.batch.length){
     el.innerHTML = '<div class="rscan-empty">ยังไม่มีรายการ ลองสแกนบาร์โค้ดดูสิ 👆</div>';
@@ -2215,13 +2237,23 @@ document.getElementById('btnGoReceive').onclick = function(){
 document.getElementById('btnExitReceive').onclick = function(){
   showView('emp');
 };
-document.getElementById('rscanManualInput').addEventListener('keydown', function(e){
-  if(e.key==='Enter'){
-    var v = this.value.trim();
-    if(v){ handleRscanResult(v); this.value=''; }
+var rscanManualInputEl = document.getElementById('rscanManualInput');
+rscanManualInputEl.addEventListener('keydown', function(e){
+  if(e.key==='Enter' || e.code==='NumpadEnter'){
+    e.preventDefault();
+    commitRscanManualInput_();
   }
 });
+rscanManualInputEl.addEventListener('input', function(){ syncRscanSaveButton_(); });
+document.getElementById('btnRscanManualAdd').onclick = function(){ commitRscanManualInput_(); };
+
 document.getElementById('btnRscanSave').onclick = function(){
+  /* ถ้าผู้ใช้พิมพ์รหัสไว้แต่ยังไม่ได้กด Enter/เพิ่มรหัส ให้รับรหัสนั้นอัตโนมัติก่อนบันทึก */
+  var manualEl = document.getElementById('rscanManualInput');
+  if(manualEl && manualEl.value.trim()){
+    if(!commitRscanManualInput_()) return;
+  }
+
   var empName = document.getElementById('rscanEmpName').value.trim();
   var receivedDate = document.getElementById('rscanReceivedDate').value || todayIsoDate_();
   if(!empName){ alert('กรุณาระบุชื่อผู้รับเข้า'); return; }
