@@ -885,6 +885,8 @@ function renderItems(){
     var cat = categoryOf(it.code);
     if(STATE.activeCat!=='ทั้งหมด' && cat!==STATE.activeCat) return;
     var st = STATE.itemState[idx];
+    if(st.qrVerified && !st.auditClosed){ st.checked=false; st.checkedAt=''; }
+    if(st.auditClosed && (st.scannedCodes||[]).length !== st.auditClosedCount){ st.auditClosed=false; st.checked=false; st.checkedAt=''; }
     var entered = st.actualQty!==null && st.actualQty!=='' && st.actualQty!==undefined;
     var mismatch = entered && st.checked === true && Number(st.actualQty) !== Number(it.qty);
     var unit = it.unit || 'ขวด';
@@ -902,7 +904,7 @@ function renderItems(){
         (st.checked ? '<span class="checked-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>ยืนยันแล้ว'+(st.checkedAt? ' &middot; '+fmtCheckedTime(st.checkedAt):'')+'</span>' : '')+
         '<div class="item-name">'+esc(it.name)+'</div>'+
         '<div class="item-mfr">'+esc(it.manufacturer)+'</div>'+
-        '<div class="item-expected">เอกสารระบุคงเหลือ '+it.qty+' '+esc(unit)+' · ตรวจนับ v3</div>'+
+        '<div class="item-expected">เอกสารระบุคงเหลือ '+it.qty+' '+esc(unit)+' · ตรวจนับ v4 · เครื่องสแกนเดิม</div>'+
       '</div>';
     card.appendChild(top);
 
@@ -944,14 +946,14 @@ function renderItems(){
       finishBtn.className='bottle-finish'+(st.checked?' done':'');
       finishBtn.textContent=st.checked?'✓ ยืนยันตรวจนับเสร็จแล้ว · แตะเพื่อแก้ไข':'✓ ตรวจนับเสร็จแล้ว · ปิดยอด '+foundCodes.length+' ขวด';
       finishBtn.onclick=function(){
-        if(st.checked){ st.checked=false; st.checkedAt=''; }
+        if(st.checked){ st.auditClosed=false; st.checked=false; st.checkedAt=''; }
         else {
           if(!foundCodes.length){ alert('กรุณาสแกนขวดที่พบจริงก่อน'); return; }
           if(absentCodes.length){
             var ok=confirm('ยืนยันว่าตรวจนับเสร็จแล้ว\nพบจริง '+foundCodes.length+' ขวด\nไม่พบ '+absentCodes.length+' ขวด\n\nขวดที่ไม่พบจะถูกเสนอให้ปรับยอดเมื่อผู้ตรวจสอบอนุมัติ');
             if(!ok)return;
           }
-          st.checked=true; st.checkedAt=new Date().toISOString();
+          st.auditClosed=true; st.auditClosedCount=foundCodes.length; st.checked=true; st.checkedAt=new Date().toISOString();
         }
         renderItems();updateProgress();scheduleAutoSaveDraft();
       };
@@ -1151,7 +1153,7 @@ function buildDraftStateObject(){
   var obj = {};
   STATE.items.forEach(function(it, idx){
     var st = STATE.itemState[idx];
-    obj[itemKey(it)] = { actualQty: st.actualQty, openBottles: st.openBottles, remark: st.remark, remainingApprox: st.remainingApprox, reason: st.reason, reasonOther: st.reasonOther, checked: st.checked, checkedAt: st.checkedAt, qrVerified: st.qrVerified, qrCode: st.qrCode, scannedCodes: st.scannedCodes };
+    obj[itemKey(it)] = { actualQty: st.actualQty, openBottles: st.openBottles, remark: st.remark, remainingApprox: st.remainingApprox, reason: st.reason, reasonOther: st.reasonOther, checked: st.checked, checkedAt: st.checkedAt, qrVerified: st.qrVerified, qrCode: st.qrCode, scannedCodes: st.scannedCodes, auditClosed: !!st.auditClosed, auditClosedCount: st.auditClosedCount||0 };
   });
   return obj;
 }
@@ -1163,7 +1165,7 @@ function applyDraftStateObject(obj){
         actualQty: (saved.actualQty!==undefined && saved.actualQty!==null && saved.actualQty!=='') ? saved.actualQty : null,
         openBottles: saved.openBottles || [], remark: saved.remark || '', remainingApprox: saved.remainingApprox || '',
         reason: saved.reason || '', reasonOther: saved.reasonOther || '', checked: !!saved.checked, checkedAt: saved.checkedAt || '',
-        qrVerified: !!saved.qrVerified, qrCode: saved.qrCode || '', scannedCodes: saved.scannedCodes || []
+        qrVerified: !!saved.qrVerified, qrCode: saved.qrCode || '', scannedCodes: saved.scannedCodes || [], auditClosed: !!saved.auditClosed, auditClosedCount: saved.auditClosedCount||0
       };
     }
   });
@@ -1789,7 +1791,7 @@ function handleQrResult(code){
     if(st.scannedCodes.indexOf(normalized)===-1){ st.scannedCodes.push(normalized); }
     st.qrVerified = true; st.qrCode = normalized;
     st.actualQty = st.scannedCodes.length;
-    st.checked = false; st.checkedAt = '';
+    st.checked = true; st.checkedAt = new Date().toISOString();
     msgEl.style.color='var(--ok)';
     msgEl.textContent='✓ ยืนยันตัวสารเคมีสำเร็จ';
     playScanBeep(true);
@@ -1992,8 +1994,8 @@ function handleContinuousScanResult(rawCode){
   st.qrVerified = true;
   st.qrCode = normalized;
   st.actualQty = st.scannedCodes.length;
-  st.checked = false;
-  st.checkedAt = '';
+  st.checked = true;
+  st.checkedAt = new Date().toISOString();
 
   cScanBeep(true); cScanFlash('rgba(26,156,107,.30)'); showScanSuccessPop('cScanSuccess'); if(navigator.vibrate) navigator.vibrate(40);
   msgEl.style.color='var(--ok)';
