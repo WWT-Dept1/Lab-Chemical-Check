@@ -183,6 +183,7 @@ textarea.input{resize:vertical; min-height:64px; line-height:1.5;}
 .bottle-choice .bottle-info small{font-size:11px;color:var(--text-soft)}
 .bottle-toggle{border-radius:99px;min-width:88px;text-align:center;padding:7px 8px;background:#ece8db;color:var(--text-soft);font-size:10.5px;font-weight:700}
 .bottle-choice.is-open .bottle-toggle{background:var(--primary-dk);color:#fff}
+.bottle-finish{width:100%;border:0;border-radius:12px;background:var(--primary-dk);color:white;font-size:13px;font-weight:700;padding:13px 10px;margin-top:10px;cursor:pointer}.bottle-finish.done{background:var(--ok-lt);border:1px solid var(--ok);color:var(--ok)}
 .bottle-removed{font-size:11px;line-height:1.6;color:var(--warn);background:var(--warn-lt);padding:9px 12px;border-radius:10px;margin-top:8px}
 /* ---------- sign bar ---------- */
 .sign-bar{position:fixed; left:0; right:0; bottom:0; z-index:60; padding:10px 14px calc(10px + env(safe-area-inset-bottom));
@@ -885,7 +886,7 @@ function renderItems(){
     if(STATE.activeCat!=='ทั้งหมด' && cat!==STATE.activeCat) return;
     var st = STATE.itemState[idx];
     var entered = st.actualQty!==null && st.actualQty!=='' && st.actualQty!==undefined;
-    var mismatch = entered && Number(st.actualQty) !== Number(it.qty);
+    var mismatch = entered && st.checked === true && Number(st.actualQty) !== Number(it.qty);
     var unit = it.unit || 'ขวด';
     var hasQr = it.productCodes && it.productCodes.length && it.productCodes[0]!=='-';
     var qrOk = !hasQr || st.qrVerified;
@@ -901,7 +902,7 @@ function renderItems(){
         (st.checked ? '<span class="checked-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>ยืนยันแล้ว'+(st.checkedAt? ' &middot; '+fmtCheckedTime(st.checkedAt):'')+'</span>' : '')+
         '<div class="item-name">'+esc(it.name)+'</div>'+
         '<div class="item-mfr">'+esc(it.manufacturer)+'</div>'+
-        '<div class="item-expected">เอกสารระบุคงเหลือ '+it.qty+' '+esc(unit)+'</div>'+
+        '<div class="item-expected">เอกสารระบุคงเหลือ '+it.qty+' '+esc(unit)+' · ตรวจนับ v3</div>'+
       '</div>';
     card.appendChild(top);
 
@@ -911,7 +912,7 @@ function renderItems(){
       st.openBottles = st.openBottles.filter(function(code){ return foundCodes.indexOf(code)>-1; });
       var auditHead=document.createElement('div');
       auditHead.className='bottle-audit-head';
-      auditHead.innerHTML='<strong>ขวดที่มีอยู่จริง · เลือกขวดที่เปิดใช้</strong><span class="bottle-count">พบ '+foundCodes.length+' ขวด</span>';
+      auditHead.innerHTML='<strong>ขวดที่สแกนพบ · แตะเพื่อเลือกขวดเปิดใช้</strong><span class="bottle-count">พบ '+foundCodes.length+' ขวด</span>';
       card.appendChild(auditHead);
       foundCodes.forEach(function(pc){
         var isOpen=st.openBottles.indexOf(pc)>-1;
@@ -932,11 +933,34 @@ function renderItems(){
       var absentCodes=(it.productCodes||[]).filter(function(pc){
         return pc && pc!=='-' && foundCodes.indexOf(pc)===-1;
       });
-      if(absentCodes.length){
+      if(absentCodes.length && st.checked){
         var absent=document.createElement('div');
         absent.className='bottle-removed';
         absent.textContent='ไม่พบในการสแกน '+absentCodes.length+' ขวด: '+absentCodes.join(', ')+' · จะระบุเป็นรายการตัดออกในผลตรวจนับ';
         card.appendChild(absent);
+      }
+      var finishBtn=document.createElement('button');
+      finishBtn.type='button';
+      finishBtn.className='bottle-finish'+(st.checked?' done':'');
+      finishBtn.textContent=st.checked?'✓ ยืนยันตรวจนับเสร็จแล้ว · แตะเพื่อแก้ไข':'✓ ตรวจนับเสร็จแล้ว · ปิดยอด '+foundCodes.length+' ขวด';
+      finishBtn.onclick=function(){
+        if(st.checked){ st.checked=false; st.checkedAt=''; }
+        else {
+          if(!foundCodes.length){ alert('กรุณาสแกนขวดที่พบจริงก่อน'); return; }
+          if(absentCodes.length){
+            var ok=confirm('ยืนยันว่าตรวจนับเสร็จแล้ว\nพบจริง '+foundCodes.length+' ขวด\nไม่พบ '+absentCodes.length+' ขวด\n\nขวดที่ไม่พบจะถูกเสนอให้ปรับยอดเมื่อผู้ตรวจสอบอนุมัติ');
+            if(!ok)return;
+          }
+          st.checked=true; st.checkedAt=new Date().toISOString();
+        }
+        renderItems();updateProgress();scheduleAutoSaveDraft();
+      };
+      card.appendChild(finishBtn);
+      if(!st.checked && absentCodes.length){
+        var pendingHint=document.createElement('div');
+        pendingHint.style.cssText='font-size:11px;color:var(--warn);margin-top:6px;line-height:1.6';
+        pendingHint.textContent='อีก '+absentCodes.length+' ขวดที่ยังไม่สแกนจะยังไม่ถูกตัด จนกว่าจะกดยืนยันตรวจนับครบ';
+        card.appendChild(pendingHint);
       }
       if(st.openBottles.length){
         var remWrap=document.createElement('div');
@@ -972,7 +996,7 @@ function renderItems(){
       scanStatus.innerHTML =
         '<div style="font-size:13px;font-weight:700;color:var(--ok);">นับได้แล้ว '+scannedCount+' / '+it.qty+' '+esc(unit)+'</div>'+
         '<div style="font-size:12.5px;color:var(--text-soft);margin-top:2px;">'+
-          (remain>0 ? 'เหลืออีกประมาณ '+remain+' '+esc(unit)+' ที่ยังไม่ได้สแกน' : '✓ สแกนครบตามจำนวนเอกสารแล้ว')+
+          (remain>0 ? 'ยังไม่สแกน '+remain+' '+esc(unit)+' · ถ้าตรวจครบแล้วให้กดยืนยันปิดยอด' : '✓ สแกนครบตามจำนวนเอกสารแล้ว')+
         '</div>';
       card.appendChild(scanStatus);
     }
@@ -1765,7 +1789,7 @@ function handleQrResult(code){
     if(st.scannedCodes.indexOf(normalized)===-1){ st.scannedCodes.push(normalized); }
     st.qrVerified = true; st.qrCode = normalized;
     st.actualQty = st.scannedCodes.length;
-    st.checked = true; st.checkedAt = new Date().toISOString();
+    st.checked = false; st.checkedAt = '';
     msgEl.style.color='var(--ok)';
     msgEl.textContent='✓ ยืนยันตัวสารเคมีสำเร็จ';
     playScanBeep(true);
@@ -1968,8 +1992,8 @@ function handleContinuousScanResult(rawCode){
   st.qrVerified = true;
   st.qrCode = normalized;
   st.actualQty = st.scannedCodes.length;
-  st.checked = true;
-  st.checkedAt = new Date().toISOString();
+  st.checked = false;
+  st.checkedAt = '';
 
   cScanBeep(true); cScanFlash('rgba(26,156,107,.30)'); showScanSuccessPop('cScanSuccess'); if(navigator.vibrate) navigator.vibrate(40);
   msgEl.style.color='var(--ok)';
