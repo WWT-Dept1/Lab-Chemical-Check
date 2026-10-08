@@ -3,14 +3,11 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
-<meta http-equiv="Pragma" content="no-cache"/>
-<meta http-equiv="Expires" content="0"/>
 <title>ใบตรวจนับสารเคมี F-WWT-28</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet"/>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js?v=209-clean"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 <script src="/gas-compat.js"></script>
 <style>
 :root{
@@ -173,6 +170,20 @@ textarea.input{resize:vertical; min-height:64px; line-height:1.5;}
 .btn-mini{width:100%; padding:10px; border-radius:9px; border:none; font-family:var(--sans);
   font-weight:700; font-size:12px; color:#fff; cursor:pointer; background:var(--primary-dk); box-shadow:0 4px 10px rgba(7,90,75,.3);}
 
+/* เฉพาะส่วนขวดที่ตรวจพบและสถานะเปิดใช้งาน */
+.bottle-audit-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:12px 0 7px}
+.bottle-audit-head strong{font-size:12px;color:var(--text)}
+.bottle-count{font-size:11px;font-weight:700;color:var(--primary-dk);background:var(--primary-lt);padding:4px 9px;border-radius:99px}
+.bottle-choice{display:flex;align-items:center;gap:11px;border:1.5px solid var(--border);background:#fffdf8;border-radius:13px;padding:12px;margin-bottom:8px;cursor:pointer;text-align:left;width:100%}
+.bottle-choice.is-open{border-color:var(--primary);background:var(--primary-lt)}
+.bottle-choice .bottle-mark{width:35px;height:35px;display:grid;place-items:center;border-radius:11px;background:#f0ecdc;font-size:19px;flex-shrink:0}
+.bottle-choice.is-open .bottle-mark{background:#cde6d8}
+.bottle-choice .bottle-info{min-width:0;flex:1}
+.bottle-choice .bottle-info b{font-size:13px;display:block;word-break:break-all}
+.bottle-choice .bottle-info small{font-size:11px;color:var(--text-soft)}
+.bottle-toggle{border-radius:99px;min-width:88px;text-align:center;padding:7px 8px;background:#ece8db;color:var(--text-soft);font-size:10.5px;font-weight:700}
+.bottle-choice.is-open .bottle-toggle{background:var(--primary-dk);color:#fff}
+.bottle-removed{font-size:11px;line-height:1.6;color:var(--warn);background:var(--warn-lt);padding:9px 12px;border-radius:10px;margin-top:8px}
 /* ---------- sign bar ---------- */
 .sign-bar{position:fixed; left:0; right:0; bottom:0; z-index:60; padding:10px 14px calc(10px + env(safe-area-inset-bottom));
   background:linear-gradient(180deg, rgba(242,239,227,0) 0%, rgba(242,239,227,.98) 42%);}
@@ -586,7 +597,7 @@ textarea.input{resize:vertical; min-height:64px; line-height:1.5;}
         <div class="scanbox-flash" id="qrScanFlash"></div>
         <div class="scanbox-success" id="qrScanSuccess"></div>
         <button type="button" class="scanbox-torch" id="qrScanTorch" style="display:none;">🔦</button>
-        <div class="scanbox-tip">FAST SCAN v210 · เล็งบาร์โค้ดไว้กึ่งกลางภาพ ห่างประมาณ 10–20 ซม.</div>
+        <div class="scanbox-tip">ถือกล้องนิ่ง ๆ ให้บาร์โค้ดเต็มกรอบเขียว ห่างประมาณ 5–8 ซม. — ถ้ามีบาร์โค้ดอื่นชิดกัน ให้เอานิ้ว/กระดาษบังบาร์โค้ดข้างเคียงไว้ก่อนสแกน</div>
       </div>
     </div>
     <div id="qrScanMsg" style="font-size:12.5px;font-weight:600;text-align:center;margin-top:10px;min-height:18px;"></div>
@@ -617,7 +628,7 @@ textarea.input{resize:vertical; min-height:64px; line-height:1.5;}
         <div id="cScanFlash" class="scanbox-flash"></div>
         <div class="scanbox-success" id="cScanSuccess"></div>
         <button type="button" class="scanbox-torch" id="cScanTorch" style="display:none;">🔦</button>
-        <div class="scanbox-tip">FAST SCAN v210 · เล็งบาร์โค้ดไว้กึ่งกลางภาพ ห่างประมาณ 10–20 ซม.</div>
+        <div class="scanbox-tip">ถือกล้องนิ่ง ๆ ให้บาร์โค้ดเต็มกรอบเขียว ห่างประมาณ 5–8 ซม. — ถ้ามีบาร์โค้ดอื่นชิดกัน ให้เอานิ้ว/กระดาษบังบาร์โค้ดข้างเคียงไว้ก่อนสแกน</div>
       </div>
     </div>
     <div style="padding:10px 16px;flex-shrink:0;">
@@ -653,7 +664,7 @@ textarea.input{resize:vertical; min-height:64px; line-height:1.5;}
       <div class="rscan-flash" id="rscanFlash"></div>
       <div class="scanbox-success" id="rscanSuccess"></div>
       <button type="button" class="scanbox-torch" id="rscanTorch" style="display:none;">🔦</button>
-      <div class="scanbox-tip">FAST SCAN v210 · เล็งบาร์โค้ดไว้กึ่งกลางภาพ ห่างประมาณ 10–20 ซม.</div>
+      <div class="scanbox-tip">ถือกล้องนิ่ง ๆ ให้บาร์โค้ดเต็มกรอบเขียว ห่างประมาณ 5–8 ซม. — ถ้ามีบาร์โค้ดอื่นชิดกัน ให้เอานิ้ว/กระดาษบังบาร์โค้ดข้างเคียงไว้ก่อนสแกน</div>
     </div>
     <div class="rscan-msg" id="rscanMsg">เล็งกล้องไปที่บาร์โค้ด/QR ของสารเคมี...</div>
     <div class="rscan-manual" style="padding-bottom:14px;">
@@ -764,7 +775,6 @@ textarea.input{resize:vertical; min-height:64px; line-height:1.5;}
 </div>
 
 <script>
-/* Scanner profile: v210 FAST-STABLE — full-frame, all formats, rear-camera no-flip */
 /* ============================================================
    STATE
    ============================================================ */
@@ -895,35 +905,44 @@ function renderItems(){
       '</div>';
     card.appendChild(top);
 
-    if(it.productCodes && it.productCodes.length && it.productCodes[0]!=='-' && qrOk){
-      var chipsLabel=document.createElement('div');
-      chipsLabel.className='chips-label';
-      chipsLabel.textContent='แตะเพื่อทำเครื่องหมายขวดที่เปิดใช้อยู่';
-      card.appendChild(chipsLabel);
-      var chipsRow=document.createElement('div');
-      chipsRow.className='chips-row';
-      it.productCodes.forEach(function(pc){
-        var isOpen = st.openBottles.indexOf(pc)>-1;
-        var chip=document.createElement('div');
-        chip.className='chip'+(isOpen?' open':'');
-        chip.innerHTML =
-          '<span class="chip-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>'+
-          '<span class="chip-code">'+esc(pc)+'</span>'+(isOpen ? '<span class="chip-tag">เปิดใช้</span>' : '');
-        chip.onclick=function(){
+    // ใช้รหัสที่สแกนพบจริงเป็นตัวกำหนดขวดคงเหลือ ไม่เอาขวดเก่าที่ยังไม่พบมาปน
+    if(hasQr && st.qrVerified){
+      var foundCodes = (st.scannedCodes||[]).filter(function(code, i, arr){ return arr.indexOf(code)===i; });
+      st.openBottles = st.openBottles.filter(function(code){ return foundCodes.indexOf(code)>-1; });
+      var auditHead=document.createElement('div');
+      auditHead.className='bottle-audit-head';
+      auditHead.innerHTML='<strong>ขวดที่มีอยู่จริง · เลือกขวดที่เปิดใช้</strong><span class="bottle-count">พบ '+foundCodes.length+' ขวด</span>';
+      card.appendChild(auditHead);
+      foundCodes.forEach(function(pc){
+        var isOpen=st.openBottles.indexOf(pc)>-1;
+        var choice=document.createElement('button');
+        choice.type='button';
+        choice.className='bottle-choice'+(isOpen?' is-open':'');
+        choice.setAttribute('aria-pressed', String(isOpen));
+        choice.innerHTML='<span class="bottle-mark">'+(isOpen?'🧪':'▣')+'</span>'+
+          '<span class="bottle-info"><b>'+esc(pc)+'</b><small>'+(isOpen?'กำลังเปิดใช้งาน':'ยังไม่เปิดใช้งาน')+'</small></span>'+
+          '<span class="bottle-toggle">'+(isOpen?'✓ เปิดใช้อยู่':'+ เลือกเปิดใช้')+'</span>';
+        choice.onclick=function(){
           var i=st.openBottles.indexOf(pc);
           if(i>-1) st.openBottles.splice(i,1); else st.openBottles.push(pc);
-          renderItems();
+          renderItems(); scheduleAutoSaveDraft();
         };
-        chipsRow.appendChild(chip);
+        card.appendChild(choice);
       });
-      card.appendChild(chipsRow);
-
+      var absentCodes=(it.productCodes||[]).filter(function(pc){
+        return pc && pc!=='-' && foundCodes.indexOf(pc)===-1;
+      });
+      if(absentCodes.length){
+        var absent=document.createElement('div');
+        absent.className='bottle-removed';
+        absent.textContent='ไม่พบในการสแกน '+absentCodes.length+' ขวด: '+absentCodes.join(', ')+' · จะระบุเป็นรายการตัดออกในผลตรวจนับ';
+        card.appendChild(absent);
+      }
       if(st.openBottles.length){
         var remWrap=document.createElement('div');
         remWrap.className='field-row';
-        remWrap.style.marginTop='6px';
-        remWrap.innerHTML =
-          '<label>ปริมาณคงเหลือโดยประมาณ (ขวดที่เปิดใช้อยู่) *</label>'+
+        remWrap.style.marginTop='9px';
+        remWrap.innerHTML='<label>ปริมาณคงเหลือโดยประมาณ (ขวดที่เปิดใช้) *</label>'+
           '<input type="text" class="input remaining-input" data-idx="'+idx+'" value="'+esc(st.remainingApprox)+'" placeholder="เช่น ครึ่งขวด, เหลือ 30%, เหลือ 250 มล."/>';
         card.appendChild(remWrap);
       }
@@ -1223,12 +1242,16 @@ document.getElementById('saveSigEmployee').onclick=function(){
 /* กล่องสแกนแบบแถบแนวนอน เหมาะกับบาร์โค้ด 1 มิติ (กว้าง-เตี้ย แทนที่จะเป็นสี่เหลี่ยมจัตุรัส)
    html5-qrcode จะถอดรหัสเฉพาะพื้นที่ในกล่องนี้เท่านั้น ทำให้ต้องเล็งบาร์โค้ดให้อยู่ในแถบก่อนถึงจะสแกนติด */
 function barcodeQrbox(viewfinderWidth, viewfinderHeight){
-  /* FIX 2026-08-31: กรอบเดิมกว้างสูงสุดเพียง 260px และสูง ~46-62px
-     ทำให้บาร์โค้ดยาว/QR ถูก crop จน decoder ไม่เห็น quiet zone หรือเห็นข้อมูลไม่ครบ
-     ขยายพื้นที่ decode ให้กินพื้นที่กล้องมากขึ้น แต่ยังเหลือขอบเพื่อช่วยเล็งเป้าหมาย */
-  var w = Math.floor(Math.min(viewfinderWidth * 0.92, 420));
-  var h = Math.floor(Math.min(viewfinderHeight * 0.42, Math.max(120, w * 0.42)));
-  if(h < 100) h = Math.max(80, Math.floor(viewfinderHeight * 0.50));
+  /* กรอบแคบ (แนวนอน) เพื่อไม่ให้ครอบโดนบาร์โค้ดแถวข้างๆ เวลาสแกนจากตาราง label ที่พิมพ์ชิดกัน
+     ผู้ใช้ควรเข้าใกล้/ซูมให้บาร์โค้ดเป้าหมายเติมเต็มกรอบก่อนสแกน
+     ปรับกว้างขึ้นเล็กน้อยจากเดิม (230→260) เผื่อ "แดนเงียบ" (quiet zone) ซ้าย-ขวาของบาร์โค้ดพอดี
+     ไม่งั้นถ้ากรอบแคบไปจนตัดขอบบาร์โค้ด/แดนเงียบ ตัวถอดรหัสจะอ่านไม่ออกเลยทั้งที่ภาพคมชัดดี */
+  /* [ย้อนกลับ] เคยลองลดกรอบลงเหลือ 0.5/200px เพื่อเลี่ยงบาร์โค้ดข้างเคียง แต่กลายเป็นว่าเล็กเกินไป
+     จนตัดขอบบาร์โค้ดเดี่ยว ๆ ที่ไม่มีป้ายข้างเคียงเลยก็สแกนไม่ติดไปด้วย (ยืนยันจากการทดสอบจริง)
+     คืนขนาดกลับมาเท่าค่าที่เคยใช้งานได้ปกติ แล้วแก้ปัญหาป้ายชิดกันด้วยคำแนะนำให้บังป้ายข้างเคียง
+     ด้วยนิ้ว/กระดาษแทน (ข้อความใน scanbox-tip) ซึ่งไม่กระทบขนาดกรอบที่ต้องใช้กับบาร์โค้ดเดี่ยว ๆ */
+  var w = Math.floor(Math.min(viewfinderWidth * 0.68, 260));
+  var h = Math.max(46, Math.floor(w * 0.24));
   return { width: w, height: h };
 }
 
@@ -1399,39 +1422,44 @@ function withTimeout_(promise, ms, timeoutMsg){
   });
 }
 function startScannerSimple_(scannerInstance, scanConfig, onDecode, onFrameMiss){
-  /* FAST-STABLE v210
-     ใช้ API แบบมาตรฐานที่สุดของ html5-qrcode:
-     - ไม่เรียก getCameras() ก่อน start() (เลี่ยงเปิด/ปิด stream ชั่วคราวแล้วชน transition)
-     - ไม่ส่ง videoConstraints ความละเอียดสูง (เพราะมัน override cameraIdOrConfig)
-     - ไม่ใช้ qrbox: ให้ decoder เห็นทั้งเฟรมเพื่อเพิ่มโอกาสอ่านบาร์โค้ดทันที
-     - เลือกกล้องหลังด้วย facingMode:environment โดยตรง */
   var preflightErr = cameraPreflightError_();
   if(preflightErr){ return Promise.reject(new Error(preflightErr)); }
-
-  /* v210 SPEED: กล้องหลังไม่ mirror จึงไม่ต้องเสียเวลาลอง decode ภาพกลับด้านซ้ำ
-     Android/Chrome ที่มี native BarcodeDetector รับ fps สูงขึ้นได้ดี
-     iOS ใช้ค่ากลางเพื่อไม่ให้ ZXing JS ต่อเฟรมชนกันจนช้ากว่าเดิม */
-  var cfg = {
-    fps: isIOSDevice_() ? 10 : 18,
-    disableFlip: true
-  };
-
-  var p;
-  try{
-    p = scannerInstance.start(
-      { facingMode: 'environment' },
-      cfg,
-      function(decodedText, decodedResult){ onDecode(decodedText, decodedResult); },
-      onFrameMiss
-    );
-  }catch(e){
-    return Promise.reject(e);
-  }
-
+  var attemptPromise = listCamerasSafe_().then(function(cameras){
+    var id = pickBackCameraId_(cameras, null);
+    var selector = id ? { deviceId: { exact: id } } : SCAN_CAMERA_SELECTOR;
+    return delay_(200).then(function(){ /* กันชน getUserMedia ชั่วคราวจาก getCameras() เอง (Android) */
+      return scannerInstance.start(selector, withCameraSelector_(scanConfig, selector), onDecode, onFrameMiss);
+    }).then(function(res){
+      if(!isRunningFrontCamera_(scannerInstance)) return res;
+      /* ยืนยันแล้วว่าได้กล้องหน้าจริง (เช่น iOS/LINE เพิกเฉยต่อ constraint) แก้ไขอีก 1 ครั้งเท่านั้น */
+      return listCamerasSafe_().then(function(freshCameras){
+        var otherId = pickBackCameraId_(freshCameras, id);
+        var fallbackSelector = otherId ? { deviceId: { exact: otherId } } : SCAN_CAMERA_SELECTOR_FALLBACK;
+        return delay_(150).then(function(){ return scannerInstance.stop().catch(function(){}); })
+          .then(function(){
+            return delay_(150).then(function(){
+              return scannerInstance.start(
+                fallbackSelector,
+                withCameraSelector_(scanConfig, fallbackSelector),
+                onDecode, onFrameMiss
+              );
+            });
+          });
+      });
+    });
+  }).catch(function(){
+    return delay_(200).then(function(){
+      return scannerInstance.start(
+        SCAN_CAMERA_SELECTOR_FALLBACK,
+        withCameraSelector_(scanConfig, SCAN_CAMERA_SELECTOR_FALLBACK),
+        onDecode, onFrameMiss
+      );
+    });
+  });
   return withTimeout_(
-    p,
+    attemptPromise,
     12000,
-    'เปิดกล้องไม่สำเร็จ (รอนานเกินไป) กรุณาปิดหน้าสแกนแล้วเปิดใหม่ หรือพิมพ์รหัสด้วยตนเอง'
+    'เปิดกล้องไม่สำเร็จ (รอนานเกินไป) — มักเกิดจากยังไม่ได้กดอนุญาตสิทธิ์กล้อง กรุณาตรวจสอบที่ การตั้งค่า > Safari > กล้อง แล้วลองใหม่ หรือพิมพ์รหัสด้วยตนเองด้านล่าง'
   );
 }
 
@@ -1484,7 +1512,7 @@ function isIOSDevice_(){
    ผลคือเฟรมแทบไม่เคยถูกประมวลผลจบทัน ทำให้ "ไม่อ่านค่าเลย" ทั้งที่กล้องเปิดติดปกติ
    ลดกลับมาให้เท่า Android (1920x1080) แล้วให้ autoApplyZoomBoost_ (digital zoom) ช่วยขยาย
    บาร์โค้ดในกรอบแทน ซึ่งเบากว่าการเพิ่มความละเอียดจับภาพทั้งเฟรมมาก */
-var SCAN_VIDEO_CONSTRAINTS_IOS = { width: { ideal: 1280 }, height: { ideal: 720 } };
+var SCAN_VIDEO_CONSTRAINTS_IOS = { width: { ideal: 1920 }, height: { ideal: 1080 } };
 function getSafeVideoConstraints_(){
   return isIOSDevice_() ? SCAN_VIDEO_CONSTRAINTS_IOS : SCAN_VIDEO_CONSTRAINTS;
 }
@@ -1493,22 +1521,7 @@ function getSafeVideoConstraints_(){
    ทำให้กินแรงประมวลผลเกินจำเป็นและอัตราสแกนติดต่ำลง */
 function getScanFormatsToSupport(){
   if (typeof Html5QrcodeSupportedFormats === 'undefined') return undefined;
-  /* FIX 2026-08-31: UI ระบุว่าอ่านได้ทั้ง QR/บาร์โค้ด แต่โค้ดเดิมล็อก CODE_128 อย่างเดียว
-     ถ้าฉลากจริงเป็น QR, Code39/93, EAN หรือ UPC callback จะไม่ถูกเรียกเลย */
-  return [
-    Html5QrcodeSupportedFormats.QR_CODE,
-    Html5QrcodeSupportedFormats.CODE_128,
-    Html5QrcodeSupportedFormats.CODE_39,
-    Html5QrcodeSupportedFormats.CODE_93,
-    Html5QrcodeSupportedFormats.EAN_13,
-    Html5QrcodeSupportedFormats.EAN_8,
-    Html5QrcodeSupportedFormats.UPC_A,
-    Html5QrcodeSupportedFormats.UPC_E
-  ].filter(function(v){ return v !== undefined && v !== null; });
-}
-function getSafeScanFps_(){
-  /* iOS/WKWebView ใช้ JS decoder เป็นหลัก ลด fps เพื่อไม่ให้คิวประมวลผลเฟรมล้น */
-  return isIOSDevice_() ? 7 : 12;
+  return [Html5QrcodeSupportedFormats.CODE_128];
 }
 
 /* ============================================================
@@ -1580,8 +1593,39 @@ function wireTorchButton_(btnId, getScannerInstance){
    ดูใหญ่ขึ้นในเฟรม ซึ่งช่วยให้ตัวถอดรหัส JS อ่านติดง่ายขึ้นมากโดยผู้ใช้ไม่ต้องทำอะไรเพิ่ม
    (ถ้ากล้อง/เบราว์เซอร์ไม่รองรับ zoom จะเงียบๆ ไม่มีผลอะไร ไม่กระทบการทำงานปกติ) */
 function autoApplyZoomBoost_(scannerInstance, containerId, desiredZoom){
-  /* CLEAN v209: ไม่ applyConstraints/zoom ใด ๆ ระหว่างสแกน */
-  return;
+  /* [กันไม่ให้กระทบ Android] ฟีเจอร์นี้มีไว้ช่วย iOS เท่านั้น เพราะ Android Chrome มีตัวถอดรหัส
+     ฮาร์ดแวร์ที่แม่นอยู่แล้วโดยไม่ต้องซูม การซูมเข้าอัตโนมัติบน Android อาจทำให้บาร์โค้ด
+     ใหญ่เกินกรอบ/หลุดขอบจนพฤติกรรมที่เคยใช้ได้ดีอยู่แล้วเปลี่ยนไปโดยไม่จำเป็น */
+  if(!isIOSDevice_()) return;
+  var appliedViaWrapper = false;
+  try{
+    if(scannerInstance && typeof scannerInstance.getRunningTrackCameraCapabilities === 'function'){
+      var caps = scannerInstance.getRunningTrackCameraCapabilities();
+      var zoom = caps.zoomFeature && caps.zoomFeature();
+      if(zoom && typeof zoom.isSupported === 'function' && zoom.isSupported()){
+        var min = zoom.min(), max = zoom.max();
+        var target = Math.min(max, Math.max(min, desiredZoom));
+        zoom.apply(target).catch(function(){});
+        appliedViaWrapper = true;
+      }
+    }
+  }catch(e){}
+  if(appliedViaWrapper) return;
+  /* fallback: บาง wrapper (โดยเฉพาะบน iOS) ตรวจจับ zoom capability พลาดทั้งที่ตัว track จริงรองรับ
+     ลองดึง MediaStreamTrack ตรงจาก <video> แล้วเรียก applyConstraints เองอีกทาง */
+  try{
+    var video = document.querySelector('#'+containerId+' video');
+    var stream = video && video.srcObject;
+    var track = stream && stream.getVideoTracks && stream.getVideoTracks()[0];
+    if(track && typeof track.getCapabilities === 'function'){
+      var rawCaps = track.getCapabilities();
+      if(rawCaps && rawCaps.zoom){
+        var rmin = rawCaps.zoom.min, rmax = rawCaps.zoom.max;
+        var rtarget = Math.min(rmax, Math.max(rmin, desiredZoom));
+        track.applyConstraints({ advanced: [{ zoom: rtarget }] }).catch(function(){});
+      }
+    }
+  }catch(e){}
 }
 
 /* ============================================================
@@ -1592,8 +1636,23 @@ function autoApplyZoomBoost_(scannerInstance, containerId, desiredZoom){
    วิธีแก้: คอยเช็ค currentTime ของ <video> เป็นระยะ ถ้าค้างไม่ขยับนานเกินไปทั้งที่ยังไม่ pause
    ให้ลองปิด-เปิดกล้องใหม่อัตโนมัติ 1 ครั้ง (คล้าย pull-to-refresh ให้กล้อง) ============================ */
 function watchScannerFreeze_(containerId, restartFn){
-  /* CLEAN v209: ปิด auto-restart ระหว่างสแกน เพื่อไม่ให้ stream ถูก stop/start เองจน decoder หลุด */
-  return null;
+  var lastTime = -1, stuckTicks = 0, alreadyRestarted = false;
+  var timer = setInterval(function(){
+    var video = document.querySelector('#'+containerId+' video');
+    if(!video || video.paused || video.ended || video.readyState < 2){ return; } /* ยังโหลดไม่เสร็จ รอต่อ */
+    if(video.currentTime === lastTime){
+      stuckTicks++;
+    } else {
+      stuckTicks = 0;
+    }
+    lastTime = video.currentTime;
+    if(stuckTicks >= 3 && !alreadyRestarted){ /* นิ่งติดต่อกัน ~4.5 วินาที */
+      alreadyRestarted = true;
+      clearInterval(timer);
+      restartFn();
+    }
+  }, 1500);
+  return timer;
 }
 
 var qrScanner = null;
@@ -1642,24 +1701,24 @@ function startQrScanner(){
       return;
     }
     try{
-      qrScanner = new Html5Qrcode('qrReaderBox', { formatsToSupport: getScanFormatsToSupport(), useBarCodeDetectorIfSupported: true, verbose: false });
+      qrScanner = new Html5Qrcode('qrReaderBox', { formatsToSupport: getScanFormatsToSupport(), verbose: false });
       startScannerSimple_(
         qrScanner,
-        { fps: isIOSDevice_() ? 10 : 18, disableFlip: true },
+        { fps: 10, qrbox: barcodeQrbox, videoConstraints: SCAN_VIDEO_CONSTRAINTS, disableFlip: true },
         function(decodedText){ handleQrResult(decodedText); },
         function(){ /* ignore per-frame scan misses */ }
       ).then(function(){
         qrScanStarting = false;
         qrScanRetried = false;
         wireTorchButton_('qrScanTorch', function(){ return qrScanner; });
-        autoApplyZoomBoost_(qrScanner, 'qrReaderBox', 1);
-        /* v210: full-frame ไม่มี qrbox จึงไม่ต้อง poll #qr-shaded-region */
+        autoApplyZoomBoost_(qrScanner, 'qrReaderBox', 2);
+        if(qrScanBoxSyncStop){ qrScanBoxSyncStop(); }
+        qrScanBoxSyncStop = watchSyncScanTargetBox_(document.getElementById('qrScanBox'), 'qrReaderBox');
         if(qrScanFreezeTimer){ clearInterval(qrScanFreezeTimer); }
         qrScanFreezeTimer = watchScannerFreeze_('qrReaderBox', function(){
-          stopQrScanner(function(){
-            forceResetReaderBox_('qrReaderBox');
-            startQrScanner();
-          });
+          forceResetReaderBox_('qrReaderBox');
+          qrScanner = null;
+          startQrScanner();
         });
       }).catch(function(err){
         qrScanStarting = false;
@@ -1760,7 +1819,7 @@ var cScanBoxSyncStop = null;
 function openContinuousScan(){
   document.getElementById('cScanHistory').innerHTML = renderCScanHistory();
   var msgEl = document.getElementById('cScanMsg');
-  msgEl.textContent = 'FAST SCAN v210 · เล็งบาร์โค้ดไว้กึ่งกลางภาพ';
+  msgEl.textContent = 'เล็งกล้องไปที่ QR/บาร์โค้ด...';
   msgEl.style.color = 'var(--text-soft)';
   document.getElementById('modalContinuousScan').classList.add('open');
   cScanRetried = false;
@@ -1778,24 +1837,24 @@ function startContinuousScanner(){
       return;
     }
     try{
-      cScanScanner = new Html5Qrcode('cScanReaderBox', { formatsToSupport: getScanFormatsToSupport(), useBarCodeDetectorIfSupported: true, verbose: false });
+      cScanScanner = new Html5Qrcode('cScanReaderBox', { formatsToSupport: getScanFormatsToSupport(), verbose: false });
       startScannerSimple_(
         cScanScanner,
-        { fps: isIOSDevice_() ? 10 : 18, disableFlip: true },
+        { fps: 10, qrbox: barcodeQrbox, videoConstraints: SCAN_VIDEO_CONSTRAINTS, disableFlip: true },
         function(decodedText){ handleContinuousScanResult(decodedText); },
         function(){ /* ignore per-frame scan misses */ }
       ).then(function(){
         cScanStarting = false;
         cScanRetried = false;
         wireTorchButton_('cScanTorch', function(){ return cScanScanner; });
-        autoApplyZoomBoost_(cScanScanner, 'cScanReaderBox', 1);
-        /* v210: full-frame ไม่มี qrbox จึงไม่ต้อง poll #qr-shaded-region */
+        autoApplyZoomBoost_(cScanScanner, 'cScanReaderBox', 2);
+        if(cScanBoxSyncStop){ cScanBoxSyncStop(); }
+        cScanBoxSyncStop = watchSyncScanTargetBox_(document.getElementById('cScanBox'), 'cScanReaderBox');
         if(cScanFreezeTimer){ clearInterval(cScanFreezeTimer); }
         cScanFreezeTimer = watchScannerFreeze_('cScanReaderBox', function(){
-          stopContinuousScanner(function(){
-            forceResetReaderBox_('cScanReaderBox');
-            startContinuousScanner();
-          });
+          forceResetReaderBox_('cScanReaderBox');
+          cScanScanner = null;
+          startContinuousScanner();
         });
       }).catch(function(err){
         cScanStarting = false;
@@ -1866,66 +1925,18 @@ function codePrefix_(code){
 }
 function findItemIdxByPrefixCode(rawCode){
   var normalized = String(rawCode).trim();
-  var myPrefix = codePrefix_(normalized);
-
-  /* รับเข้า: ห้ามให้ Exact Match ที่หลงอยู่ผิดแถวชนะทันที
-     ตัวอย่าง 17216-2026-13 เคยถูกบันทึกผิดไปที่ Aluminum foil แต่รหัสตระกูล 17216
-     มีประวัติหลายรายการอยู่กับ Sulfuric Acid อยู่แล้ว จึงต้องตัดสินจาก "น้ำหนักของ prefix" ทั้ง Master */
-  if(myPrefix){
-    var candidates = [];
-    for(var i=0; i<STATE.items.length; i++){
-      var codes = (STATE.items[i].productCodes||[])
-        .map(function(c){ return String(c).trim(); })
-        .filter(function(c){ return c && c!=='-'; });
-      var prefixCount = codes.filter(function(c){ return codePrefix_(c) === myPrefix; }).length;
-      if(prefixCount > 0){
-        candidates.push({
-          idx: i,
-          prefixCount: prefixCount,
-          exact: codes.indexOf(normalized) > -1,
-          codes: codes
-        });
-      }
-    }
-
-    if(candidates.length){
-      candidates.sort(function(a,b){
-        if(b.prefixCount !== a.prefixCount) return b.prefixCount - a.prefixCount;
-        if(a.exact !== b.exact) return a.exact ? -1 : 1;
-        return a.idx - b.idx;
-      });
-
-      var best = candidates[0];
-      var second = candidates.length > 1 ? candidates[1] : null;
-
-      /* ถ้าสอง Master มีหลักฐาน prefix เท่ากันจริง ๆ ถือว่าฐานข้อมูลขัดแย้ง
-         ไม่เดา/ไม่รับเข้า เพื่อป้องกันการย้ายรหัสไปผิดสินค้าอีก */
-      if(second && second.prefixCount === best.prefixCount){
-        return {
-          idx: -1,
-          isNew: false,
-          conflict: true,
-          prefix: myPrefix,
-          candidates: candidates.map(function(c){
-            return { idx:c.idx, name:(STATE.items[c.idx]&&STATE.items[c.idx].name)||'', count:c.prefixCount, exact:c.exact };
-          })
-        };
-      }
-
-      return {
-        idx: best.idx,
-        isNew: !best.exact,
-        resolvedByPrefix: true,
-        prefix: myPrefix,
-        /* แจ้งไว้ได้ว่าพบรหัส exact หลงอยู่ใน Master อื่น แต่ไม่ให้มันเปลี่ยนผลการจับคู่ */
-        strayExact: candidates.some(function(c){ return c.idx !== best.idx && c.exact; })
-      };
-    }
-  }
-
-  /* รหัสที่ไม่มีรูปแบบ prefix ให้ใช้ exact-match แบบเดิมเป็น fallback */
+  // 1) ลองจับคู่แบบเดิมก่อน (ตรงเป๊ะ หรือมีรหัสนี้ลงทะเบียนไว้แล้ว)
   var idx = findItemIdxByCode(normalized);
-  if(idx > -1) return { idx: idx, isNew: false, resolvedByPrefix: false };
+  if(idx > -1) return { idx: idx, isNew: false };
+
+  // 2) ไม่เจอ -> ลองเทียบด้วย prefix (ตัดเลขลำดับล็อตท้ายสุดออก) กับรหัสที่เคยลงทะเบียนไว้ของแต่ละสาร
+  var myPrefix = codePrefix_(normalized);
+  if(!myPrefix) return { idx: -1, isNew: false };
+  for(var i=0; i<STATE.items.length; i++){
+    var codes = (STATE.items[i].productCodes||[]).map(function(c){return String(c).trim();}).filter(function(c){return c && c!=='-';});
+    var match = codes.some(function(c){ return codePrefix_(c) === myPrefix; });
+    if(match) return { idx: i, isNew: true };
+  }
   return { idx: -1, isNew: false };
 }
 function handleContinuousScanResult(rawCode){
@@ -1997,7 +2008,6 @@ document.getElementById('cScanManualInput').addEventListener('keydown', function
   }
 });
 
-/* FIX 2026-08-29: strict scan box + safe receive mapping (masterRowIndex + scannedCode + prefix-majority conflict guard) */
 /* ============================================================
    สแกนรับเข้าสารเคมี (Scan-to-Receive)
    เปิดกล้องยิงบาร์โค้ด/QR ต่อเนื่อง รายการที่จำได้จะเด้งเข้ารายการอัตโนมัติ
@@ -2021,7 +2031,7 @@ function openScanReceive(){
   document.getElementById('rscanReceivedDate').value = todayIsoDate_();
   var msgEl = document.getElementById('rscanMsg');
   msgEl.style.color = 'var(--text-soft)';
-  msgEl.textContent = 'FAST SCAN v210 · เล็งบาร์โค้ดไว้กึ่งกลางภาพ';
+  msgEl.textContent = 'เล็งกล้องไปที่บาร์โค้ด/QR ของสารเคมี...';
   renderRscanBatch();
   rscanRetried = false;
   startRscanScanner();
@@ -2038,24 +2048,24 @@ function startRscanScanner(){
       return;
     }
     try{
-      RSCAN.scanner = new Html5Qrcode('rscanReaderBox', { formatsToSupport: getScanFormatsToSupport(), useBarCodeDetectorIfSupported: true, verbose: false });
+      RSCAN.scanner = new Html5Qrcode('rscanReaderBox', { formatsToSupport: getScanFormatsToSupport(), verbose: false });
       startScannerSimple_(
         RSCAN.scanner,
-        { fps: isIOSDevice_() ? 10 : 18, disableFlip: true },
+        { fps: 10, qrbox: barcodeQrbox, videoConstraints: SCAN_VIDEO_CONSTRAINTS, disableFlip: true },
         function(decodedText){ handleRscanResult(decodedText); },
         function(){ /* ignore per-frame scan misses */ }
       ).then(function(){
         rscanStarting = false;
         rscanRetried = false;
         wireTorchButton_('rscanTorch', function(){ return RSCAN.scanner; });
-        autoApplyZoomBoost_(RSCAN.scanner, 'rscanReaderBox', 1);
-        /* v210: full-frame ไม่มี qrbox จึงไม่ต้อง poll #qr-shaded-region */
+        autoApplyZoomBoost_(RSCAN.scanner, 'rscanReaderBox', 2);
+        if(rscanBoxSyncStop){ rscanBoxSyncStop(); }
+        rscanBoxSyncStop = watchSyncScanTargetBox_(document.getElementById('rscanCam'), 'rscanReaderBox');
         if(rscanFreezeTimer){ clearInterval(rscanFreezeTimer); }
         rscanFreezeTimer = watchScannerFreeze_('rscanReaderBox', function(){
-          stopRscanScanner(function(){
-            forceResetReaderBox_('rscanReaderBox');
-            startRscanScanner();
-          });
+          forceResetReaderBox_('rscanReaderBox');
+          RSCAN.scanner = null;
+          startRscanScanner();
         });
       }).catch(function(err){
         rscanStarting = false;
@@ -2110,84 +2120,64 @@ function handleRscanResult(rawCode){
   var normalized = String(rawCode).trim();
   if(!normalized) return;
   var now = Date.now();
-  if(normalized === RSCAN.lastCode && (now - RSCAN.lastTime) < 1500){ return; } // กันอ่านซ้ำจากเฟรมเดียวกัน
+  if(normalized === RSCAN.lastCode && (now - RSCAN.lastTime) < 1500){ return; } // กันอ่านซ้ำจากเฟรมกล้องเดียวกัน
   RSCAN.lastCode = normalized; RSCAN.lastTime = now;
-
-  var msgEl = document.getElementById('rscanMsg');
-
-  /* ระบบรับเข้าใหม่: 1 Barcode = 1 ขวด / 1 รายการ
-     รหัสที่สแกนต้องไม่ซ้ำกับรายการที่อยู่ใน batch ปัจจุบัน */
-  var duplicated = RSCAN.batch.some(function(b){ return String(b.scannedCode||'').trim() === normalized; });
-  if(duplicated){
-    rscanBeep(false); rscanFlash('rgba(192,122,31,.28)'); if(navigator.vibrate) navigator.vibrate(90);
-    msgEl.style.color='var(--warn)';
-    msgEl.textContent='⚠ รหัส "'+esc(normalized)+'" ถูกสแกนเข้ารายการนี้แล้ว';
-    return;
-  }
 
   var found = findItemIdxByPrefixCode(normalized);
   var idx = found.idx;
+  var msgEl = document.getElementById('rscanMsg');
+
   if(idx === -1){
     rscanBeep(false); rscanFlash('rgba(209,82,74,.35)'); if(navigator.vibrate) navigator.vibrate(120);
     msgEl.style.color='var(--er)';
-    if(found.conflict){
-      var names = (found.candidates||[]).map(function(c){ return c.name+' ('+c.count+' รหัส)'; }).join(' / ');
-      msgEl.textContent='✗ Master Item มีรหัสตระกูล '+esc(found.prefix)+' ซ้ำหลายรายการ: '+esc(names)+' — ระบบหยุดรับเข้าเพื่อป้องกันข้อมูลผิด';
-    } else {
-      msgEl.textContent='✗ ไม่พบว่าสินค้ารหัส "'+esc(normalized)+'" อยู่ใน Master Item ตัวใด';
-    }
+    msgEl.textContent='✗ ไม่พบรหัส "'+esc(normalized)+'" ในฐานข้อมูล';
     return;
   }
-
   var it = STATE.items[idx];
-  RSCAN.batch.push({
-    code: it.code,
-    name: it.name,
-    masterRowIndex: Number(it.rowIndex) || 0,
-    unit: it.unit || 'ขวด',
-    qty: 1,
-    opened: false,
-    expiryDate: '',
-    scannedCode: normalized,
-    scannedCodes: [normalized],
-    isNewCode: !!found.isNew,
-    newProductCodes: found.isNew ? [normalized] : []
-  });
+  var existing = RSCAN.batch.find(function(b){ return b.code === it.code; });
+  if(existing){
+    existing.qty += 1;
+    if(found.isNew && existing.newProductCodes.indexOf(normalized) === -1){ existing.newProductCodes.push(normalized); }
+  } else {
+    RSCAN.batch.push({
+      code: it.code, name: it.name, unit: it.unit || 'ขวด', qty: 1, opened: false, expiryDate: '',
+      newProductCodes: found.isNew ? [normalized] : []
+    });
+  }
 
   rscanBeep(true); rscanFlash('rgba(26,156,107,.30)'); showScanSuccessPop('rscanSuccess'); if(navigator.vibrate) navigator.vibrate(40);
   msgEl.style.color='var(--ok)';
   msgEl.textContent = found.isNew
-    ? '✓ รับรหัส '+esc(normalized)+' — '+esc(it.name)+' · รหัสใหม่จะเพิ่มเข้า Master Item'
-    : '✓ รับรหัส '+esc(normalized)+' — '+esc(it.name);
-  if(found.strayExact){
-    msgEl.textContent += ' · ⚠ พบว่ารหัสนี้เคยหลงอยู่ Master รายการอื่น ระบบเลือกจากตระกูลรหัสที่ถูกต้อง';
-  }
+    ? '✓ เพิ่มแล้ว: '+esc(it.name)+' (x'+(existing?existing.qty:1)+') — รหัสล็อตใหม่ จะบันทึกเพิ่มเข้า Product code'
+    : '✓ เพิ่มแล้ว: '+esc(it.name)+' (x'+(existing?existing.qty:1)+')';
 
   renderRscanBatch();
 }
 function renderRscanBatch(){
   var el = document.getElementById('rscanBatchList');
-  document.getElementById('rscanCountBadge').textContent = RSCAN.batch.length;
+  document.getElementById('rscanCountBadge').textContent = RSCAN.batch.reduce(function(s,b){return s+b.qty;},0);
   document.getElementById('btnRscanSave').disabled = (RSCAN.batch.length === 0);
 
   if(!RSCAN.batch.length){
     el.innerHTML = '<div class="rscan-empty">ยังไม่มีรายการ ลองสแกนบาร์โค้ดดูสิ 👆</div>';
     return;
   }
-
   el.innerHTML = RSCAN.batch.map(function(b, i){
     return '<div class="rscan-item'+(b.opened?' opened':'')+'" data-i="'+i+'">'+
-      '<div class="ri-info">'+
-        '<div class="ri-name">'+esc(b.name)+'</div>'+
-        '<div class="ri-code">รหัสสินค้า '+esc(b.code)+' &middot; '+esc(b.unit)+'</div>'+
-        '<div style="margin-top:4px;font-family:var(--mono);font-size:11.5px;font-weight:700;color:var(--primary-dk);word-break:break-all;">📦 Barcode: '+esc(b.scannedCode||'-')+'</div>'+
-        (b.isNewCode ? '<div style="margin-top:3px;font-size:10.5px;font-weight:700;color:var(--ok);">+ รหัสใหม่ → เพิ่มเข้า Master Item เมื่อบันทึก</div>' : '')+
-        '<div style="display:flex;align-items:center;gap:6px;margin-top:5px;">'+
-          '<label style="font-size:11px;color:var(--text-soft);white-space:nowrap;">วันหมดอายุ:</label>'+
-          '<input type="date" data-act="expiry" data-i="'+i+'" value="'+esc(b.expiryDate||'')+'" style="font-size:12px;padding:3px 6px;border-radius:6px;border:1.5px solid var(--border);"/>'+
-        '</div>'+
+      '<div class="ri-info"><div class="ri-name">'+esc(b.name)+'</div><div class="ri-code">รหัส '+esc(b.code)+' &middot; '+esc(b.unit)+
+        ((b.newProductCodes && b.newProductCodes.length) ? ' &middot; <span style="color:var(--ok);font-weight:700;">+ล็อตใหม่</span>' : '')+
+      '</div>'+
+      '<div style="display:flex;align-items:center;gap:6px;margin-top:4px;">'+
+        '<label style="font-size:11px;color:var(--text-soft);white-space:nowrap;">วันหมดอายุ:</label>'+
+        '<input type="date" data-act="expiry" data-i="'+i+'" value="'+esc(b.expiryDate||'')+'" style="font-size:12px;padding:3px 6px;border-radius:6px;border:1.5px solid var(--border);"/>'+
+      '</div>'+
       '</div>'+
       '<div class="ri-open-toggle'+(b.opened?' on':'')+'" data-act="toggleopen" data-i="'+i+'"><div class="rot-sw"></div><div class="rot-lbl">เปิดใช้</div></div>'+
+      '<div class="rscan-stepper">'+
+        '<button data-act="dec" data-i="'+i+'">−</button>'+
+        '<span class="rs-qty">'+b.qty+'</span>'+
+        '<button data-act="inc" data-i="'+i+'">+</button>'+
+      '</div>'+
       '<button class="ri-remove" data-act="remove" data-i="'+i+'">✕</button>'+
     '</div>';
   }).join('');
@@ -2195,15 +2185,16 @@ function renderRscanBatch(){
   el.querySelectorAll('input[data-act="expiry"]').forEach(function(elInput){
     elInput.onchange = function(){
       var i = Number(this.dataset.i);
-      if(RSCAN.batch[i]) RSCAN.batch[i].expiryDate = this.value;
+      RSCAN.batch[i].expiryDate = this.value;
     };
   });
 
   el.querySelectorAll('[data-act]:not(input)').forEach(function(elBtn){
     elBtn.onclick = function(){
       var i = Number(this.dataset.i), act = this.dataset.act;
-      if(!RSCAN.batch[i]) return;
-      if(act==='remove'){ RSCAN.batch.splice(i,1); }
+      if(act==='inc'){ RSCAN.batch[i].qty += 1; }
+      else if(act==='dec'){ RSCAN.batch[i].qty = Math.max(1, RSCAN.batch[i].qty - 1); }
+      else if(act==='remove'){ RSCAN.batch.splice(i,1); }
       else if(act==='toggleopen'){ RSCAN.batch[i].opened = !RSCAN.batch[i].opened; }
       renderRscanBatch();
     };
@@ -2228,29 +2219,11 @@ document.getElementById('btnRscanSave').onclick = function(){
   if(!empName){ alert('กรุณาระบุชื่อผู้รับเข้า'); return; }
   if(!RSCAN.batch.length){ alert('ยังไม่มีรายการที่สแกน'); return; }
 
-  /* ห้ามมีรายการรับเข้าที่ไม่มี Barcode */
-  var missingCode = RSCAN.batch.some(function(b){ return !String(b.scannedCode||'').trim(); });
-  if(missingCode){ alert('พบรายการที่ไม่มีรหัส Barcode กรุณาลบรายการนั้นแล้วสแกนใหม่'); return; }
-
   var payload = {
     employeeName: empName,
     receivedDate: receivedDate,
     items: RSCAN.batch.map(function(b){
-      return {
-        itemCode: b.code,
-        itemName: b.name,
-        masterRowIndex: Number(b.masterRowIndex) || 0,
-        qty: 1,
-        receiveQty: 1,
-        scannedCode: b.scannedCode,
-        scannedCodes: [b.scannedCode],
-        productCode: b.scannedCode,
-        barcode: b.scannedCode,
-        opened: b.opened,
-        openedDate: b.opened ? receivedDate : '',
-        expiryDate: b.expiryDate || '',
-        newProductCodes: b.isNewCode ? [b.scannedCode] : []
-      };
+      return { itemCode: b.code, itemName: b.name, qty: b.qty, opened: b.opened, openedDate: b.opened ? receivedDate : '', expiryDate: b.expiryDate || '', newProductCodes: b.newProductCodes || [] };
     })
   };
 
@@ -2262,11 +2235,12 @@ document.getElementById('btnRscanSave').onclick = function(){
     var failed = (res.results||[]).filter(function(r){ return !r.success; });
     var okCount = res.receivedCount || 0;
     var msg = '✅ บันทึกการรับเข้าสำเร็จ '+okCount+' รายการ';
-    if(failed.length){ msg += '\n⚠ ไม่สำเร็จ '+failed.length+' รายการ: '+failed.map(function(f){return (f.scannedCode||f.itemCode)+' ('+f.error+')';}).join(', '); }
+    if(failed.length){ msg += '\n⚠ ไม่สำเร็จ '+failed.length+' รายการ: '+failed.map(function(f){return f.itemCode+' ('+f.error+')';}).join(', '); }
     alert(msg);
     RSCAN.batch = [];
     renderRscanBatch();
     document.getElementById('rscanEmpName').value = '';
+    // รีเฟรชรายการสารเคมีในหน้าเช็คของ ให้ยอดคงเหลือล่าสุด
     google.script.run.withSuccessHandler(function(items){ STATE.items = items; renderCatTabs(); renderItems(); }).withFailureHandler(function(){}).getMasterItems();
   }).withFailureHandler(function(err){
     btn.disabled = false; btn.textContent = '✓ บันทึกการรับเข้าทั้งหมด';
@@ -2284,7 +2258,7 @@ document.getElementById('btnSubmit').onclick=function(){
   var items = STATE.items.map(function(it, idx){
     var st = STATE.itemState[idx];
     return { code: it.code, name: it.name, manufacturer: it.manufacturer, expectedQty: it.qty, actualQty: st.actualQty,
-      openBottles: st.openBottles, remark: composeRemark(st), remainingApprox: st.remainingApprox, unit: it.unit, checked: st.checked, checkedAt: st.checkedAt || '', qrCode: st.qrCode || '' };
+      openBottles: st.openBottles.filter(function(pc){return st.scannedCodes.indexOf(pc)>-1;}), scannedCodes: st.scannedCodes.slice(), removedCodes: (it.productCodes||[]).filter(function(pc){return pc && pc!=='-' && st.scannedCodes.indexOf(pc)===-1;}), remark: composeRemark(st), remainingApprox: st.remainingApprox, unit: it.unit, checked: st.checked, checkedAt: st.checkedAt || '', qrCode: st.qrCode || '' };
   });
   google.script.run.withSuccessHandler(function(){
     document.getElementById('modalSuccess').classList.add('open');
