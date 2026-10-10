@@ -55,8 +55,15 @@ async function ensureSheets_() {
   ensured = true;
 }
 
-function checkPin_(pin) { if (String(pin) !== String(CONFIG.REVIEWER_PIN)) throw new Error('รหัส PIN ไม่ถูกต้อง'); }
-function checkAdminPin_(pin) { if (String(pin) !== String(CONFIG.ADMIN_PIN)) throw new Error('รหัส PIN ไม่ถูกต้อง'); }
+function normalizePin_(v) {
+  return String(v == null ? '' : v).trim().replace(/^[\"']|[\"']$/g, '');
+}
+function checkPin_(pin) {
+  if (normalizePin_(pin) !== normalizePin_(CONFIG.ADMIN_PIN)) throw new Error('รหัส PIN ไม่ถูกต้อง');
+}
+function checkAdminPin_(pin) {
+  if (normalizePin_(pin) !== normalizePin_(CONFIG.ADMIN_PIN)) throw new Error('รหัส PIN ไม่ถูกต้อง');
+}
 
 /* ============================================================ Master items ============================================================ */
 async function getMasterItemsWithRow_() {
@@ -80,51 +87,6 @@ async function getMasterItemsWithRow_() {
 async function getMasterItems() {
   const withRow = await getMasterItemsWithRow_();
   return withRow.map(({ rowIndex, ...rest }) => rest);
-}
-
-/* Bottle reconciliation — confined to approved physical-count submissions. */
-async function ensureBottleAuditColumns_() {
-  const rows = await db.getDataRange(CONFIG.SHEET_ITEMS);
-  const header = rows[0] || [];
-  if (header[14] !== 'scannedCodes' || header[15] !== 'removedCodes') {
-    await db.setRange(CONFIG.SHEET_ITEMS, 1, 15, [['scannedCodes', 'removedCodes']]);
-  }
-}
-
-function uniqueBottleCodes_(codes) {
-  return [...new Set((Array.isArray(codes) ? codes : []).map(c => String(c || '').trim()).filter(c => c && c !== '-'))];
-}
-
-async function reconcileApprovedBottles_(submissionId) {
-  const detailRows = await db.getDataRange(CONFIG.SHEET_ITEMS);
-  const masterRows = await db.getDataRange(CONFIG.SHEET_MASTER);
-  for (let i = 1; i < detailRows.length; i++) {
-    const d = detailRows[i];
-    if (String(d[0]) !== String(submissionId)) continue;
-    // An older submission, or a manually counted item, must not modify bottle IDs.
-    if (d[14] === undefined || d[14] === null || String(d[14]).trim() === '') continue;
-    const scanned = uniqueBottleCodes_(String(d[14]).split(';'));
-    const actual = Number(d[5]);
-    if (!Number.isSafeInteger(actual) || actual < 0 || scanned.length !== actual) {
-      throw new Error('จำนวนขวดที่สแกนไม่ตรงกับยอดนับจริง: ' + String(d[2]));
-    }
-    const matches = [];
-    for (let j = 1; j < masterRows.length; j++) {
-      if (String(masterRows[j][0] || '').trim() === String(d[1] || '').trim() &&
-          String(masterRows[j][1] || '').trim().toLowerCase() === String(d[2] || '').trim().toLowerCase()) matches.push(j);
-    }
-    if (matches.length !== 1) throw new Error('หารายการหลักเพื่อปรับยอดไม่ได้อย่างแน่นอน: ' + String(d[2]));
-    const j = matches[0];
-    const previous = uniqueBottleCodes_(String(masterRows[j][3] || '').split(';'));
-    const removed = uniqueBottleCodes_(String(d[15] || '').split(';'));
-    // Prevent a stale audit from deleting stock received after it was submitted.
-    if (previous.some(c => !scanned.includes(c) && !removed.includes(c))) {
-      throw new Error('พบขวดรับเข้าใหม่หลังตรวจนับ กรุณาตรวจสอบยอดล่าสุดก่อนอนุมัติ: ' + String(d[2]));
-    }
-    await db.setRange(CONFIG.SHEET_MASTER, j + 1, 4, [[scanned.join(';'), actual]]);
-    masterRows[j][3] = scanned.join(';');
-    masterRows[j][4] = actual;
-  }
 }
 
 /* ============================================================ Drafts ============================================================ */
@@ -193,7 +155,6 @@ async function submitChecklist(payload) {
     const now = nowIso();
     const sigUrl = await saveSignatureImage(payload.signatureBase64, submissionId + '_employee');
 
-    await ensureBottleAuditColumns_();
     let discCount = 0;
     const rows = payload.items.map(it => {
       const hasDisc = Number(it.actualQty) !== Number(it.expectedQty);
@@ -203,9 +164,7 @@ async function submitChecklist(payload) {
         (it.openBottles || []).join(';'), it.remark || '', hasDisc,
         it.unit || CONFIG.DEFAULT_UNIT, Number(it.usedQty) || 0, it.remainingApprox || '',
         it.checkedAt ? new Date(it.checkedAt).toISOString() : '',
-        it.qrCode || '',
-        Array.isArray(it.scannedCodes) && it.scannedCodes.length ? uniqueBottleCodes_(it.scannedCodes).join(';') : '',
-        uniqueBottleCodes_(it.removedCodes).join(';')
+        it.qrCode || ''
       ];
     });
     await db.appendRows(CONFIG.SHEET_ITEMS, rows);
@@ -325,10 +284,6 @@ async function approveSubmission(pin, submissionId, reviewerName, signatureBase6
     let rowIdx = -1;
     for (let i = 1; i < rows.length; i++) { if (String(rows[i][0]) === String(submissionId)) { rowIdx = i + 1; break; } }
     if (rowIdx === -1) throw new Error('ไม่พบใบตรวจนับนี้');
-    if (String(rows[rowIdx - 1][4]) === 'ตรวจสอบแล้ว') throw new Error('ใบตรวจนับนี้อนุมัติไปแล้ว');
-
-    // Apply physical bottle count only on approval, never on initial submission.
-    await reconcileApprovedBottles_(submissionId);
 
     const sigUrl = await saveSignatureImage(signatureBase64, submissionId + '_reviewer');
     const reviewedAt = nowIso();
