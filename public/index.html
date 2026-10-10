@@ -1496,12 +1496,16 @@ document.getElementById('saveSigEmployee').onclick=function(){
 /* กล่องสแกนแบบแถบแนวนอน เหมาะกับบาร์โค้ด 1 มิติ (กว้าง-เตี้ย แทนที่จะเป็นสี่เหลี่ยมจัตุรัส)
    html5-qrcode จะถอดรหัสเฉพาะพื้นที่ในกล่องนี้เท่านั้น ทำให้ต้องเล็งบาร์โค้ดให้อยู่ในแถบก่อนถึงจะสแกนติด */
 function barcodeQrbox(viewfinderWidth, viewfinderHeight){
-  /* CODE_128 บนฉลากจริงเป็นบาร์โค้ดแนวนอนยาวและเส้นค่อนข้างถี่
-     กรอบเดิมกว้างสูงสุด 260px ทำให้ต้องถือกล้องไกลเพื่อให้บาร์โค้ดทั้งชุดอยู่ในกรอบ
-     ผลคือเส้นแต่ละเส้นเหลือพิกเซลน้อยและ ZXing อ่านไม่ออกง่าย
-     ขยาย ROI ให้รับบาร์โค้ดพร้อม quiet zone ซ้าย/ขวา โดยยังคงเป็นกรอบแนวนอน */
-  var w = Math.floor(Math.min(viewfinderWidth * 0.90, 460));
-  var h = Math.max(72, Math.min(Math.floor(w * 0.30), Math.floor(viewfinderHeight * 0.34)));
+  /* กรอบแคบ (แนวนอน) เพื่อไม่ให้ครอบโดนบาร์โค้ดแถวข้างๆ เวลาสแกนจากตาราง label ที่พิมพ์ชิดกัน
+     ผู้ใช้ควรเข้าใกล้/ซูมให้บาร์โค้ดเป้าหมายเติมเต็มกรอบก่อนสแกน
+     ปรับกว้างขึ้นเล็กน้อยจากเดิม (230→260) เผื่อ "แดนเงียบ" (quiet zone) ซ้าย-ขวาของบาร์โค้ดพอดี
+     ไม่งั้นถ้ากรอบแคบไปจนตัดขอบบาร์โค้ด/แดนเงียบ ตัวถอดรหัสจะอ่านไม่ออกเลยทั้งที่ภาพคมชัดดี */
+  /* [ย้อนกลับ] เคยลองลดกรอบลงเหลือ 0.5/200px เพื่อเลี่ยงบาร์โค้ดข้างเคียง แต่กลายเป็นว่าเล็กเกินไป
+     จนตัดขอบบาร์โค้ดเดี่ยว ๆ ที่ไม่มีป้ายข้างเคียงเลยก็สแกนไม่ติดไปด้วย (ยืนยันจากการทดสอบจริง)
+     คืนขนาดกลับมาเท่าค่าที่เคยใช้งานได้ปกติ แล้วแก้ปัญหาป้ายชิดกันด้วยคำแนะนำให้บังป้ายข้างเคียง
+     ด้วยนิ้ว/กระดาษแทน (ข้อความใน scanbox-tip) ซึ่งไม่กระทบขนาดกรอบที่ต้องใช้กับบาร์โค้ดเดี่ยว ๆ */
+  var w = Math.floor(Math.min(viewfinderWidth * 0.68, 260));
+  var h = Math.max(46, Math.floor(w * 0.24));
   return { width: w, height: h };
 }
 
@@ -1674,60 +1678,42 @@ function withTimeout_(promise, ms, timeoutMsg){
 function startScannerSimple_(scannerInstance, scanConfig, onDecode, onFrameMiss){
   var preflightErr = cameraPreflightError_();
   if(preflightErr){ return Promise.reject(new Error(preflightErr)); }
-
-  /* Android ที่มีกล้องหลังหลายตัว (เช่น Samsung) ห้ามเลือก deviceId จาก "กล้องหลังตัวแรก"
-     เพราะลำดับจาก enumerateDevices ไม่ได้หมายความว่าเป็นเลนส์หลัก และอาจได้ ultrawide/macro
-     ซึ่งโฟกัสฉลาก Code128 ระยะใกล้ไม่ได้ ทำให้ภาพขึ้นแต่สแกนไม่ติด
-     ให้ Chrome เลือกกล้องหลักเองด้วย facingMode:environment แทน */
-  var isAndroid = /Android/i.test(navigator.userAgent || '');
-  var attemptPromise;
-
-  if(isAndroid){
-    var selector = SCAN_CAMERA_SELECTOR_FALLBACK;
-    attemptPromise = scannerInstance.start(
-      selector,
-      withCameraSelector_(scanConfig, selector),
-      onDecode, onFrameMiss
-    );
-  } else {
-    /* iOS/อุปกรณ์อื่นยังคงวิธีเดิม เพื่อไม่เปลี่ยนพฤติกรรมที่ใช้งานอยู่ */
-    attemptPromise = listCamerasSafe_().then(function(cameras){
-      var id = pickBackCameraId_(cameras, null);
-      var selector = id ? { deviceId: { exact: id } } : SCAN_CAMERA_SELECTOR;
-      return delay_(200).then(function(){
-        return scannerInstance.start(selector, withCameraSelector_(scanConfig, selector), onDecode, onFrameMiss);
-      }).then(function(res){
-        if(!isRunningFrontCamera_(scannerInstance)) return res;
-        return listCamerasSafe_().then(function(freshCameras){
-          var otherId = pickBackCameraId_(freshCameras, id);
-          var fallbackSelector = otherId ? { deviceId: { exact: otherId } } : SCAN_CAMERA_SELECTOR_FALLBACK;
-          return delay_(150).then(function(){ return scannerInstance.stop().catch(function(){}); })
-            .then(function(){
-              return delay_(150).then(function(){
-                return scannerInstance.start(
-                  fallbackSelector,
-                  withCameraSelector_(scanConfig, fallbackSelector),
-                  onDecode, onFrameMiss
-                );
-              });
+  var attemptPromise = listCamerasSafe_().then(function(cameras){
+    var id = pickBackCameraId_(cameras, null);
+    var selector = id ? { deviceId: { exact: id } } : SCAN_CAMERA_SELECTOR;
+    return delay_(200).then(function(){ /* กันชน getUserMedia ชั่วคราวจาก getCameras() เอง (Android) */
+      return scannerInstance.start(selector, withCameraSelector_(scanConfig, selector), onDecode, onFrameMiss);
+    }).then(function(res){
+      if(!isRunningFrontCamera_(scannerInstance)) return res;
+      /* ยืนยันแล้วว่าได้กล้องหน้าจริง (เช่น iOS/LINE เพิกเฉยต่อ constraint) แก้ไขอีก 1 ครั้งเท่านั้น */
+      return listCamerasSafe_().then(function(freshCameras){
+        var otherId = pickBackCameraId_(freshCameras, id);
+        var fallbackSelector = otherId ? { deviceId: { exact: otherId } } : SCAN_CAMERA_SELECTOR_FALLBACK;
+        return delay_(150).then(function(){ return scannerInstance.stop().catch(function(){}); })
+          .then(function(){
+            return delay_(150).then(function(){
+              return scannerInstance.start(
+                fallbackSelector,
+                withCameraSelector_(scanConfig, fallbackSelector),
+                onDecode, onFrameMiss
+              );
             });
-        });
-      });
-    }).catch(function(){
-      return delay_(200).then(function(){
-        return scannerInstance.start(
-          SCAN_CAMERA_SELECTOR_FALLBACK,
-          withCameraSelector_(scanConfig, SCAN_CAMERA_SELECTOR_FALLBACK),
-          onDecode, onFrameMiss
-        );
+          });
       });
     });
-  }
-
+  }).catch(function(){
+    return delay_(200).then(function(){
+      return scannerInstance.start(
+        SCAN_CAMERA_SELECTOR_FALLBACK,
+        withCameraSelector_(scanConfig, SCAN_CAMERA_SELECTOR_FALLBACK),
+        onDecode, onFrameMiss
+      );
+    });
+  });
   return withTimeout_(
     attemptPromise,
     12000,
-    'เปิดกล้องไม่สำเร็จ (รอนานเกินไป) — กรุณาตรวจสอบสิทธิ์กล้องแล้วลองใหม่ หรือพิมพ์รหัสด้วยตนเองด้านล่าง'
+    'เปิดกล้องไม่สำเร็จ (รอนานเกินไป) — มักเกิดจากยังไม่ได้กดอนุญาตสิทธิ์กล้อง กรุณาตรวจสอบที่ การตั้งค่า > Safari > กล้อง แล้วลองใหม่ หรือพิมพ์รหัสด้วยตนเองด้านล่าง'
   );
 }
 
@@ -1972,7 +1958,7 @@ function startQrScanner(){
       qrScanner = new Html5Qrcode('qrReaderBox', { formatsToSupport: getScanFormatsToSupport(), verbose: false });
       startScannerSimple_(
         qrScanner,
-        { fps: 12, qrbox: barcodeQrbox, videoConstraints: SCAN_VIDEO_CONSTRAINTS, disableFlip: true },
+        { fps: 10, qrbox: barcodeQrbox, videoConstraints: SCAN_VIDEO_CONSTRAINTS, disableFlip: true },
         function(decodedText){ handleQrResult(decodedText); },
         function(){ /* ignore per-frame scan misses */ }
       ).then(function(){
@@ -2108,7 +2094,7 @@ function startContinuousScanner(){
       cScanScanner = new Html5Qrcode('cScanReaderBox', { formatsToSupport: getScanFormatsToSupport(), verbose: false });
       startScannerSimple_(
         cScanScanner,
-        { fps: 12, qrbox: barcodeQrbox, videoConstraints: SCAN_VIDEO_CONSTRAINTS, disableFlip: true },
+        { fps: 10, qrbox: barcodeQrbox, videoConstraints: SCAN_VIDEO_CONSTRAINTS, disableFlip: true },
         function(decodedText){ handleContinuousScanResult(decodedText); },
         function(){ /* ignore per-frame scan misses */ }
       ).then(function(){
@@ -2319,7 +2305,7 @@ function startRscanScanner(){
       RSCAN.scanner = new Html5Qrcode('rscanReaderBox', { formatsToSupport: getScanFormatsToSupport(), verbose: false });
       startScannerSimple_(
         RSCAN.scanner,
-        { fps: 12, qrbox: barcodeQrbox, videoConstraints: SCAN_VIDEO_CONSTRAINTS, disableFlip: true },
+        { fps: 10, qrbox: barcodeQrbox, videoConstraints: SCAN_VIDEO_CONSTRAINTS, disableFlip: true },
         function(decodedText){ handleRscanResult(decodedText); },
         function(){ /* ignore per-frame scan misses */ }
       ).then(function(){
