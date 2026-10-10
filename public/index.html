@@ -829,10 +829,15 @@ google.script.run.withSuccessHandler(function(items){
   items.forEach(function(it, idx){
     STATE.itemState[idx] = { actualQty: null, openBottles: [], remark: it.note || '', remainingApprox: '', reason:'', reasonOther:'', checked: false, checkedAt: '', qrVerified: false, qrCode: '', scannedCodes: [] };
   });
-  restoreLocalDraftOnBoot_();
-  renderCatTabs();
-  renderItems();
-  updateProgress();
+  restorePersistentDraftOnBoot_().then(function(){
+    renderCatTabs();
+    renderItems();
+    updateProgress();
+  }).catch(function(){
+    renderCatTabs();
+    renderItems();
+    updateProgress();
+  });
 }).withFailureHandler(onError).getMasterItems();
 
 function renderCatTabs(){
@@ -1150,7 +1155,65 @@ function checkSubmitEnabled(){
    ============================================================ */
 var draftAutoSaveTimer = null;
 var draftServerSaveInFlight_ = false;
-var LOCAL_DRAFT_KEY_ = 'fwwt28_active_check_v3';
+var localDraftSaveTimer_ = null;
+var localDraftIdleId_ = null;
+var LOCAL_DRAFT_KEY_ = 'fwwt28_active_check_v4';
+var LOCAL_DRAFT_IDB_DB_ = 'fwwt28_check_store';
+var LOCAL_DRAFT_IDB_STORE_ = 'drafts';
+var LOCAL_DRAFT_IDB_KEY_ = 'active_check';
+var persistentDraftWriteQueued_ = false;
+
+function openDraftDb_(){
+  return new Promise(function(resolve,reject){
+    if(!window.indexedDB){ reject(new Error('IndexedDB unavailable')); return; }
+    try{
+      var req=indexedDB.open(LOCAL_DRAFT_IDB_DB_,1);
+      req.onupgradeneeded=function(e){
+        var db=e.target.result;
+        if(!db.objectStoreNames.contains(LOCAL_DRAFT_IDB_STORE_)) db.createObjectStore(LOCAL_DRAFT_IDB_STORE_);
+      };
+      req.onsuccess=function(e){ resolve(e.target.result); };
+      req.onerror=function(){ reject(req.error||new Error('IndexedDB open failed')); };
+    }catch(e){ reject(e); }
+  });
+}
+function saveDraftToIdb_(payload){
+  return openDraftDb_().then(function(db){
+    return new Promise(function(resolve){
+      try{
+        var tx=db.transaction(LOCAL_DRAFT_IDB_STORE_,'readwrite');
+        tx.objectStore(LOCAL_DRAFT_IDB_STORE_).put(payload,LOCAL_DRAFT_IDB_KEY_);
+        tx.oncomplete=function(){ try{db.close();}catch(e){} resolve(true); };
+        tx.onerror=tx.onabort=function(){ try{db.close();}catch(e){} resolve(false); };
+      }catch(e){ try{db.close();}catch(ee){} resolve(false); }
+    });
+  }).catch(function(){ return false; });
+}
+function readDraftFromIdb_(){
+  return openDraftDb_().then(function(db){
+    return new Promise(function(resolve){
+      try{
+        var tx=db.transaction(LOCAL_DRAFT_IDB_STORE_,'readonly');
+        var req=tx.objectStore(LOCAL_DRAFT_IDB_STORE_).get(LOCAL_DRAFT_IDB_KEY_);
+        req.onsuccess=function(){ var v=req.result||null; try{db.close();}catch(e){} resolve(v); };
+        req.onerror=function(){ try{db.close();}catch(e){} resolve(null); };
+      }catch(e){ try{db.close();}catch(ee){} resolve(null); }
+    });
+  }).catch(function(){ return null; });
+}
+function clearDraftFromIdb_(){
+  return openDraftDb_().then(function(db){
+    return new Promise(function(resolve){
+      try{
+        var tx=db.transaction(LOCAL_DRAFT_IDB_STORE_,'readwrite');
+        tx.objectStore(LOCAL_DRAFT_IDB_STORE_).delete(LOCAL_DRAFT_IDB_KEY_);
+        tx.oncomplete=function(){ try{db.close();}catch(e){} resolve(true); };
+        tx.onerror=tx.onabort=function(){ try{db.close();}catch(e){} resolve(false); };
+      }catch(e){ try{db.close();}catch(ee){} resolve(false); }
+    });
+  }).catch(function(){ return false; });
+}
+
 
 function buildDraftStateObject(){
   var obj = {};
@@ -1215,6 +1278,7 @@ function saveLocalDraftNow_(){
 
 function clearLocalDraft_(){
   try{ localStorage.removeItem(LOCAL_DRAFT_KEY_); }catch(e){}
+  clearDraftFromIdb_();
 }
 
 function restoreLocalDraftOnBoot_(){
@@ -1244,13 +1308,86 @@ function restoreLocalDraftOnBoot_(){
   }
 }
 
+function draftTime_(d){
+  var t=d&&d.savedAt ? new Date(d.savedAt).getTime() : 0;
+  return isNaN(t)?0:t;
+}
+function applyPersistentDraftPayload_(d){
+  if(!d || !d.itemsState) return false;
+  try{
+    if(d.employeeName) document.getElementById('employeeName').value=d.employeeName;
+    if(d.employeeSignature){
+      STATE.employeeSignature=d.employeeSignature;
+      var seal=document.getElementById('employeeSeal');
+      if(seal){ seal.classList.add('signed'); seal.textContent='✓'; }
+      var st=document.getElementById('signStatusMain');
+      if(st) st.textContent='เซ็นชื่อแล้ว';
+    }
+    applyDraftStateObject(d.itemsState);
+    var statusEl=document.getElementById('draftStatusText');
+    if(statusEl){
+      var dt=d.savedAt ? new Date(d.savedAt) : null;
+      statusEl.textContent='กู้คืนความคืบหน้าอัตโนมัติ'+(dt && !isNaN(dt.getTime()) ? ' จาก '+dt.toLocaleString('th-TH') : '');
+    }
+    return true;
+  }catch(e){ return false; }
+}
+function readLocalDraftPayload_(){
+  try{
+    var raw=localStorage.getItem(LOCAL_DRAFT_KEY_)||'';
+    if(!raw) return null;
+    return JSON.parse(raw);
+  }catch(e){ return null; }
+}
+function restorePersistentDraftOnBoot_(){
+  var local=readLocalDraftPayload_();
+  return readDraftFromIdb_().then(function(idb){
+    var chosen=null;
+    if(local && idb) chosen=draftTime_(idb)>=draftTime_(local)?idb:local;
+    else chosen=idb||local;
+    if(chosen) applyPersistentDraftPayload_(chosen);
+    return !!chosen;
+  }).catch(function(){
+    if(local) return applyPersistentDraftPayload_(local);
+    return false;
+  });
+}
+function schedulePersistentDraftWrite_(){
+  if(persistentDraftWriteQueued_) return;
+  persistentDraftWriteQueued_=true;
+  setTimeout(function(){
+    persistentDraftWriteQueued_=false;
+    var payload=buildLocalDraftPayload_();
+    saveDraftToIdb_(payload);
+  },0);
+}
+
+function scheduleLocalDraftSave_(){
+  // IndexedDB เขียนแบบ asynchronous จึงไม่แย่ง main thread ของ decoder
+  schedulePersistentDraftWrite_();
+  // localStorage เป็นสำเนาสำรอง และเขียนตอน browser ว่างเท่านั้น
+  if(typeof window.requestIdleCallback === 'function') {
+    if(localDraftIdleId_ !== null) return;
+    localDraftIdleId_ = window.requestIdleCallback(function(){
+      localDraftIdleId_ = null;
+      saveLocalDraftNow_();
+    }, { timeout: 800 });
+    return;
+  }
+  if(localDraftSaveTimer_) return;
+  localDraftSaveTimer_ = setTimeout(function(){
+    localDraftSaveTimer_ = null;
+    saveLocalDraftNow_();
+  }, 250);
+}
+
 function scheduleAutoSaveDraft(){
-  // Local save ต้องทำทันที เพื่อกันปิดจอ/รีเฟรชก่อนครบ debounce
-  saveLocalDraftNow_();
+  // บันทึก Local แบบ deferred เพื่อไม่แย่ง main thread จากระบบสแกน
+  scheduleLocalDraftSave_();
   var name = document.getElementById('employeeName').value.trim();
   if(!name) return;
   if(draftAutoSaveTimer) clearTimeout(draftAutoSaveTimer);
-  draftAutoSaveTimer = setTimeout(function(){ saveDraftNow(true); }, 1200);
+  draftAutoSaveTimer = setTimeout(function(){ saveDraftNow(true); }, 1800);
 }
 
 function saveDraftNow(isAuto){
@@ -1286,11 +1423,21 @@ document.getElementById('employeeName').addEventListener('input', function(){
 });
 
 // เมื่อแอปถูกซ่อน/ล็อกหน้าจอ ให้เขียน Local ซ้ำทันที
-window.addEventListener('pagehide', saveLocalDraftNow_);
+function flushLocalDraftBeforeHide_(){
+  if(localDraftSaveTimer_){ clearTimeout(localDraftSaveTimer_); localDraftSaveTimer_=null; }
+  if(localDraftIdleId_ !== null && typeof window.cancelIdleCallback === 'function'){
+    try{ window.cancelIdleCallback(localDraftIdleId_); }catch(e){}
+    localDraftIdleId_=null;
+  }
+  var payload=buildLocalDraftPayload_();
+  try{ localStorage.setItem(LOCAL_DRAFT_KEY_, JSON.stringify(payload)); }catch(e){}
+  saveDraftToIdb_(payload);
+}
+window.addEventListener('pagehide', flushLocalDraftBeforeHide_);
 document.addEventListener('visibilitychange', function(){
-  if(document.visibilityState==='hidden') saveLocalDraftNow_();
+  if(document.visibilityState==='hidden') flushLocalDraftBeforeHide_();
 });
-window.addEventListener('beforeunload', saveLocalDraftNow_);
+window.addEventListener('beforeunload', flushLocalDraftBeforeHide_);
 
 /* ============================================================
    Signature Pad
