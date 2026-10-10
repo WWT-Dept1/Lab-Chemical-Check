@@ -1496,16 +1496,11 @@ document.getElementById('saveSigEmployee').onclick=function(){
 /* กล่องสแกนแบบแถบแนวนอน เหมาะกับบาร์โค้ด 1 มิติ (กว้าง-เตี้ย แทนที่จะเป็นสี่เหลี่ยมจัตุรัส)
    html5-qrcode จะถอดรหัสเฉพาะพื้นที่ในกล่องนี้เท่านั้น ทำให้ต้องเล็งบาร์โค้ดให้อยู่ในแถบก่อนถึงจะสแกนติด */
 function barcodeQrbox(viewfinderWidth, viewfinderHeight){
-  /* กรอบแคบ (แนวนอน) เพื่อไม่ให้ครอบโดนบาร์โค้ดแถวข้างๆ เวลาสแกนจากตาราง label ที่พิมพ์ชิดกัน
-     ผู้ใช้ควรเข้าใกล้/ซูมให้บาร์โค้ดเป้าหมายเติมเต็มกรอบก่อนสแกน
-     ปรับกว้างขึ้นเล็กน้อยจากเดิม (230→260) เผื่อ "แดนเงียบ" (quiet zone) ซ้าย-ขวาของบาร์โค้ดพอดี
-     ไม่งั้นถ้ากรอบแคบไปจนตัดขอบบาร์โค้ด/แดนเงียบ ตัวถอดรหัสจะอ่านไม่ออกเลยทั้งที่ภาพคมชัดดี */
-  /* [ย้อนกลับ] เคยลองลดกรอบลงเหลือ 0.5/200px เพื่อเลี่ยงบาร์โค้ดข้างเคียง แต่กลายเป็นว่าเล็กเกินไป
-     จนตัดขอบบาร์โค้ดเดี่ยว ๆ ที่ไม่มีป้ายข้างเคียงเลยก็สแกนไม่ติดไปด้วย (ยืนยันจากการทดสอบจริง)
-     คืนขนาดกลับมาเท่าค่าที่เคยใช้งานได้ปกติ แล้วแก้ปัญหาป้ายชิดกันด้วยคำแนะนำให้บังป้ายข้างเคียง
-     ด้วยนิ้ว/กระดาษแทน (ข้อความใน scanbox-tip) ซึ่งไม่กระทบขนาดกรอบที่ต้องใช้กับบาร์โค้ดเดี่ยว ๆ */
-  var w = Math.floor(Math.min(viewfinderWidth * 0.68, 260));
-  var h = Math.max(46, Math.floor(w * 0.24));
+  /* ให้พื้นที่ decode กว้างขึ้นเพื่อเก็บ quiet zone ซ้าย/ขวาของบาร์โค้ดครบ
+     โดยยังคงเป็นกรอบแนวนอน ไม่เปลี่ยน flow หรือ UI ส่วนอื่น */
+  var w = Math.floor(Math.min(viewfinderWidth * 0.88, 420));
+  var h = Math.max(90, Math.floor(w * 0.34));
+  h = Math.min(h, Math.floor(viewfinderHeight * 0.55));
   return { width: w, height: h };
 }
 
@@ -1775,7 +1770,14 @@ function getSafeVideoConstraints_(){
    ทำให้กินแรงประมวลผลเกินจำเป็นและอัตราสแกนติดต่ำลง */
 function getScanFormatsToSupport(){
   if (typeof Html5QrcodeSupportedFormats === 'undefined') return undefined;
-  return [Html5QrcodeSupportedFormats.CODE_128];
+  /* ไม่จำกัดแค่ CODE_128 เพราะฉลากจริงอาจเป็น CODE_39 / EAN / UPC / ITF / CODABAR
+     ถ้าจำกัด format ผิดชนิด ต่อให้บาร์โค้ดอยู่ในกรอบก็จะไม่มีวัน decode */
+  var F = Html5QrcodeSupportedFormats;
+  return [
+    F.CODE_128, F.CODE_39, F.CODE_93,
+    F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E,
+    F.ITF, F.CODABAR, F.QR_CODE
+  ].filter(function(v){ return v !== undefined && v !== null; });
 }
 
 /* ============================================================
@@ -1958,14 +1960,14 @@ function startQrScanner(){
       qrScanner = new Html5Qrcode('qrReaderBox', { formatsToSupport: getScanFormatsToSupport(), verbose: false });
       startScannerSimple_(
         qrScanner,
-        { fps: 10, qrbox: barcodeQrbox, videoConstraints: SCAN_VIDEO_CONSTRAINTS, disableFlip: true },
+        { fps: 12, qrbox: barcodeQrbox, videoConstraints: getSafeVideoConstraints_(), disableFlip: false },
         function(decodedText){ handleQrResult(decodedText); },
         function(){ /* ignore per-frame scan misses */ }
       ).then(function(){
         qrScanStarting = false;
         qrScanRetried = false;
         wireTorchButton_('qrScanTorch', function(){ return qrScanner; });
-        autoApplyZoomBoost_(qrScanner, 'qrReaderBox', 2);
+        autoApplyZoomBoost_(qrScanner, 'qrReaderBox', 1);
         if(qrScanBoxSyncStop){ qrScanBoxSyncStop(); }
         qrScanBoxSyncStop = watchSyncScanTargetBox_(document.getElementById('qrScanBox'), 'qrReaderBox');
         if(qrScanFreezeTimer){ clearInterval(qrScanFreezeTimer); }
@@ -2094,14 +2096,14 @@ function startContinuousScanner(){
       cScanScanner = new Html5Qrcode('cScanReaderBox', { formatsToSupport: getScanFormatsToSupport(), verbose: false });
       startScannerSimple_(
         cScanScanner,
-        { fps: 10, qrbox: barcodeQrbox, videoConstraints: SCAN_VIDEO_CONSTRAINTS, disableFlip: true },
+        { fps: 12, qrbox: barcodeQrbox, videoConstraints: getSafeVideoConstraints_(), disableFlip: false },
         function(decodedText){ handleContinuousScanResult(decodedText); },
         function(){ /* ignore per-frame scan misses */ }
       ).then(function(){
         cScanStarting = false;
         cScanRetried = false;
         wireTorchButton_('cScanTorch', function(){ return cScanScanner; });
-        autoApplyZoomBoost_(cScanScanner, 'cScanReaderBox', 2);
+        autoApplyZoomBoost_(cScanScanner, 'cScanReaderBox', 1);
         if(cScanBoxSyncStop){ cScanBoxSyncStop(); }
         cScanBoxSyncStop = watchSyncScanTargetBox_(document.getElementById('cScanBox'), 'cScanReaderBox');
         if(cScanFreezeTimer){ clearInterval(cScanFreezeTimer); }
@@ -2305,14 +2307,14 @@ function startRscanScanner(){
       RSCAN.scanner = new Html5Qrcode('rscanReaderBox', { formatsToSupport: getScanFormatsToSupport(), verbose: false });
       startScannerSimple_(
         RSCAN.scanner,
-        { fps: 10, qrbox: barcodeQrbox, videoConstraints: SCAN_VIDEO_CONSTRAINTS, disableFlip: true },
+        { fps: 12, qrbox: barcodeQrbox, videoConstraints: getSafeVideoConstraints_(), disableFlip: false },
         function(decodedText){ handleRscanResult(decodedText); },
         function(){ /* ignore per-frame scan misses */ }
       ).then(function(){
         rscanStarting = false;
         rscanRetried = false;
         wireTorchButton_('rscanTorch', function(){ return RSCAN.scanner; });
-        autoApplyZoomBoost_(RSCAN.scanner, 'rscanReaderBox', 2);
+        autoApplyZoomBoost_(RSCAN.scanner, 'rscanReaderBox', 1);
         if(rscanBoxSyncStop){ rscanBoxSyncStop(); }
         rscanBoxSyncStop = watchSyncScanTargetBox_(document.getElementById('rscanCam'), 'rscanReaderBox');
         if(rscanFreezeTimer){ clearInterval(rscanFreezeTimer); }
