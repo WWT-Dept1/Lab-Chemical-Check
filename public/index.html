@@ -170,21 +170,6 @@ textarea.input{resize:vertical; min-height:64px; line-height:1.5;}
 .btn-mini{width:100%; padding:10px; border-radius:9px; border:none; font-family:var(--sans);
   font-weight:700; font-size:12px; color:#fff; cursor:pointer; background:var(--primary-dk); box-shadow:0 4px 10px rgba(7,90,75,.3);}
 
-/* เฉพาะส่วนขวดที่ตรวจพบและสถานะเปิดใช้งาน */
-.bottle-audit-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:12px 0 7px}
-.bottle-audit-head strong{font-size:12px;color:var(--text)}
-.bottle-count{font-size:11px;font-weight:700;color:var(--primary-dk);background:var(--primary-lt);padding:4px 9px;border-radius:99px}
-.bottle-choice{display:flex;align-items:center;gap:11px;border:1.5px solid var(--border);background:#fffdf8;border-radius:13px;padding:12px;margin-bottom:8px;cursor:pointer;text-align:left;width:100%}
-.bottle-choice.is-open{border-color:var(--primary);background:var(--primary-lt)}
-.bottle-choice .bottle-mark{width:35px;height:35px;display:grid;place-items:center;border-radius:11px;background:#f0ecdc;font-size:19px;flex-shrink:0}
-.bottle-choice.is-open .bottle-mark{background:#cde6d8}
-.bottle-choice .bottle-info{min-width:0;flex:1}
-.bottle-choice .bottle-info b{font-size:13px;display:block;word-break:break-all}
-.bottle-choice .bottle-info small{font-size:11px;color:var(--text-soft)}
-.bottle-toggle{border-radius:99px;min-width:88px;text-align:center;padding:7px 8px;background:#ece8db;color:var(--text-soft);font-size:10.5px;font-weight:700}
-.bottle-choice.is-open .bottle-toggle{background:var(--primary-dk);color:#fff}
-.bottle-finish{width:100%;border:0;border-radius:12px;background:var(--primary-dk);color:white;font-size:13px;font-weight:700;padding:13px 10px;margin-top:10px;cursor:pointer}.bottle-finish.done{background:var(--ok-lt);border:1px solid var(--ok);color:var(--ok)}
-.bottle-removed{font-size:11px;line-height:1.6;color:var(--warn);background:var(--warn-lt);padding:9px 12px;border-radius:10px;margin-top:8px}
 /* ---------- sign bar ---------- */
 .sign-bar{position:fixed; left:0; right:0; bottom:0; z-index:60; padding:10px 14px calc(10px + env(safe-area-inset-bottom));
   background:linear-gradient(180deg, rgba(242,239,227,0) 0%, rgba(242,239,227,.98) 42%);}
@@ -844,6 +829,7 @@ google.script.run.withSuccessHandler(function(items){
   items.forEach(function(it, idx){
     STATE.itemState[idx] = { actualQty: null, openBottles: [], remark: it.note || '', remainingApprox: '', reason:'', reasonOther:'', checked: false, checkedAt: '', qrVerified: false, qrCode: '', scannedCodes: [] };
   });
+  restoreLocalDraftOnBoot_();
   renderCatTabs();
   renderItems();
   updateProgress();
@@ -878,6 +864,14 @@ function composeRemark(st){
   return st.remark ? (r+' — '+st.remark) : r;
 }
 
+function isQrRequired(it){
+  // ค่า FALSE จาก MasterItems เท่านั้นที่ยกเว้นการสแกน QR
+  // ค่าว่าง/ข้อมูลเก่ายังคงบังคับสแกนเหมือนเดิม
+  if(it && it.requireQr === false) return false;
+  var v = String(it && it.requireQr != null ? it.requireQr : '').trim().toLowerCase();
+  return !(v==='false' || v==='0' || v==='no' || v==='n');
+}
+
 function renderItems(){
   var container = document.getElementById('itemsContainer');
   container.innerHTML='';
@@ -885,12 +879,11 @@ function renderItems(){
     var cat = categoryOf(it.code);
     if(STATE.activeCat!=='ทั้งหมด' && cat!==STATE.activeCat) return;
     var st = STATE.itemState[idx];
-    if(st.qrVerified && !st.auditClosed){ st.checked=false; st.checkedAt=''; }
-    if(st.auditClosed && (st.scannedCodes||[]).length !== st.auditClosedCount){ st.auditClosed=false; st.checked=false; st.checkedAt=''; }
     var entered = st.actualQty!==null && st.actualQty!=='' && st.actualQty!==undefined;
-    var mismatch = entered && st.checked === true && Number(st.actualQty) !== Number(it.qty);
+    var mismatch = entered && Number(st.actualQty) !== Number(it.qty);
     var unit = it.unit || 'ขวด';
-    var hasQr = it.productCodes && it.productCodes.length && it.productCodes[0]!=='-';
+    var requireQr = isQrRequired(it);
+    var hasQr = requireQr && it.productCodes && it.productCodes.length && it.productCodes[0]!=='-';
     var qrOk = !hasQr || st.qrVerified;
 
     var card = document.createElement('div');
@@ -904,71 +897,40 @@ function renderItems(){
         (st.checked ? '<span class="checked-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>ยืนยันแล้ว'+(st.checkedAt? ' &middot; '+fmtCheckedTime(st.checkedAt):'')+'</span>' : '')+
         '<div class="item-name">'+esc(it.name)+'</div>'+
         '<div class="item-mfr">'+esc(it.manufacturer)+'</div>'+
-        '<div class="item-expected">เอกสารระบุคงเหลือ '+it.qty+' '+esc(unit)+' · ตรวจนับ v4 · เครื่องสแกนเดิม</div>'+
+        '<div class="item-expected">เอกสารระบุคงเหลือ '+it.qty+' '+esc(unit)+'</div>'+
       '</div>';
     card.appendChild(top);
 
-    // ใช้รหัสที่สแกนพบจริงเป็นตัวกำหนดขวดคงเหลือ ไม่เอาขวดเก่าที่ยังไม่พบมาปน
-    if(hasQr && st.qrVerified){
-      var foundCodes = (st.scannedCodes||[]).filter(function(code, i, arr){ return arr.indexOf(code)===i; });
-      st.openBottles = st.openBottles.filter(function(code){ return foundCodes.indexOf(code)>-1; });
-      var auditHead=document.createElement('div');
-      auditHead.className='bottle-audit-head';
-      auditHead.innerHTML='<strong>ขวดที่สแกนพบ · แตะเพื่อเลือกขวดเปิดใช้</strong><span class="bottle-count">พบ '+foundCodes.length+' ขวด</span>';
-      card.appendChild(auditHead);
-      foundCodes.forEach(function(pc){
-        var isOpen=st.openBottles.indexOf(pc)>-1;
-        var choice=document.createElement('button');
-        choice.type='button';
-        choice.className='bottle-choice'+(isOpen?' is-open':'');
-        choice.setAttribute('aria-pressed', String(isOpen));
-        choice.innerHTML='<span class="bottle-mark">'+(isOpen?'🧪':'▣')+'</span>'+
-          '<span class="bottle-info"><b>'+esc(pc)+'</b><small>'+(isOpen?'กำลังเปิดใช้งาน':'ยังไม่เปิดใช้งาน')+'</small></span>'+
-          '<span class="bottle-toggle">'+(isOpen?'✓ เปิดใช้อยู่':'+ เลือกเปิดใช้')+'</span>';
-        choice.onclick=function(){
+    if(it.productCodes && it.productCodes.length && it.productCodes[0]!=='-' && qrOk){
+      var chipsLabel=document.createElement('div');
+      chipsLabel.className='chips-label';
+      chipsLabel.textContent='แตะเพื่อทำเครื่องหมายขวดที่เปิดใช้อยู่';
+      card.appendChild(chipsLabel);
+      var chipsRow=document.createElement('div');
+      chipsRow.className='chips-row';
+      it.productCodes.forEach(function(pc){
+        var isOpen = st.openBottles.indexOf(pc)>-1;
+        var chip=document.createElement('div');
+        chip.className='chip'+(isOpen?' open':'');
+        chip.innerHTML =
+          '<span class="chip-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>'+
+          '<span class="chip-code">'+esc(pc)+'</span>'+(isOpen ? '<span class="chip-tag">เปิดใช้</span>' : '');
+        chip.onclick=function(){
           var i=st.openBottles.indexOf(pc);
           if(i>-1) st.openBottles.splice(i,1); else st.openBottles.push(pc);
-          renderItems(); scheduleAutoSaveDraft();
+          scheduleAutoSaveDraft();
+          renderItems();
         };
-        card.appendChild(choice);
+        chipsRow.appendChild(chip);
       });
-      var absentCodes=(it.productCodes||[]).filter(function(pc){
-        return pc && pc!=='-' && foundCodes.indexOf(pc)===-1;
-      });
-      if(absentCodes.length && st.checked){
-        var absent=document.createElement('div');
-        absent.className='bottle-removed';
-        absent.textContent='ไม่พบในการสแกน '+absentCodes.length+' ขวด: '+absentCodes.join(', ')+' · จะระบุเป็นรายการตัดออกในผลตรวจนับ';
-        card.appendChild(absent);
-      }
-      var finishBtn=document.createElement('button');
-      finishBtn.type='button';
-      finishBtn.className='bottle-finish'+(st.checked?' done':'');
-      finishBtn.textContent=st.checked?'✓ ยืนยันตรวจนับเสร็จแล้ว · แตะเพื่อแก้ไข':'✓ ตรวจนับเสร็จแล้ว · ปิดยอด '+foundCodes.length+' ขวด';
-      finishBtn.onclick=function(){
-        if(st.checked){ st.auditClosed=false; st.checked=false; st.checkedAt=''; }
-        else {
-          if(!foundCodes.length){ alert('กรุณาสแกนขวดที่พบจริงก่อน'); return; }
-          if(absentCodes.length){
-            var ok=confirm('ยืนยันว่าตรวจนับเสร็จแล้ว\nพบจริง '+foundCodes.length+' ขวด\nไม่พบ '+absentCodes.length+' ขวด\n\nขวดที่ไม่พบจะถูกเสนอให้ปรับยอดเมื่อผู้ตรวจสอบอนุมัติ');
-            if(!ok)return;
-          }
-          st.auditClosed=true; st.auditClosedCount=foundCodes.length; st.checked=true; st.checkedAt=new Date().toISOString();
-        }
-        renderItems();updateProgress();scheduleAutoSaveDraft();
-      };
-      card.appendChild(finishBtn);
-      if(!st.checked && absentCodes.length){
-        var pendingHint=document.createElement('div');
-        pendingHint.style.cssText='font-size:11px;color:var(--warn);margin-top:6px;line-height:1.6';
-        pendingHint.textContent='อีก '+absentCodes.length+' ขวดที่ยังไม่สแกนจะยังไม่ถูกตัด จนกว่าจะกดยืนยันตรวจนับครบ';
-        card.appendChild(pendingHint);
-      }
+      card.appendChild(chipsRow);
+
       if(st.openBottles.length){
         var remWrap=document.createElement('div');
         remWrap.className='field-row';
-        remWrap.style.marginTop='9px';
-        remWrap.innerHTML='<label>ปริมาณคงเหลือโดยประมาณ (ขวดที่เปิดใช้) *</label>'+
+        remWrap.style.marginTop='6px';
+        remWrap.innerHTML =
+          '<label>ปริมาณคงเหลือโดยประมาณ (ขวดที่เปิดใช้อยู่) *</label>'+
           '<input type="text" class="input remaining-input" data-idx="'+idx+'" value="'+esc(st.remainingApprox)+'" placeholder="เช่น ครึ่งขวด, เหลือ 30%, เหลือ 250 มล."/>';
         card.appendChild(remWrap);
       }
@@ -998,9 +960,20 @@ function renderItems(){
       scanStatus.innerHTML =
         '<div style="font-size:13px;font-weight:700;color:var(--ok);">นับได้แล้ว '+scannedCount+' / '+it.qty+' '+esc(unit)+'</div>'+
         '<div style="font-size:12.5px;color:var(--text-soft);margin-top:2px;">'+
-          (remain>0 ? 'ยังไม่สแกน '+remain+' '+esc(unit)+' · ถ้าตรวจครบแล้วให้กดยืนยันปิดยอด' : '✓ สแกนครบตามจำนวนเอกสารแล้ว')+
+          (remain>0 ? 'เหลืออีกประมาณ '+remain+' '+esc(unit)+' ที่ยังไม่ได้สแกน' : '✓ สแกนครบตามจำนวนเอกสารแล้ว')+
         '</div>';
       card.appendChild(scanStatus);
+    }
+
+    if(!requireQr){
+      var manualWrap=document.createElement('div');
+      manualWrap.className='item-grid';
+      manualWrap.style.marginTop='12px';
+      manualWrap.innerHTML =
+        '<div class="field-row" style="grid-column:1/-1;"><label>จำนวนคงเหลือจริง *</label>'+
+          '<input type="number" min="0" step="0.01" inputmode="decimal" class="input manual-qty-input" data-idx="'+idx+'" value="'+(entered?esc(st.actualQty):'')+'" placeholder="กรอกจำนวนที่ตรวจนับได้"/></div>'+
+        '<div style="grid-column:1/-1;"><button type="button" class="btn-mini btn-confirm-manual" data-idx="'+idx+'">✓ ยืนยันการตรวจนับรายการนี้</button></div>';
+      card.appendChild(manualWrap);
     }
 
     var grid=document.createElement('div');
@@ -1024,7 +997,9 @@ function renderItems(){
     if(!st.checked){
       var hint=document.createElement('div');
       hint.style.cssText='font-size:11px;color:var(--er);font-weight:600;margin-top:8px;';
-      hint.textContent = '* กรุณาสแกน QR/บาร์โค้ดที่ขวดของรายการนี้ก่อน ระบบจะยืนยันและนับจำนวนให้อัตโนมัติ';
+      hint.textContent = requireQr
+        ? '* กรุณาสแกน QR/บาร์โค้ดที่ขวดของรายการนี้ก่อน ระบบจะยืนยันและนับจำนวนให้อัตโนมัติ'
+        : '* รายการนี้ไม่บังคับสแกน QR กรุณากรอกจำนวนจริงและกดยืนยันการตรวจนับ';
       card.appendChild(hint);
     }
 
@@ -1066,6 +1041,29 @@ function renderItems(){
   });
   container.querySelectorAll('.btn-rescan-qr').forEach(function(btn){
     btn.onclick=function(){ openQrScan(this.dataset.idx); };
+  });
+  container.querySelectorAll('.manual-qty-input').forEach(function(inp){
+    inp.oninput=function(){
+      var st=STATE.itemState[this.dataset.idx];
+      st.actualQty = this.value==='' ? null : Number(this.value);
+      if(st.checked){ st.checked=false; st.checkedAt=''; }
+      scheduleAutoSaveDraft();
+      updateProgress();
+    };
+    inp.onblur=function(){ renderItems(); };
+  });
+  container.querySelectorAll('.btn-confirm-manual').forEach(function(btn){
+    btn.onclick=function(){
+      var idx=this.dataset.idx;
+      var inp=container.querySelector('.manual-qty-input[data-idx="'+idx+'"]');
+      var raw=inp ? String(inp.value).trim() : '';
+      if(raw==='' || isNaN(Number(raw)) || Number(raw)<0){ alert('กรุณากรอกจำนวนคงเหลือจริงให้ถูกต้อง'); return; }
+      var st=STATE.itemState[idx];
+      st.actualQty=Number(raw);
+      st.checked=true;
+      st.checkedAt=new Date().toISOString();
+      updateProgress(); renderItems(); scheduleAutoSaveDraft();
+    };
   });
   container.querySelectorAll('.remark-input').forEach(function(inp){
     inp.oninput=function(){ STATE.itemState[this.dataset.idx].remark = this.value; scheduleAutoSaveDraft(); };
@@ -1142,75 +1140,157 @@ function checkSubmitEnabled(){
   btn.disabled = !(nameOk && STATE.employeeSignature && allChecked);
   btn.title = allChecked ? '' : 'กรุณายืนยันการตรวจนับให้ครบทุกรายการก่อน';
 }
-document.getElementById('employeeName').addEventListener('input', checkSubmitEnabled);
 
 /* ============================================================
-   Draft (บันทึกความคืบหน้า)
+   Draft / Crash-safe progress persistence
+   - บันทึก Local ทันทีทุกครั้งที่ข้อมูลเปลี่ยน
+   - Sync ขึ้น Drafts sheet แบบ debounce เป็น backup
+   - Refresh / ปิดแท็บ / กลับมาใหม่ โหลด Local อัตโนมัติ
+   - ลบ draft เฉพาะเมื่อส่งใบตรวจนับสำเร็จ
    ============================================================ */
 var draftAutoSaveTimer = null;
-var draftPromptedForName = '';
+var draftServerSaveInFlight_ = false;
+var LOCAL_DRAFT_KEY_ = 'fwwt28_active_check_v3';
+
 function buildDraftStateObject(){
   var obj = {};
   STATE.items.forEach(function(it, idx){
     var st = STATE.itemState[idx];
-    obj[itemKey(it)] = { actualQty: st.actualQty, openBottles: st.openBottles, remark: st.remark, remainingApprox: st.remainingApprox, reason: st.reason, reasonOther: st.reasonOther, checked: st.checked, checkedAt: st.checkedAt, qrVerified: st.qrVerified, qrCode: st.qrCode, scannedCodes: st.scannedCodes, auditClosed: !!st.auditClosed, auditClosedCount: st.auditClosedCount||0 };
+    obj[itemKey(it)] = {
+      actualQty: st.actualQty,
+      openBottles: st.openBottles,
+      remark: st.remark,
+      remainingApprox: st.remainingApprox,
+      reason: st.reason,
+      reasonOther: st.reasonOther,
+      checked: st.checked,
+      checkedAt: st.checkedAt,
+      qrVerified: st.qrVerified,
+      qrCode: st.qrCode,
+      scannedCodes: st.scannedCodes
+    };
   });
   return obj;
 }
+
 function applyDraftStateObject(obj){
   STATE.items.forEach(function(it, idx){
-    var saved = obj[itemKey(it)];
+    var saved = obj && obj[itemKey(it)];
     if(saved){
       STATE.itemState[idx] = {
         actualQty: (saved.actualQty!==undefined && saved.actualQty!==null && saved.actualQty!=='') ? saved.actualQty : null,
-        openBottles: saved.openBottles || [], remark: saved.remark || '', remainingApprox: saved.remainingApprox || '',
-        reason: saved.reason || '', reasonOther: saved.reasonOther || '', checked: !!saved.checked, checkedAt: saved.checkedAt || '',
-        qrVerified: !!saved.qrVerified, qrCode: saved.qrCode || '', scannedCodes: saved.scannedCodes || [], auditClosed: !!saved.auditClosed, auditClosedCount: saved.auditClosedCount||0
+        openBottles: Array.isArray(saved.openBottles) ? saved.openBottles : [],
+        remark: saved.remark || '',
+        remainingApprox: saved.remainingApprox || '',
+        reason: saved.reason || '',
+        reasonOther: saved.reasonOther || '',
+        checked: !!saved.checked,
+        checkedAt: saved.checkedAt || '',
+        qrVerified: !!saved.qrVerified,
+        qrCode: saved.qrCode || '',
+        scannedCodes: Array.isArray(saved.scannedCodes) ? saved.scannedCodes : []
       };
     }
   });
 }
+
+function buildLocalDraftPayload_(){
+  return {
+    version: 3,
+    savedAt: new Date().toISOString(),
+    employeeName: (document.getElementById('employeeName').value || '').trim(),
+    employeeSignature: STATE.employeeSignature || '',
+    itemsState: buildDraftStateObject()
+  };
+}
+
+function saveLocalDraftNow_(){
+  try{
+    localStorage.setItem(LOCAL_DRAFT_KEY_, JSON.stringify(buildLocalDraftPayload_()));
+    return true;
+  }catch(e){
+    return false;
+  }
+}
+
+function clearLocalDraft_(){
+  try{ localStorage.removeItem(LOCAL_DRAFT_KEY_); }catch(e){}
+}
+
+function restoreLocalDraftOnBoot_(){
+  var raw='';
+  try{ raw=localStorage.getItem(LOCAL_DRAFT_KEY_) || ''; }catch(e){}
+  if(!raw) return false;
+  try{
+    var d=JSON.parse(raw);
+    if(!d || !d.itemsState) return false;
+    if(d.employeeName) document.getElementById('employeeName').value=d.employeeName;
+    if(d.employeeSignature){
+      STATE.employeeSignature=d.employeeSignature;
+      var seal=document.getElementById('employeeSeal');
+      if(seal){ seal.classList.add('signed'); seal.textContent='✓'; }
+      var st=document.getElementById('signStatusMain');
+      if(st) st.textContent='เซ็นชื่อแล้ว';
+    }
+    applyDraftStateObject(d.itemsState);
+    var statusEl=document.getElementById('draftStatusText');
+    if(statusEl){
+      var dt=d.savedAt ? new Date(d.savedAt) : null;
+      statusEl.textContent='กู้คืนความคืบหน้าอัตโนมัติ'+(dt && !isNaN(dt.getTime()) ? ' จาก '+dt.toLocaleString('th-TH') : '');
+    }
+    return true;
+  }catch(e){
+    return false;
+  }
+}
+
 function scheduleAutoSaveDraft(){
+  // Local save ต้องทำทันที เพื่อกันปิดจอ/รีเฟรชก่อนครบ debounce
+  saveLocalDraftNow_();
   var name = document.getElementById('employeeName').value.trim();
   if(!name) return;
   if(draftAutoSaveTimer) clearTimeout(draftAutoSaveTimer);
-  draftAutoSaveTimer = setTimeout(function(){ saveDraftNow(true); }, 4000);
+  draftAutoSaveTimer = setTimeout(function(){ saveDraftNow(true); }, 1200);
 }
+
 function saveDraftNow(isAuto){
+  saveLocalDraftNow_();
   var name = document.getElementById('employeeName').value.trim();
-  if(!name){ if(!isAuto) alert('กรุณากรอกชื่อ-สกุลผู้ตรวจนับก่อนบันทึกความคืบหน้า'); return; }
+  if(!name){
+    if(!isAuto) alert('กรุณากรอกชื่อ-สกุลผู้ตรวจนับก่อนบันทึกความคืบหน้า');
+    return;
+  }
+  if(draftServerSaveInFlight_ && isAuto) return;
   var btn = document.getElementById('btnSaveDraft');
   var statusEl = document.getElementById('draftStatusText');
   if(!isAuto){ btn.disabled=true; btn.textContent='กำลังบันทึก...'; }
+  draftServerSaveInFlight_=true;
   var json = JSON.stringify(buildDraftStateObject());
   google.script.run.withSuccessHandler(function(res){
+    draftServerSaveInFlight_=false;
     if(!isAuto){ btn.disabled=false; btn.textContent='💾 บันทึกความคืบหน้า'; }
     statusEl.textContent = 'บันทึกความคืบหน้าล่าสุดเมื่อ '+res.savedAt;
-  }).withFailureHandler(function(err){ if(!isAuto){ btn.disabled=false; btn.textContent='💾 บันทึกความคืบหน้า'; onError(err); } }).saveDraft(name, json);
+  }).withFailureHandler(function(err){
+    draftServerSaveInFlight_=false;
+    // Local copy ยังอยู่ แม้ network/server ล้มเหลว
+    if(!isAuto){ btn.disabled=false; btn.textContent='💾 บันทึกความคืบหน้า'; onError(err); }
+    else statusEl.textContent='บันทึกไว้ในเครื่องแล้ว — รอเชื่อมต่อเพื่อสำรองขึ้นระบบ';
+  }).saveDraft(name, json);
 }
+
 document.getElementById('btnSaveDraft').onclick=function(){ saveDraftNow(false); };
-document.getElementById('employeeName').addEventListener('blur', function(){
-  var name = this.value.trim();
-  if(!name || name===draftPromptedForName) return;
-  draftPromptedForName = name;
-  google.script.run.withSuccessHandler(function(draft){
-    if(draft && draft.itemsStateJson){
-      document.getElementById('restoreDraftSub').textContent = 'ของ "'+name+'" บันทึกล่าสุดเมื่อ '+draft.updatedAt+' ต้องการโหลดข้อมูลเดิมมาทำต่อหรือไม่?';
-      document.getElementById('modalRestoreDraft').classList.add('open');
-      var yesBtn = document.getElementById('btnRestoreDraftYes');
-      var noBtn = document.getElementById('btnRestoreDraftNo');
-      yesBtn.onclick = function(){
-        try{
-          applyDraftStateObject(JSON.parse(draft.itemsStateJson));
-          renderItems(); updateProgress();
-          document.getElementById('draftStatusText').textContent='โหลดความคืบหน้าที่บันทึกไว้เมื่อ '+draft.updatedAt+' แล้ว';
-        }catch(e){}
-        document.getElementById('modalRestoreDraft').classList.remove('open');
-      };
-      noBtn.onclick = function(){ document.getElementById('modalRestoreDraft').classList.remove('open'); };
-    }
-  }).withFailureHandler(function(){}).getDraft(name);
+
+document.getElementById('employeeName').addEventListener('input', function(){
+  checkSubmitEnabled();
+  scheduleAutoSaveDraft();
 });
+
+// เมื่อแอปถูกซ่อน/ล็อกหน้าจอ ให้เขียน Local ซ้ำทันที
+window.addEventListener('pagehide', saveLocalDraftNow_);
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState==='hidden') saveLocalDraftNow_();
+});
+window.addEventListener('beforeunload', saveLocalDraftNow_);
 
 /* ============================================================
    Signature Pad
@@ -1260,6 +1340,7 @@ document.getElementById('saveSigEmployee').onclick=function(){
   document.getElementById('signStatusMain').textContent='เซ็นชื่อแล้ว';
   document.getElementById('modalSign').classList.remove('open');
   checkSubmitEnabled();
+  scheduleAutoSaveDraft();
 };
 
 /* ============================================================
@@ -2284,9 +2365,10 @@ document.getElementById('btnSubmit').onclick=function(){
   var items = STATE.items.map(function(it, idx){
     var st = STATE.itemState[idx];
     return { code: it.code, name: it.name, manufacturer: it.manufacturer, expectedQty: it.qty, actualQty: st.actualQty,
-      openBottles: st.openBottles.filter(function(pc){return st.scannedCodes.indexOf(pc)>-1;}), scannedCodes: st.scannedCodes.slice(), removedCodes: (it.productCodes||[]).filter(function(pc){return pc && pc!=='-' && st.scannedCodes.indexOf(pc)===-1;}), remark: composeRemark(st), remainingApprox: st.remainingApprox, unit: it.unit, checked: st.checked, checkedAt: st.checkedAt || '', qrCode: st.qrCode || '' };
+      openBottles: st.openBottles, remark: composeRemark(st), remainingApprox: st.remainingApprox, unit: it.unit, checked: st.checked, checkedAt: st.checkedAt || '', qrCode: st.qrCode || '' };
   });
   google.script.run.withSuccessHandler(function(){
+    clearLocalDraft_();
     document.getElementById('modalSuccess').classList.add('open');
   }).withFailureHandler(function(err){ onError(err); btn.disabled=false; btn.textContent='ส่งใบตรวจนับ'; })
   .submitChecklist({ employeeName: document.getElementById('employeeName').value.trim(), signatureBase64: STATE.employeeSignature, items: items });
