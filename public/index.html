@@ -829,15 +829,9 @@ google.script.run.withSuccessHandler(function(items){
   items.forEach(function(it, idx){
     STATE.itemState[idx] = { actualQty: null, openBottles: [], remark: it.note || '', remainingApprox: '', reason:'', reasonOther:'', checked: false, checkedAt: '', qrVerified: false, qrCode: '', scannedCodes: [] };
   });
-  restorePersistentDraftOnBoot_().then(function(){
-    renderCatTabs();
-    renderItems();
-    updateProgress();
-  }).catch(function(){
-    renderCatTabs();
-    renderItems();
-    updateProgress();
-  });
+  renderCatTabs();
+  renderItems();
+  updateProgress();
 }).withFailureHandler(onError).getMasterItems();
 
 function renderCatTabs(){
@@ -869,14 +863,6 @@ function composeRemark(st){
   return st.remark ? (r+' — '+st.remark) : r;
 }
 
-function isQrRequired(it){
-  // ค่า FALSE จาก MasterItems เท่านั้นที่ยกเว้นการสแกน QR
-  // ค่าว่าง/ข้อมูลเก่ายังคงบังคับสแกนเหมือนเดิม
-  if(it && it.requireQr === false) return false;
-  var v = String(it && it.requireQr != null ? it.requireQr : '').trim().toLowerCase();
-  return !(v==='false' || v==='0' || v==='no' || v==='n');
-}
-
 function renderItems(){
   var container = document.getElementById('itemsContainer');
   container.innerHTML='';
@@ -887,8 +873,7 @@ function renderItems(){
     var entered = st.actualQty!==null && st.actualQty!=='' && st.actualQty!==undefined;
     var mismatch = entered && Number(st.actualQty) !== Number(it.qty);
     var unit = it.unit || 'ขวด';
-    var requireQr = isQrRequired(it);
-    var hasQr = requireQr && it.productCodes && it.productCodes.length && it.productCodes[0]!=='-';
+    var hasQr = it.productCodes && it.productCodes.length && it.productCodes[0]!=='-';
     var qrOk = !hasQr || st.qrVerified;
 
     var card = document.createElement('div');
@@ -923,7 +908,6 @@ function renderItems(){
         chip.onclick=function(){
           var i=st.openBottles.indexOf(pc);
           if(i>-1) st.openBottles.splice(i,1); else st.openBottles.push(pc);
-          scheduleAutoSaveDraft();
           renderItems();
         };
         chipsRow.appendChild(chip);
@@ -970,17 +954,6 @@ function renderItems(){
       card.appendChild(scanStatus);
     }
 
-    if(!requireQr){
-      var manualWrap=document.createElement('div');
-      manualWrap.className='item-grid';
-      manualWrap.style.marginTop='12px';
-      manualWrap.innerHTML =
-        '<div class="field-row" style="grid-column:1/-1;"><label>จำนวนคงเหลือจริง *</label>'+
-          '<input type="number" min="0" step="0.01" inputmode="decimal" class="input manual-qty-input" data-idx="'+idx+'" value="'+(entered?esc(st.actualQty):'')+'" placeholder="กรอกจำนวนที่ตรวจนับได้"/></div>'+
-        '<div style="grid-column:1/-1;"><button type="button" class="btn-mini btn-confirm-manual" data-idx="'+idx+'">✓ ยืนยันการตรวจนับรายการนี้</button></div>';
-      card.appendChild(manualWrap);
-    }
-
     var grid=document.createElement('div');
     grid.className='item-grid';
     grid.innerHTML =
@@ -1002,9 +975,7 @@ function renderItems(){
     if(!st.checked){
       var hint=document.createElement('div');
       hint.style.cssText='font-size:11px;color:var(--er);font-weight:600;margin-top:8px;';
-      hint.textContent = requireQr
-        ? '* กรุณาสแกน QR/บาร์โค้ดที่ขวดของรายการนี้ก่อน ระบบจะยืนยันและนับจำนวนให้อัตโนมัติ'
-        : '* รายการนี้ไม่บังคับสแกน QR กรุณากรอกจำนวนจริงและกดยืนยันการตรวจนับ';
+      hint.textContent = '* กรุณาสแกน QR/บาร์โค้ดที่ขวดของรายการนี้ก่อน ระบบจะยืนยันและนับจำนวนให้อัตโนมัติ';
       card.appendChild(hint);
     }
 
@@ -1046,29 +1017,6 @@ function renderItems(){
   });
   container.querySelectorAll('.btn-rescan-qr').forEach(function(btn){
     btn.onclick=function(){ openQrScan(this.dataset.idx); };
-  });
-  container.querySelectorAll('.manual-qty-input').forEach(function(inp){
-    inp.oninput=function(){
-      var st=STATE.itemState[this.dataset.idx];
-      st.actualQty = this.value==='' ? null : Number(this.value);
-      if(st.checked){ st.checked=false; st.checkedAt=''; }
-      scheduleAutoSaveDraft();
-      updateProgress();
-    };
-    inp.onblur=function(){ renderItems(); };
-  });
-  container.querySelectorAll('.btn-confirm-manual').forEach(function(btn){
-    btn.onclick=function(){
-      var idx=this.dataset.idx;
-      var inp=container.querySelector('.manual-qty-input[data-idx="'+idx+'"]');
-      var raw=inp ? String(inp.value).trim() : '';
-      if(raw==='' || isNaN(Number(raw)) || Number(raw)<0){ alert('กรุณากรอกจำนวนคงเหลือจริงให้ถูกต้อง'); return; }
-      var st=STATE.itemState[idx];
-      st.actualQty=Number(raw);
-      st.checked=true;
-      st.checkedAt=new Date().toISOString();
-      updateProgress(); renderItems(); scheduleAutoSaveDraft();
-    };
   });
   container.querySelectorAll('.remark-input').forEach(function(inp){
     inp.oninput=function(){ STATE.itemState[this.dataset.idx].remark = this.value; scheduleAutoSaveDraft(); };
@@ -1145,299 +1093,75 @@ function checkSubmitEnabled(){
   btn.disabled = !(nameOk && STATE.employeeSignature && allChecked);
   btn.title = allChecked ? '' : 'กรุณายืนยันการตรวจนับให้ครบทุกรายการก่อน';
 }
+document.getElementById('employeeName').addEventListener('input', checkSubmitEnabled);
 
 /* ============================================================
-   Draft / Crash-safe progress persistence
-   - บันทึก Local ทันทีทุกครั้งที่ข้อมูลเปลี่ยน
-   - Sync ขึ้น Drafts sheet แบบ debounce เป็น backup
-   - Refresh / ปิดแท็บ / กลับมาใหม่ โหลด Local อัตโนมัติ
-   - ลบ draft เฉพาะเมื่อส่งใบตรวจนับสำเร็จ
+   Draft (บันทึกความคืบหน้า)
    ============================================================ */
 var draftAutoSaveTimer = null;
-var draftServerSaveInFlight_ = false;
-var localDraftSaveTimer_ = null;
-var localDraftIdleId_ = null;
-var LOCAL_DRAFT_KEY_ = 'fwwt28_active_check_v4';
-var LOCAL_DRAFT_IDB_DB_ = 'fwwt28_check_store';
-var LOCAL_DRAFT_IDB_STORE_ = 'drafts';
-var LOCAL_DRAFT_IDB_KEY_ = 'active_check';
-var persistentDraftWriteQueued_ = false;
-
-function openDraftDb_(){
-  return new Promise(function(resolve,reject){
-    if(!window.indexedDB){ reject(new Error('IndexedDB unavailable')); return; }
-    try{
-      var req=indexedDB.open(LOCAL_DRAFT_IDB_DB_,1);
-      req.onupgradeneeded=function(e){
-        var db=e.target.result;
-        if(!db.objectStoreNames.contains(LOCAL_DRAFT_IDB_STORE_)) db.createObjectStore(LOCAL_DRAFT_IDB_STORE_);
-      };
-      req.onsuccess=function(e){ resolve(e.target.result); };
-      req.onerror=function(){ reject(req.error||new Error('IndexedDB open failed')); };
-    }catch(e){ reject(e); }
-  });
-}
-function saveDraftToIdb_(payload){
-  return openDraftDb_().then(function(db){
-    return new Promise(function(resolve){
-      try{
-        var tx=db.transaction(LOCAL_DRAFT_IDB_STORE_,'readwrite');
-        tx.objectStore(LOCAL_DRAFT_IDB_STORE_).put(payload,LOCAL_DRAFT_IDB_KEY_);
-        tx.oncomplete=function(){ try{db.close();}catch(e){} resolve(true); };
-        tx.onerror=tx.onabort=function(){ try{db.close();}catch(e){} resolve(false); };
-      }catch(e){ try{db.close();}catch(ee){} resolve(false); }
-    });
-  }).catch(function(){ return false; });
-}
-function readDraftFromIdb_(){
-  return openDraftDb_().then(function(db){
-    return new Promise(function(resolve){
-      try{
-        var tx=db.transaction(LOCAL_DRAFT_IDB_STORE_,'readonly');
-        var req=tx.objectStore(LOCAL_DRAFT_IDB_STORE_).get(LOCAL_DRAFT_IDB_KEY_);
-        req.onsuccess=function(){ var v=req.result||null; try{db.close();}catch(e){} resolve(v); };
-        req.onerror=function(){ try{db.close();}catch(e){} resolve(null); };
-      }catch(e){ try{db.close();}catch(ee){} resolve(null); }
-    });
-  }).catch(function(){ return null; });
-}
-function clearDraftFromIdb_(){
-  return openDraftDb_().then(function(db){
-    return new Promise(function(resolve){
-      try{
-        var tx=db.transaction(LOCAL_DRAFT_IDB_STORE_,'readwrite');
-        tx.objectStore(LOCAL_DRAFT_IDB_STORE_).delete(LOCAL_DRAFT_IDB_KEY_);
-        tx.oncomplete=function(){ try{db.close();}catch(e){} resolve(true); };
-        tx.onerror=tx.onabort=function(){ try{db.close();}catch(e){} resolve(false); };
-      }catch(e){ try{db.close();}catch(ee){} resolve(false); }
-    });
-  }).catch(function(){ return false; });
-}
-
-
+var draftPromptedForName = '';
 function buildDraftStateObject(){
   var obj = {};
   STATE.items.forEach(function(it, idx){
     var st = STATE.itemState[idx];
-    obj[itemKey(it)] = {
-      actualQty: st.actualQty,
-      openBottles: st.openBottles,
-      remark: st.remark,
-      remainingApprox: st.remainingApprox,
-      reason: st.reason,
-      reasonOther: st.reasonOther,
-      checked: st.checked,
-      checkedAt: st.checkedAt,
-      qrVerified: st.qrVerified,
-      qrCode: st.qrCode,
-      scannedCodes: st.scannedCodes
-    };
+    obj[itemKey(it)] = { actualQty: st.actualQty, openBottles: st.openBottles, remark: st.remark, remainingApprox: st.remainingApprox, reason: st.reason, reasonOther: st.reasonOther, checked: st.checked, checkedAt: st.checkedAt, qrVerified: st.qrVerified, qrCode: st.qrCode, scannedCodes: st.scannedCodes };
   });
   return obj;
 }
-
 function applyDraftStateObject(obj){
   STATE.items.forEach(function(it, idx){
-    var saved = obj && obj[itemKey(it)];
+    var saved = obj[itemKey(it)];
     if(saved){
       STATE.itemState[idx] = {
         actualQty: (saved.actualQty!==undefined && saved.actualQty!==null && saved.actualQty!=='') ? saved.actualQty : null,
-        openBottles: Array.isArray(saved.openBottles) ? saved.openBottles : [],
-        remark: saved.remark || '',
-        remainingApprox: saved.remainingApprox || '',
-        reason: saved.reason || '',
-        reasonOther: saved.reasonOther || '',
-        checked: !!saved.checked,
-        checkedAt: saved.checkedAt || '',
-        qrVerified: !!saved.qrVerified,
-        qrCode: saved.qrCode || '',
-        scannedCodes: Array.isArray(saved.scannedCodes) ? saved.scannedCodes : []
+        openBottles: saved.openBottles || [], remark: saved.remark || '', remainingApprox: saved.remainingApprox || '',
+        reason: saved.reason || '', reasonOther: saved.reasonOther || '', checked: !!saved.checked, checkedAt: saved.checkedAt || '',
+        qrVerified: !!saved.qrVerified, qrCode: saved.qrCode || '', scannedCodes: saved.scannedCodes || []
       };
     }
   });
 }
-
-function buildLocalDraftPayload_(){
-  return {
-    version: 3,
-    savedAt: new Date().toISOString(),
-    employeeName: (document.getElementById('employeeName').value || '').trim(),
-    employeeSignature: STATE.employeeSignature || '',
-    itemsState: buildDraftStateObject()
-  };
-}
-
-function saveLocalDraftNow_(){
-  try{
-    localStorage.setItem(LOCAL_DRAFT_KEY_, JSON.stringify(buildLocalDraftPayload_()));
-    return true;
-  }catch(e){
-    return false;
-  }
-}
-
-function clearLocalDraft_(){
-  try{ localStorage.removeItem(LOCAL_DRAFT_KEY_); }catch(e){}
-  clearDraftFromIdb_();
-}
-
-function restoreLocalDraftOnBoot_(){
-  var raw='';
-  try{ raw=localStorage.getItem(LOCAL_DRAFT_KEY_) || ''; }catch(e){}
-  if(!raw) return false;
-  try{
-    var d=JSON.parse(raw);
-    if(!d || !d.itemsState) return false;
-    if(d.employeeName) document.getElementById('employeeName').value=d.employeeName;
-    if(d.employeeSignature){
-      STATE.employeeSignature=d.employeeSignature;
-      var seal=document.getElementById('employeeSeal');
-      if(seal){ seal.classList.add('signed'); seal.textContent='✓'; }
-      var st=document.getElementById('signStatusMain');
-      if(st) st.textContent='เซ็นชื่อแล้ว';
-    }
-    applyDraftStateObject(d.itemsState);
-    var statusEl=document.getElementById('draftStatusText');
-    if(statusEl){
-      var dt=d.savedAt ? new Date(d.savedAt) : null;
-      statusEl.textContent='กู้คืนความคืบหน้าอัตโนมัติ'+(dt && !isNaN(dt.getTime()) ? ' จาก '+dt.toLocaleString('th-TH') : '');
-    }
-    return true;
-  }catch(e){
-    return false;
-  }
-}
-
-function draftTime_(d){
-  var t=d&&d.savedAt ? new Date(d.savedAt).getTime() : 0;
-  return isNaN(t)?0:t;
-}
-function applyPersistentDraftPayload_(d){
-  if(!d || !d.itemsState) return false;
-  try{
-    if(d.employeeName) document.getElementById('employeeName').value=d.employeeName;
-    if(d.employeeSignature){
-      STATE.employeeSignature=d.employeeSignature;
-      var seal=document.getElementById('employeeSeal');
-      if(seal){ seal.classList.add('signed'); seal.textContent='✓'; }
-      var st=document.getElementById('signStatusMain');
-      if(st) st.textContent='เซ็นชื่อแล้ว';
-    }
-    applyDraftStateObject(d.itemsState);
-    var statusEl=document.getElementById('draftStatusText');
-    if(statusEl){
-      var dt=d.savedAt ? new Date(d.savedAt) : null;
-      statusEl.textContent='กู้คืนความคืบหน้าอัตโนมัติ'+(dt && !isNaN(dt.getTime()) ? ' จาก '+dt.toLocaleString('th-TH') : '');
-    }
-    return true;
-  }catch(e){ return false; }
-}
-function readLocalDraftPayload_(){
-  try{
-    var raw=localStorage.getItem(LOCAL_DRAFT_KEY_)||'';
-    if(!raw) return null;
-    return JSON.parse(raw);
-  }catch(e){ return null; }
-}
-function restorePersistentDraftOnBoot_(){
-  var local=readLocalDraftPayload_();
-  return readDraftFromIdb_().then(function(idb){
-    var chosen=null;
-    if(local && idb) chosen=draftTime_(idb)>=draftTime_(local)?idb:local;
-    else chosen=idb||local;
-    if(chosen) applyPersistentDraftPayload_(chosen);
-    return !!chosen;
-  }).catch(function(){
-    if(local) return applyPersistentDraftPayload_(local);
-    return false;
-  });
-}
-function schedulePersistentDraftWrite_(){
-  if(persistentDraftWriteQueued_) return;
-  persistentDraftWriteQueued_=true;
-  setTimeout(function(){
-    persistentDraftWriteQueued_=false;
-    var payload=buildLocalDraftPayload_();
-    saveDraftToIdb_(payload);
-  },0);
-}
-
-function scheduleLocalDraftSave_(){
-  // IndexedDB เขียนแบบ asynchronous จึงไม่แย่ง main thread ของ decoder
-  schedulePersistentDraftWrite_();
-  // localStorage เป็นสำเนาสำรอง และเขียนตอน browser ว่างเท่านั้น
-  if(typeof window.requestIdleCallback === 'function') {
-    if(localDraftIdleId_ !== null) return;
-    localDraftIdleId_ = window.requestIdleCallback(function(){
-      localDraftIdleId_ = null;
-      saveLocalDraftNow_();
-    }, { timeout: 800 });
-    return;
-  }
-  if(localDraftSaveTimer_) return;
-  localDraftSaveTimer_ = setTimeout(function(){
-    localDraftSaveTimer_ = null;
-    saveLocalDraftNow_();
-  }, 250);
-}
-
 function scheduleAutoSaveDraft(){
-  // บันทึก Local แบบ deferred เพื่อไม่แย่ง main thread จากระบบสแกน
-  scheduleLocalDraftSave_();
   var name = document.getElementById('employeeName').value.trim();
   if(!name) return;
   if(draftAutoSaveTimer) clearTimeout(draftAutoSaveTimer);
-  draftAutoSaveTimer = setTimeout(function(){ saveDraftNow(true); }, 1800);
+  draftAutoSaveTimer = setTimeout(function(){ saveDraftNow(true); }, 4000);
 }
-
 function saveDraftNow(isAuto){
-  saveLocalDraftNow_();
   var name = document.getElementById('employeeName').value.trim();
-  if(!name){
-    if(!isAuto) alert('กรุณากรอกชื่อ-สกุลผู้ตรวจนับก่อนบันทึกความคืบหน้า');
-    return;
-  }
-  if(draftServerSaveInFlight_ && isAuto) return;
+  if(!name){ if(!isAuto) alert('กรุณากรอกชื่อ-สกุลผู้ตรวจนับก่อนบันทึกความคืบหน้า'); return; }
   var btn = document.getElementById('btnSaveDraft');
   var statusEl = document.getElementById('draftStatusText');
   if(!isAuto){ btn.disabled=true; btn.textContent='กำลังบันทึก...'; }
-  draftServerSaveInFlight_=true;
   var json = JSON.stringify(buildDraftStateObject());
   google.script.run.withSuccessHandler(function(res){
-    draftServerSaveInFlight_=false;
     if(!isAuto){ btn.disabled=false; btn.textContent='💾 บันทึกความคืบหน้า'; }
     statusEl.textContent = 'บันทึกความคืบหน้าล่าสุดเมื่อ '+res.savedAt;
-  }).withFailureHandler(function(err){
-    draftServerSaveInFlight_=false;
-    // Local copy ยังอยู่ แม้ network/server ล้มเหลว
-    if(!isAuto){ btn.disabled=false; btn.textContent='💾 บันทึกความคืบหน้า'; onError(err); }
-    else statusEl.textContent='บันทึกไว้ในเครื่องแล้ว — รอเชื่อมต่อเพื่อสำรองขึ้นระบบ';
-  }).saveDraft(name, json);
+  }).withFailureHandler(function(err){ if(!isAuto){ btn.disabled=false; btn.textContent='💾 บันทึกความคืบหน้า'; onError(err); } }).saveDraft(name, json);
 }
-
 document.getElementById('btnSaveDraft').onclick=function(){ saveDraftNow(false); };
-
-document.getElementById('employeeName').addEventListener('input', function(){
-  checkSubmitEnabled();
-  scheduleAutoSaveDraft();
+document.getElementById('employeeName').addEventListener('blur', function(){
+  var name = this.value.trim();
+  if(!name || name===draftPromptedForName) return;
+  draftPromptedForName = name;
+  google.script.run.withSuccessHandler(function(draft){
+    if(draft && draft.itemsStateJson){
+      document.getElementById('restoreDraftSub').textContent = 'ของ "'+name+'" บันทึกล่าสุดเมื่อ '+draft.updatedAt+' ต้องการโหลดข้อมูลเดิมมาทำต่อหรือไม่?';
+      document.getElementById('modalRestoreDraft').classList.add('open');
+      var yesBtn = document.getElementById('btnRestoreDraftYes');
+      var noBtn = document.getElementById('btnRestoreDraftNo');
+      yesBtn.onclick = function(){
+        try{
+          applyDraftStateObject(JSON.parse(draft.itemsStateJson));
+          renderItems(); updateProgress();
+          document.getElementById('draftStatusText').textContent='โหลดความคืบหน้าที่บันทึกไว้เมื่อ '+draft.updatedAt+' แล้ว';
+        }catch(e){}
+        document.getElementById('modalRestoreDraft').classList.remove('open');
+      };
+      noBtn.onclick = function(){ document.getElementById('modalRestoreDraft').classList.remove('open'); };
+    }
+  }).withFailureHandler(function(){}).getDraft(name);
 });
-
-// เมื่อแอปถูกซ่อน/ล็อกหน้าจอ ให้เขียน Local ซ้ำทันที
-function flushLocalDraftBeforeHide_(){
-  if(localDraftSaveTimer_){ clearTimeout(localDraftSaveTimer_); localDraftSaveTimer_=null; }
-  if(localDraftIdleId_ !== null && typeof window.cancelIdleCallback === 'function'){
-    try{ window.cancelIdleCallback(localDraftIdleId_); }catch(e){}
-    localDraftIdleId_=null;
-  }
-  var payload=buildLocalDraftPayload_();
-  try{ localStorage.setItem(LOCAL_DRAFT_KEY_, JSON.stringify(payload)); }catch(e){}
-  saveDraftToIdb_(payload);
-}
-window.addEventListener('pagehide', flushLocalDraftBeforeHide_);
-document.addEventListener('visibilitychange', function(){
-  if(document.visibilityState==='hidden') flushLocalDraftBeforeHide_();
-});
-window.addEventListener('beforeunload', flushLocalDraftBeforeHide_);
 
 /* ============================================================
    Signature Pad
@@ -1487,7 +1211,6 @@ document.getElementById('saveSigEmployee').onclick=function(){
   document.getElementById('signStatusMain').textContent='เซ็นชื่อแล้ว';
   document.getElementById('modalSign').classList.remove('open');
   checkSubmitEnabled();
-  scheduleAutoSaveDraft();
 };
 
 /* ============================================================
@@ -2515,7 +2238,6 @@ document.getElementById('btnSubmit').onclick=function(){
       openBottles: st.openBottles, remark: composeRemark(st), remainingApprox: st.remainingApprox, unit: it.unit, checked: st.checked, checkedAt: st.checkedAt || '', qrCode: st.qrCode || '' };
   });
   google.script.run.withSuccessHandler(function(){
-    clearLocalDraft_();
     document.getElementById('modalSuccess').classList.add('open');
   }).withFailureHandler(function(err){ onError(err); btn.disabled=false; btn.textContent='ส่งใบตรวจนับ'; })
   .submitChecklist({ employeeName: document.getElementById('employeeName').value.trim(), signatureBase64: STATE.employeeSignature, items: items });
