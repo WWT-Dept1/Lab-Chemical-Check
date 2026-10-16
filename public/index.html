@@ -2623,6 +2623,12 @@ function prependPendingBar_(el){
   btn.onclick=function(){ loadPending(); };
   bar.appendChild(info); bar.appendChild(btn);
   el.insertBefore(bar, el.firstChild);
+  if(BE.pending.length){
+    var det=document.createElement('div');
+    det.style.cssText='font-size:10.5px;color:var(--text-faint);margin:0 2px 8px;line-height:1.5;word-break:break-all;';
+    det.textContent='ใบที่ได้รับ: '+BE.pending.map(function(x){ return (x.employeeName||'?')+' | '+x.submissionId+' | '+(x.status||'-')+' | '+x.submittedAt; }).join('  ///  ');
+    el.insertBefore(det, bar.nextSibling);
+  }
 }
 function renderPending(){
   var el=document.getElementById('pendingContent');
@@ -2635,6 +2641,7 @@ function renderPending(){
   el.innerHTML='';
   var subCount = BE.pending.length, reqCount = BE.editRequests.length, lastKind = '';
   merged.forEach(function(m){
+    try{
     if(m.kind !== lastKind){
       lastKind = m.kind;
       var hd = document.createElement('div');
@@ -2670,6 +2677,14 @@ function renderPending(){
         '<button class="btn-primary req-approve" data-id="'+req.requestId+'" style="flex:1;">อนุมัติ</button></div>';
       box.innerHTML = html;
       el.appendChild(box);
+    }
+    }catch(err){
+      var bad=document.createElement('div');
+      bad.className='list-row';
+      bad.style.cssText='border-color:var(--er);background:var(--er-lt);cursor:default;';
+      var raw=''; try{ raw=JSON.stringify(m.data).slice(0,300); }catch(e2){}
+      bad.textContent='⚠ แสดงรายการนี้ไม่ได้ ('+(err&&err.message?err.message:err)+') '+raw;
+      el.appendChild(bad);
     }
   });
   prependPendingBar_(el);
