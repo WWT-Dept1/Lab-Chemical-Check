@@ -312,7 +312,8 @@ textarea.input{resize:vertical; min-height:64px; line-height:1.5;}
 .rscan-header .modal-sub{color:rgba(255,255,255,.85); margin:2px 0 0;}
 .rscan-header .modal-close{position:static; background:rgba(255,255,255,.2); color:#fff; flex-shrink:0;}
 .rscan-cam{position:relative; width:100%; flex:0 0 auto; height:46vh; min-height:220px; max-height:340px; background:#000; overflow:hidden;}
-.rscan-cam::after{content:'';position:absolute;pointer-events:none;z-index:3;top:var(--stb-top,38%);right:var(--stb-right,8%);bottom:var(--stb-bottom,38%);left:var(--stb-left,8%);border:3px solid #35e6ab;border-radius:12px;box-shadow:0 0 0 1px rgba(255,255,255,.16),0 0 14px rgba(53,230,171,.45);}
+.rscan-cam::after{content:'';position:absolute;pointer-events:none;z-index:2;top:var(--stb-top,38%);right:var(--stb-right,8%);bottom:var(--stb-bottom,38%);left:var(--stb-left,8%);border:3px solid #35e6ab;border-radius:12px;box-shadow:0 0 0 1px rgba(255,255,255,.16),0 0 14px rgba(53,230,171,.45),0 0 0 100vmax rgba(0,0,0,.5);}
+.rscan-corner,.rscan-scanline{z-index:3;}
 .rscan-corner{position:absolute; width:30px; height:30px; border:4px solid #35e6ab; pointer-events:none; filter:drop-shadow(0 0 6px rgba(53,230,171,.6));}
 /* [แก้บั๊กกรอบเขียวไม่ตรงพื้นที่ decode จริง] ดูคอมเมนต์อธิบายเต็มที่ .scanbox-corner ด้านบน — จุดเดียวกัน
    ใช้ตัวแปร CSS ชุดเดียวกัน (--stb-*) ได้เพราะ custom property ผูกกับ element ตัวเอง (.rscan-cam) เอง
@@ -369,9 +370,9 @@ textarea.input{resize:vertical; min-height:64px; line-height:1.5;}
    ============================================================ */
 .scanbox{position:relative; width:100%; height:100%; background:#000; overflow:hidden;}
 /* กล่องเขียวนี้ใช้ตำแหน่งเดียวกับ qrbox จริงของ html5-qrcode */
-.scanbox::after{content:''; position:absolute; pointer-events:none; z-index:3;
+.scanbox::after{content:''; position:absolute; pointer-events:none; z-index:2;
   top:var(--stb-top,38%); right:var(--stb-right,9%); bottom:var(--stb-bottom,38%); left:var(--stb-left,9%);
-  border:3px solid #35e6ab; border-radius:12px; box-shadow:0 0 0 1px rgba(255,255,255,.16),0 0 14px rgba(53,230,171,.45);}
+  border:3px solid #35e6ab; border-radius:12px; box-shadow:0 0 0 1px rgba(255,255,255,.16),0 0 14px rgba(53,230,171,.45),0 0 0 100vmax rgba(0,0,0,.5);}
 .scanbox-corner{position:absolute; width:34px; height:34px; border:4px solid #35e6ab; pointer-events:none; z-index:3;
   filter:drop-shadow(0 0 7px rgba(53,230,171,.65)); animation:scanboxPulse 2.2s ease-in-out infinite;}
 /* [แก้บั๊กกรอบเขียวไม่ตรงพื้นที่ decode จริง] เดิม top/left/right/bottom เป็น % คงที่ ล้อกับสัดส่วน
@@ -408,7 +409,11 @@ textarea.input{resize:vertical; min-height:64px; line-height:1.5;}
    คง mask มืดของไลบรารีไว้ แล้วซ่อนเฉพาะมุมสีขาว ให้กรอบเขียวของเราตรงกับ qrbox จริง */
 /* ห้ามซ่อน border ของ qr-shaded-region: border 4 ด้านนี้คือพื้นที่มืด OUTSIDE qrbox จริง
    คงไว้เพื่อให้ผู้ใช้เห็นชัดว่าระบบอ่านเฉพาะช่องตรงกลางเท่านั้น */
-#qr-shaded-region{ border-color: rgba(0,0,0,.62) !important; z-index:2 !important; pointer-events:none !important; }
+/* [v2] mask ของไลบรารีคำนวณตอนเปิดกล้องครั้งเดียวและอาจไม่ตรงกับกรอบจริงเมื่อ layout เปลี่ยน — ซ่อนทิ้ง
+   แล้วใช้ box-shadow ของกรอบเขียว (.scanbox::after / .rscan-cam::after) หรี่พื้นที่นอกกรอบแทน ซึ่งตรงกับพื้นที่อ่านเสมอ */
+#qr-shaded-region{ border-color: transparent !important; z-index:2 !important; pointer-events:none !important; }
+/* [v2] บังคับวิดีโอเต็มกล่องพอดี (ครอปส่วนเกินแบบ cover) — จำเป็นต่อการให้กรอบเขียว = พื้นที่อ่านจริง */
+#qrReaderBox video, #cScanReaderBox video, #rscanReaderBox video{ width:100% !important; height:100% !important; object-fit:cover !important; }
 /* ซ่อนเฉพาะมุมสีขาวของไลบรารี เพราะเราใช้กรอบเขียวของระบบเอง */
 #qr-shaded-region > div{ background-color: transparent !important; }
 </style>
@@ -1243,44 +1248,41 @@ function barcodeQrbox(viewfinderWidth, viewfinderHeight){
 
    ฟังก์ชันนี้อ่านตำแหน่งจริงของ #qr-shaded-region หลังกล้อง render แล้ว set เป็น CSS custom
    property (px) บน container ให้กรอบเขียว/เส้นสแกนขยับไปตรงตำแหน่ง decode จริงเป๊ะ ============ */
+/* [v2 — แก้บั๊ก "สแกนติดบาร์โค้ดนอกกรอบ ส่วนที่อยู่ในกรอบไม่ติด" (ทดสอบซ้ำได้ด้วยกล้องจำลองใน Chromium)]
+   สาเหตุจริง: ไลบรารีตั้งความสูงวิดีโอตามสัดส่วนภาพกล้องเอง (กว้าง = เท่ากรอบ, สูง = ตามอัตราส่วน) ซึ่งไม่เท่ากับ
+   ความสูงของกล่องที่ใส่กล้อง — วิดีโอสูงกว่ากล่อง (ภาพแนวตั้ง) พื้นที่อ่านจริงจะเลื่อนลงไปอยู่ต่ำกว่ากรอบเขียว
+   หรือวิดีโอเตี้ยกว่ากล่อง (ภาพแนวนอน) กรอบเขียวจะสูงผิดปกติทั้งที่พื้นที่อ่านจริงเป็นแถบเล็กด้านบน
+   วิธีแก้: บังคับวิดีโอให้เต็มกล่องพอดี (object-fit:cover ใน CSS) แล้วคำนวณ "กรอบเขียว" และ "พื้นที่ที่ตัดไปถอดรหัส"
+   จากสูตรเดียวกัน (scanBoxRect_) ที่กึ่งกลางกล่อง ดังนั้นสิ่งที่เห็นในกรอบเขียวคือสิ่งที่ถูกอ่านเป๊ะ */
+function scanBoxRect_(W, H){
+  var q = barcodeQrbox(W, H);
+  var w = Math.min(q.width, W), h = Math.min(q.height, H);
+  return { x:(W-w)/2, y:(H-h)/2, w:w, h:h };
+}
 function syncScanTargetBox_(containerEl, readerBoxId){
   if(!containerEl) return false;
-  var shaded = document.querySelector('#'+readerBoxId+' #qr-shaded-region');
-  if(!shaded) return false;
-
-  /* สำคัญ: #qr-shaded-region มีขนาดเต็ม viewfinder แล้วใช้ border หนา 4 ด้านเป็น mask
-     ดังนั้น getBoundingClientRect() ของ element นี้จะได้ "เต็มกล้อง" ไม่ใช่ qrbox
-     ต้องอ่านความหนา border จริงแทน ซึ่งเท่ากับระยะจากขอบกล้องถึงพื้นที่ decode */
-  var cs = window.getComputedStyle(shaded);
-  var top = parseFloat(cs.borderTopWidth) || 0;
-  var right = parseFloat(cs.borderRightWidth) || 0;
-  var bottom = parseFloat(cs.borderBottomWidth) || 0;
-  var left = parseFloat(cs.borderLeftWidth) || 0;
-  var contRect = containerEl.getBoundingClientRect();
-  if(!contRect.width || !contRect.height) return false;
-
-  var innerW = contRect.width - left - right;
-  var innerH = contRect.height - top - bottom;
-  if(innerW < 40 || innerH < 40) return false;
-
-  containerEl.style.setProperty('--stb-top', top+'px');
-  containerEl.style.setProperty('--stb-left', left+'px');
-  containerEl.style.setProperty('--stb-right', right+'px');
-  containerEl.style.setProperty('--stb-bottom', bottom+'px');
-  containerEl.style.setProperty('--stb-top-end', (top+innerH)+'px');
+  var reader = document.getElementById(readerBoxId);
+  var W = reader ? reader.clientWidth : 0, H = reader ? reader.clientHeight : 0;
+  if(W < 40 || H < 40) return false;
+  var key = W+'x'+H;
+  if(containerEl._stbKey === key) return true; /* ขนาดเดิม ไม่ต้องคำนวณซ้ำ */
+  var b = scanBoxRect_(W, H);
+  containerEl.style.setProperty('--stb-top', b.y+'px');
+  containerEl.style.setProperty('--stb-left', b.x+'px');
+  containerEl.style.setProperty('--stb-right', (W-b.x-b.w)+'px');
+  containerEl.style.setProperty('--stb-bottom', (H-b.y-b.h)+'px');
+  containerEl.style.setProperty('--stb-top-end', (b.y+b.h)+'px');
+  containerEl._stbKey = key;
   return true;
 }
 /* #qr-shaded-region ถูกไลบรารีแทรก/จัดขนาดหลัง video เริ่มเล่นจริง มีดีเลย์เล็กน้อยไม่แน่นอน
    จึง poll สั้นๆ ช่วงแรกจนกว่าจะอ่านตำแหน่งได้ (หรือครบจำนวนครั้ง) แล้วยังฟัง resize/orientation
    ต่อไว้ตลอดที่กล้องเปิดอยู่ เผื่อผู้ใช้หมุนจอ/ขนาด viewport เปลี่ยนระหว่างสแกน คืนฟังก์ชันไว้เลิกฟังตอนปิดกล้อง */
 function watchSyncScanTargetBox_(containerEl, readerBoxId){
-  var tries = 0, maxTries = 20, poll;
-  function tick(){
-    tries++;
-    var ok = syncScanTargetBox_(containerEl, readerBoxId);
-    if(ok || tries >= maxTries){ clearInterval(poll); }
-  }
-  poll = setInterval(tick, 150);
+  var poll;
+  containerEl._stbKey = null;
+  function tick(){ syncScanTargetBox_(containerEl, readerBoxId); } /* เช็คต่อเนื่องเบาๆ เผื่อ layout ของกล่องเปลี่ยนระหว่างสแกน */
+  poll = setInterval(tick, 300);
   tick();
   var onResize = function(){ syncScanTargetBox_(containerEl, readerBoxId); };
   window.addEventListener('resize', onResize);
@@ -1517,7 +1519,7 @@ function patchHighResScan_(scanner){
   var originalForeverScan = scanner.foreverScan;
   scanner.foreverScan = function(internalConfig, onOk, onErr){
     var self = this;
-    if(!self.qrRegion || !self.context || !self.canvasElement || typeof self.scanContext !== 'function' || typeof self.getTimeoutFps !== 'function'){
+    if(!self.context || !self.canvasElement || typeof self.scanContext !== 'function' || typeof self.getTimeoutFps !== 'function'){
       return originalForeverScan.apply(self, arguments);
     }
     if(!self.shouldScan || !self.renderedCamera) return;
@@ -1528,11 +1530,16 @@ function patchHighResScan_(scanner){
     };
     try{
       var video = self.renderedCamera.getSurface();
-      if(!video || !video.videoWidth || !video.clientWidth){ next(); return; } /* วิดีโอยังไม่พร้อม */
-      var wr = video.videoWidth / video.clientWidth;
-      var hr = video.videoHeight / video.clientHeight;
-      var r = self.qrRegion;
-      var sx = r.x * wr, sy = r.y * hr, sw = r.width * wr, sh = r.height * hr;
+      var vw = video ? video.videoWidth : 0, vh = video ? video.videoHeight : 0;
+      var Cw = video ? video.clientWidth : 0, Ch = video ? video.clientHeight : 0;
+      if(!vw || !vh || !Cw || !Ch){ next(); return; } /* วิดีโอยังไม่พร้อม */
+      /* วิดีโอถูกบังคับ object-fit:cover เต็มกล่อง → แปลงกรอบเขียว (พิกัดบนจอ) กลับเป็นพิกัดพิกเซลจริงของภาพกล้อง */
+      var s = Math.max(Cw / vw, Ch / vh);
+      var ox = (Cw - vw * s) / 2, oy = (Ch - vh * s) / 2;
+      var b = scanBoxRect_(Cw, Ch);
+      var sx = Math.max(0, (b.x - ox) / s), sy = Math.max(0, (b.y - oy) / s);
+      var sw = Math.min(vw - sx, b.w / s), sh = Math.min(vh - sy, b.h / s);
+      if(sw < 8 || sh < 8){ next(); return; }
       var k = Math.min(1, SCAN_MAX_CANVAS_W / sw);
       var cw = Math.max(1, Math.round(sw * k)), ch = Math.max(1, Math.round(sh * k));
       var canvas = self.canvasElement;
