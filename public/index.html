@@ -813,6 +813,9 @@ function itemKey(it){ return it.code+'|'+it.name; }
 function fmtDate(str){
   var d=new Date(str);
   if(isNaN(d.getTime())) return str;
+  /* [แก้วันที่ปี 3112] ข้อมูลเก่าบางแถวเก็บปีเป็น พ.ศ. อยู่แล้ว (เช่น 2569) พอ toLocaleDateString('th-TH') บวก 543 ซ้ำจึงได้ 3112
+     ปี ค.ศ. จริงไม่มีทางเกิน 2400 → ถ้าเกินให้ถือว่าเป็น พ.ศ. แล้วลบ 543 ก่อนแสดง */
+  if(d.getFullYear() > 2400){ d = new Date(d.getTime()); d.setFullYear(d.getFullYear() - 543); }
   return d.toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'numeric'})+' '+d.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});
 }
 
@@ -834,6 +837,7 @@ google.script.run.withSuccessHandler(function(items){
   items.forEach(function(it, idx){
     STATE.itemState[idx] = { actualQty: null, openBottles: [], remark: it.note || '', remainingApprox: '', reason:'', reasonOther:'', checked: false, checkedAt: '', qrVerified: false, qrCode: '', scannedCodes: [] };
   });
+  offerLocalDraftRestore_();
   renderCatTabs();
   renderItems();
   updateProgress();
@@ -1126,7 +1130,71 @@ function applyDraftStateObject(obj){
     }
   });
 }
+/* ============================================================
+   [แก้บั๊ก "ตรวจไม่ครบ กลับมาตรวจใหม่ ของที่ตรวจไว้หายหมด"]
+   สาเหตุเดิม: ความคืบหน้าอยู่แค่ในหน่วยความจำของหน้าเว็บ + draft ฝั่งเซิร์ฟเวอร์ที่
+     - บันทึกเฉพาะเมื่อกรอกชื่อแล้ว และหน่วงไป 4 วินาที (สลับแอป/ปิดหน้า/LINE เด้งออกก่อนครบ 4 วิ = หาย)
+     - ถามกู้คืนเฉพาะตอนพิมพ์ชื่อเสร็จ (blur) ถ้าชื่อพิมพ์ต่างจากเดิมนิดเดียว/ข้อมูลรายการยังโหลดไม่เสร็จ = ไม่เจอ draft
+   วิธีแก้: สำรองลงเครื่อง (localStorage) ทันทีทุกครั้งที่มีการเปลี่ยนแปลง ไม่ต้องรอชื่อ ไม่ต้องรอ 4 วิ
+   + บันทึกซ้ำตอนสลับแอป/ปิดหน้า + ถามกู้คืนอัตโนมัติทันทีที่โหลดรายการเสร็จ + ล้างเมื่อส่งใบตรวจนับสำเร็จเท่านั้น */
+var LOCAL_DRAFT_KEY = 'wwt28_checklist_draft_v1';
+var LOCAL_DRAFT_READY = false; /* ห้ามเขียนทับก่อนตัดสินใจเรื่องกู้คืนเสร็จ ไม่งั้นข้อมูลว่างจะทับของเดิม */
+var LOCAL_DRAFT_DECIDED = false;
+function saveLocalDraft_(){
+  if(!LOCAL_DRAFT_READY || !STATE.items.length) return;
+  try{
+    var nameEl = document.getElementById('employeeName');
+    localStorage.setItem(LOCAL_DRAFT_KEY, JSON.stringify({
+      name: nameEl ? nameEl.value.trim() : '',
+      savedAt: new Date().toISOString(),
+      state: buildDraftStateObject()
+    }));
+  }catch(e){}
+}
+function clearLocalDraft_(){ try{ localStorage.removeItem(LOCAL_DRAFT_KEY); }catch(e){} }
+function readLocalDraft_(){
+  try{ var raw = localStorage.getItem(LOCAL_DRAFT_KEY); return raw ? JSON.parse(raw) : null; }catch(e){ return null; }
+}
+function countCheckedInObj_(obj){
+  var n = 0; for(var k in obj){ if(obj[k] && obj[k].checked) n++; } return n;
+}
+/* เรียกหลังโหลดรายการสารเคมีเสร็จ (ก่อน render ครั้งแรก) */
+function offerLocalDraftRestore_(){
+  var d = readLocalDraft_();
+  var n = d && d.state ? countCheckedInObj_(d.state) : 0;
+  if(!d || !n){ LOCAL_DRAFT_READY = true; LOCAL_DRAFT_DECIDED = true; return; }
+  var dt = new Date(d.savedAt);
+  var whenTxt = isNaN(dt.getTime()) ? '' : dt.toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'numeric'})+' '+dt.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});
+  document.getElementById('restoreDraftSub').textContent =
+    'พบการตรวจนับที่ค้างไว้ในเครื่องนี้ ('+n+' รายการ'+(d.name?' ของ "'+d.name+'"':'')+(whenTxt?' บันทึกเมื่อ '+whenTxt:'')+') ต้องการโหลดมาทำต่อหรือไม่?';
+  document.getElementById('modalRestoreDraft').classList.add('open');
+  document.getElementById('btnRestoreDraftYes').onclick = function(){
+    try{
+      applyDraftStateObject(d.state);
+      var nameEl = document.getElementById('employeeName');
+      if(d.name && !nameEl.value.trim()){ nameEl.value = d.name; draftPromptedForName = d.name; }
+      renderItems(); updateProgress();
+      document.getElementById('draftStatusText').textContent = 'โหลดความคืบหน้าที่ค้างไว้แล้ว ('+n+' รายการ)';
+    }catch(e){}
+    document.getElementById('modalRestoreDraft').classList.remove('open');
+    LOCAL_DRAFT_DECIDED = true; LOCAL_DRAFT_READY = true; saveLocalDraft_();
+  };
+  document.getElementById('btnRestoreDraftNo').onclick = function(){
+    clearLocalDraft_();
+    document.getElementById('modalRestoreDraft').classList.remove('open');
+    LOCAL_DRAFT_DECIDED = true; LOCAL_DRAFT_READY = true;
+  };
+}
+function flushDraftOnLeave_(){
+  saveLocalDraft_();
+  var name = document.getElementById('employeeName').value.trim();
+  if(name && LOCAL_DRAFT_READY && STATE.items.length){ try{ saveDraftNow(true); }catch(e){} }
+}
+document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'hidden') flushDraftOnLeave_(); });
+window.addEventListener('pagehide', flushDraftOnLeave_);
+document.getElementById('employeeName').addEventListener('input', function(){ saveLocalDraft_(); });
 function scheduleAutoSaveDraft(){
+  saveLocalDraft_();
   var name = document.getElementById('employeeName').value.trim();
   if(!name) return;
   if(draftAutoSaveTimer) clearTimeout(draftAutoSaveTimer);
@@ -1148,6 +1216,7 @@ document.getElementById('btnSaveDraft').onclick=function(){ saveDraftNow(false);
 document.getElementById('employeeName').addEventListener('blur', function(){
   var name = this.value.trim();
   if(!name || name===draftPromptedForName) return;
+  if(!STATE.items.length || !LOCAL_DRAFT_DECIDED) return; /* รายการยังไม่โหลด/กำลังถามกู้คืนจากเครื่องอยู่ ค่อยถามเมื่อพร้อม */
   draftPromptedForName = name;
   google.script.run.withSuccessHandler(function(draft){
     if(draft && draft.itemsStateJson){
@@ -1403,10 +1472,16 @@ function withTimeout_(promise, ms, timeoutMsg){
 function startScannerSimple_(scannerInstance, scanConfig, onDecode, onFrameMiss){
   var preflightErr = cameraPreflightError_();
   if(preflightErr){ return Promise.reject(new Error(preflightErr)); }
-  var attemptPromise = listCamerasSafe_().then(function(cameras){
+  /* [เร่งความเร็วเปิดกล้อง] Html5Qrcode.getCameras() เปิด-ปิดกล้องชั่วคราวหนึ่งรอบเพื่อขอสิทธิ์/อ่าน label ก่อน
+     (ตรวจจากซอร์สไลบรารี) แล้วค่อย start() อีกรอบ = เปิดกล้องสองรอบ + หน่วง 200ms ทุกครั้งที่เปิดหน้าสแกน
+     และการเลือกกล้องจาก label ยังเสี่ยงได้เลนส์ผิด (ultra-wide/macro) บน Android หลายเลนส์
+     → บน Android/เดสก์ท็อปข้ามขั้นนี้ ใช้ facingMode:exact environment ตรงๆ (เบราว์เซอร์เลือกกล้องหลักให้เอง)
+     ถ้าได้กล้องหน้า/เปิดไม่ได้ ยังมีทางสำรองเดิมด้านล่างเหมือนเดิม — iOS/LINE คงขั้นตอนเดิมไว้ทุกอย่าง */
+  var isIOS_ = isIOSDevice_();
+  var attemptPromise = (isIOS_ ? listCamerasSafe_() : Promise.resolve([])).then(function(cameras){
     var id = pickBackCameraId_(cameras, null);
     var selector = id ? { deviceId: { exact: id } } : SCAN_CAMERA_SELECTOR;
-    return delay_(200).then(function(){ /* กันชน getUserMedia ชั่วคราวจาก getCameras() เอง (Android) */
+    return delay_(isIOS_ ? 200 : 0).then(function(){ /* กันชน getUserMedia ชั่วคราวจาก getCameras() เอง (Android) */
       return scannerInstance.start(selector, withCameraSelector_(scanConfig, selector), onDecode, onFrameMiss);
     }).then(function(res){
       if(!isRunningFrontCamera_(scannerInstance)) return res;
@@ -1515,7 +1590,43 @@ function getScanFormatsToSupport(){
    ถ้าโครงสร้างภายในไลบรารีไม่ตรงที่คาดไว้ จะถอยกลับไปใช้ลูปเดิมของไลบรารีโดยอัตโนมัติ */
 var SCAN_MAX_CANVAS_W = 1280;
 var SCAN_DEBUG = /[?&]scandebug=1/.test(location.search);
+/* ============================================================
+   [แก้บั๊ก "สแกนติดรหัสล่าง/รหัสข้างเคียง" + ช่วยให้สแกนติดเร็วขึ้น] (ตรวจจากซอร์ส html5-qrcode 2.3.8)
+   1) ตัวถอดรหัสแบบ native (BarcodeDetector ของ Android Chrome) ในไลบรารีเลือกบาร์โค้ด "ที่ใหญ่ที่สุดในภาพ"
+      (selectLargestBarcode) ไม่ใช่ "อันที่อยู่กลางกรอบเขียว" — พอในกรอบมีบาร์โค้ดข้างเคียงเข้ามาเสี้ยวหนึ่ง
+      หรือป้ายล่างอยู่ใกล้กล้องกว่า ก็อาจถูกเลือกแทนอันที่เล็งไว้ → เปลี่ยนเป็นเลือกอันที่จุดกึ่งกลางใกล้กลางกรอบที่สุด
+      และทิ้งอันที่กึ่งกลางอยู่นอกแถบกลางกรอบ (ไม่ถือว่าเล็งอยู่)
+   2) ไลบรารีสลับตัวถอดรหัสทีละเฟรม (เฟรมคี่ native / เฟรมคู่ ZXing) → แต่ละตัวได้ลองแค่ครึ่งหนึ่งของเฟรม
+      เปลี่ยนเป็นลอง native ก่อน ถ้าไม่ติดให้ลอง ZXing ต่อในเฟรมเดียวกัน (decodeRobustlyAsync ที่ไลบรารีมีอยู่แล้ว) */
+function patchDecoderPick_(scanner){
+  try{
+    var shim = scanner && scanner.qrcode;
+    if(!shim) return;
+    var prim = shim.primaryDecoder;
+    if(prim && typeof prim.selectLargestBarcode === 'function'){
+      prim.selectLargestBarcode = function(barcodes){
+        var cv = scanner.canvasElement;
+        var cw = cv ? cv.width : 0, ch = cv ? cv.height : 0;
+        var cx = cw/2, cy = ch/2, best = null, bestScore = Infinity, bestDy = 0;
+        for(var i=0; i<barcodes.length; i++){
+          var bb = barcodes[i] && barcodes[i].boundingBox;
+          if(!bb) continue;
+          var dx = (bb.x + bb.width/2) - cx, dy = (bb.y + bb.height/2) - cy;
+          var score = dy*dy*4 + dx*dx; /* แนวตั้งถ่วงน้ำหนักมากกว่า เพราะป้ายมักเรียงซ้อนกันในแนวตั้ง */
+          if(score < bestScore){ bestScore = score; best = barcodes[i]; bestDy = dy; }
+        }
+        if(!best) throw "No largest barcode found";
+        if(ch && Math.abs(bestDy) > ch*0.34){ throw "Barcode not near frame center"; }
+        return best;
+      };
+    }
+    if(shim.secondaryDecoder && typeof shim.decodeRobustlyAsync === 'function'){
+      shim.decodeAsync = function(canvas){ return shim.decodeRobustlyAsync(canvas); };
+    }
+  }catch(e){}
+}
 function patchHighResScan_(scanner){
+  patchDecoderPick_(scanner);
   if(!scanner || typeof scanner.foreverScan !== 'function') return;
   var originalForeverScan = scanner.foreverScan;
   scanner.foreverScan = function(internalConfig, onOk, onErr){
@@ -1564,7 +1675,8 @@ function patchHighResScan_(scanner){
           'video '+vw+'x'+vh+' | client '+Cw+'x'+Ch+' | rect '+Math.round(vr.width)+'x'+Math.round(vr.height)+'@'+Math.round(vr.left)+','+Math.round(vr.top)+
           '\nframe x'+Math.round(b.x)+' y'+Math.round(b.y)+' '+Math.round(b.w)+'x'+Math.round(b.h)+
           '\ncrop sx'+Math.round(sx)+' sy'+Math.round(sy)+' '+Math.round(sw)+'x'+Math.round(sh)+' s='+s.toFixed(3)+
-          '\nobjectFit='+getComputedStyle(video).objectFit+' transform='+getComputedStyle(video).transform;
+          '\nobjectFit='+getComputedStyle(video).objectFit+' transform='+getComputedStyle(video).transform+
+          '\ndecoder='+((self.qrcode&&self.qrcode.secondaryDecoder)?'native+zxing':'zxing');
         document.getElementById('scanDebugTxt').style.whiteSpace = 'pre';
       }
     }catch(e){ next(); return; }
@@ -1815,6 +1927,7 @@ function handleQrResult(code){
     st.qrVerified = true; st.qrCode = normalized;
     st.actualQty = st.scannedCodes.length;
     st.checked = true; st.checkedAt = new Date().toISOString();
+    saveLocalDraft_();
     msgEl.style.color='var(--ok)';
     msgEl.textContent='✓ ยืนยันตัวสารเคมีสำเร็จ';
     playScanBeep(true);
@@ -2020,6 +2133,7 @@ function handleContinuousScanResult(rawCode){
   st.actualQty = st.scannedCodes.length;
   st.checked = true;
   st.checkedAt = new Date().toISOString();
+  saveLocalDraft_();
 
   cScanBeep(true); cScanFlash('rgba(26,156,107,.30)'); showScanSuccessPop('cScanSuccess'); if(navigator.vibrate) navigator.vibrate(40);
   msgEl.style.color='var(--ok)';
@@ -2312,6 +2426,7 @@ document.getElementById('btnSubmit').onclick=function(){
       openBottles: st.openBottles, remark: composeRemark(st), remainingApprox: st.remainingApprox, unit: it.unit, checked: st.checked, checkedAt: st.checkedAt || '', qrCode: st.qrCode || '' };
   });
   google.script.run.withSuccessHandler(function(){
+    clearLocalDraft_(); LOCAL_DRAFT_READY = false;
     document.getElementById('modalSuccess').classList.add('open');
   }).withFailureHandler(function(err){ onError(err); btn.disabled=false; btn.textContent='ส่งใบตรวจนับ'; })
   .submitChecklist({ employeeName: document.getElementById('employeeName').value.trim(), signatureBase64: STATE.employeeSignature, items: items });
@@ -2358,7 +2473,7 @@ function submitGatePin(){
     showView('backend');
     setActiveBeTab('dash');
     loadDashboard();
-    google.script.run.withSuccessHandler(function(list){ BE.pending=list; updatePendingBadge(); }).withFailureHandler(function(){}).getPendingSubmissions(pin);
+    google.script.run.withSuccessHandler(function(list){ BE.pending=list; updatePendingBadge(); addPendingNote_(); }).withFailureHandler(function(){}).getPendingSubmissions(pin);
     google.script.run.withSuccessHandler(function(list){ BE.editRequests=list; updateReqBadge(list.length); }).withFailureHandler(function(){}).getEditRequests(pin);
   }).withFailureHandler(function(){
     btn.disabled=false; btn.textContent='เข้าสู่ระบบ';
@@ -2398,10 +2513,22 @@ function loadDashboard(){
   document.getElementById('statItemCount').textContent = BE.master.length;
   loadArchiveMonths();
 }
+function addPendingNote_(){
+  var host = document.getElementById('archiveContent');
+  if(!host) return;
+  var old = document.getElementById('pendingSheetsNote'); if(old) old.remove();
+  var n = (BE.pending||[]).length;
+  if(!n) return;
+  var note = document.createElement('div');
+  note.id = 'pendingSheetsNote';
+  note.style.cssText = 'background:var(--warn-lt);border:1px solid rgba(192,122,31,.28);border-radius:12px;padding:10px 12px;margin-bottom:10px;font-size:12.5px;font-weight:600;color:var(--warn);';
+  note.textContent = '⚠ มีใบตรวจนับรออนุมัติอีก '+n+' ใบ ยังไม่รวมในสรุปด้านล่าง (สรุปรายเดือนนับเฉพาะใบที่อนุมัติแล้ว) — ไปที่แท็บ "รอตรวจสอบ"';
+  host.insertBefore(note, host.firstChild);
+}
 function loadArchiveMonths(){
   var el = document.getElementById('archiveContent');
   el.innerHTML = '<div class="loading-dots">กำลังโหลด...</div>';
-  google.script.run.withSuccessHandler(function(months){ renderArchiveMonths(months, 'archiveContent'); }).withFailureHandler(onError).getArchiveMonths();
+  google.script.run.withSuccessHandler(function(months){ renderArchiveMonths(months, 'archiveContent'); addPendingNote_(); }).withFailureHandler(onError).getArchiveMonths();
 }
 function loadPublicSummaryMonths(){
   var el = document.getElementById('publicSummaryContent');
@@ -2485,14 +2612,36 @@ function loadPending(){
   }).withFailureHandler(onError).getPendingSubmissions(BE.pin);
 }
 function tsFromId_(id){ var m=String(id).match(/(\d+)$/); return m ? Number(m[1]) : 0; }
+function prependPendingBar_(el){
+  var bar=document.createElement('div');
+  bar.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11.5px;color:var(--text-faint);margin:0 2px 6px;';
+  var t=new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  var info=document.createElement('span');
+  info.textContent='เซิร์ฟเวอร์ส่งมา: ใบตรวจนับ '+BE.pending.length+' ใบ · คำขอแก้ไข '+BE.editRequests.length+' รายการ (โหลดเมื่อ '+t+')';
+  var btn=document.createElement('button');
+  btn.className='btn-mini'; btn.textContent='🔄 รีเฟรช';
+  btn.onclick=function(){ loadPending(); };
+  bar.appendChild(info); bar.appendChild(btn);
+  el.insertBefore(bar, el.firstChild);
+}
 function renderPending(){
   var el=document.getElementById('pendingContent');
   var merged = BE.pending.map(function(s){ return { kind:'submission', ts: tsFromId_(s.submissionId), data:s }; })
     .concat(BE.editRequests.map(function(r){ return { kind:'request', ts: tsFromId_(r.requestId), data:r }; }));
-  merged.sort(function(a,b){ return b.ts - a.ts; });
-  if(!merged.length){ el.innerHTML='<div class="empty-state">ไม่มีรายการรอตรวจสอบ 🎉</div>'; return; }
+  /* ใบตรวจนับ (ที่เป็นตัวกำหนดสรุปรายเดือน) ขึ้นก่อนเสมอ แล้วค่อยตามด้วยคำขอแก้ไข — เดิมเรียงรวมกันตามเวลา
+     คำขอแก้ไขที่ใหม่กว่าเลยดันใบตรวจนับลงไปอยู่ท้ายสุดจนเหมือนมีแต่คำขอแก้ไข */
+  merged.sort(function(a,b){ if(a.kind!==b.kind) return a.kind==='submission' ? -1 : 1; return b.ts - a.ts; });
+  if(!merged.length){ el.innerHTML='<div class=\"empty-state\">ไม่มีรายการรอตรวจสอบ 🎉</div>'; prependPendingBar_(el); return; }
   el.innerHTML='';
+  var subCount = BE.pending.length, reqCount = BE.editRequests.length, lastKind = '';
   merged.forEach(function(m){
+    if(m.kind !== lastKind){
+      lastKind = m.kind;
+      var hd = document.createElement('div');
+      hd.style.cssText = 'font-size:13px;font-weight:800;color:var(--text-soft);margin:14px 2px 8px;';
+      hd.textContent = m.kind==='submission' ? ('📋 ใบตรวจนับรออนุมัติ ('+subCount+') — อนุมัติแล้วจึงนับเข้าสรุปรายเดือน') : ('✏ คำขอแก้ไขรหัส/รายละเอียด ('+reqCount+')');
+      el.appendChild(hd);
+    }
     if(m.kind==='submission'){
       var sub=m.data;
       var card=document.createElement('div');
@@ -2502,7 +2651,7 @@ function renderPending(){
           '<div class="list-name">📋 '+esc(sub.employeeName)+'</div>'+
           '<div class="list-meta">ส่งเมื่อ '+fmtDate(sub.submittedAt)+' &middot; '+(sub.itemCount||0)+' รายการ'+
           (sub.discrepancyCount>0 ? ' &middot; <span style="color:var(--er);font-weight:700;">⚠ '+sub.discrepancyCount+' ไม่ตรง</span>' : ' &middot; <span style="color:var(--ok);font-weight:700;">✓ ครบถ้วน</span>')+
-          '</div></div><div class="list-action">ตรวจสอบ</div>';
+          '</div></div><div class="list-action">ตรวจสอบ/อนุมัติ ➔</div>';
       card.onclick=function(){ openReviewDetail(sub.submissionId); };
       el.appendChild(card);
     } else {
@@ -2523,6 +2672,7 @@ function renderPending(){
       el.appendChild(box);
     }
   });
+  prependPendingBar_(el);
   el.querySelectorAll('.req-approve').forEach(function(btn){ btn.onclick=function(){ resolveReq(this.dataset.id,'approve'); }; });
   el.querySelectorAll('.req-reject').forEach(function(btn){ btn.onclick=function(){ resolveReq(this.dataset.id,'reject'); }; });
 }
@@ -2546,6 +2696,15 @@ function renderReviewDetail(detail){
   var canEditDirectly = (detail.status !== 'ตรวจสอบแล้ว');
   var itemsEl=document.getElementById('detailItemsContent');
   itemsEl.innerHTML='';
+  if(detail.status!=='ตรวจสอบแล้ว'){
+    /* ปุ่มอนุมัติอยู่ท้ายรายการ (อาจยาวเป็นร้อยรายการ) — ใส่ทางลัดไว้บนสุด */
+    var jump=document.createElement('div');
+    jump.className='link-text';
+    jump.style.cssText='margin:0 0 10px;font-weight:700;';
+    jump.textContent='⬇ ไปที่ปุ่มลงลายเซ็นและอนุมัติ';
+    jump.onclick=function(){ var t=document.getElementById('detailApproveSection'); if(t) t.scrollIntoView({behavior:'smooth',block:'center'}); };
+    itemsEl.appendChild(jump);
+  }
   detail.items.forEach(function(it, idx){
     var row=document.createElement('div');
     row.className='detail-item'+(it.hasDiscrepancy?' disc':'');
