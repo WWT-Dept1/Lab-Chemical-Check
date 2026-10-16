@@ -882,7 +882,7 @@ function renderItems(){
     var entered = st.actualQty!==null && st.actualQty!=='' && st.actualQty!==undefined;
     var mismatch = entered && Number(st.actualQty) !== Number(it.qty);
     var unit = it.unit || 'ขวด';
-    var hasQr = it.productCodes && it.productCodes.length && it.productCodes[0]!=='-';
+    var hasQr = it.requireQr!==false && it.productCodes && it.productCodes.length && it.productCodes[0]!=='-';
     var qrOk = !hasQr || st.qrVerified;
 
     var card = document.createElement('div');
@@ -1049,7 +1049,7 @@ function renderItems(){
       var i=this.dataset.idx, it=STATE.items[i], st=STATE.itemState[i];
       var q=document.getElementById('manualQty_'+i).value;
       if(q===''||isNaN(Number(q))||Number(q)<0){ alert('กรุณากรอกจำนวนที่นับได้'); return; }
-      var needQr = it.productCodes && it.productCodes.length && it.productCodes[0]!=='-';
+      var needQr = it.requireQr!==false && it.productCodes && it.productCodes.length && it.productCodes[0]!=='-';
       if(needQr && !String(st.remark||'').trim()){ alert('สแกนไม่ได้ กรุณาระบุหมายเหตุ เช่น ป้ายขาด/สแกนไม่ติด'); return; }
       st.actualQty=Number(q); st.checked=true; st.checkedAt=new Date().toISOString();
       saveLocalDraft_(); renderItems(); updateProgress();
