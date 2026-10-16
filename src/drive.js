@@ -11,6 +11,7 @@ const stream = require('stream');
   B) Service Account + Shared Drive  -> ต้องเป็น Google Workspace
      DRIVE_FOLDER_ID = id ของโฟลเดอร์ใน Shared Drive ที่เพิ่ม service account เป็นสมาชิก (Content manager)
 */
+const UPLOAD_URL = process.env.DRIVE_UPLOAD_URL || '';
 const useOAuth = !!(process.env.GOOGLE_OAUTH_CLIENT_ID && process.env.GOOGLE_OAUTH_CLIENT_SECRET && process.env.GOOGLE_OAUTH_REFRESH_TOKEN);
 
 function getAuth() {
@@ -55,7 +56,21 @@ async function getOrCreateFolder() {
 }
 
 /** base64Data may include a data: prefix; filenamePrefix should not include extension */
+async function saveViaAppsScript_(base64Data, filenamePrefix) {
+  const res = await fetch(UPLOAD_URL, {
+    method: 'POST',
+    redirect: 'follow',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ secret: process.env.DRIVE_UPLOAD_SECRET || '', name: filenamePrefix + '.png', data: base64Data })
+  });
+  const txt = await res.text();
+  let j; try { j = JSON.parse(txt); } catch (e) { throw new Error('Apps Script ตอบกลับผิดรูปแบบ: ' + txt.slice(0, 120)); }
+  if (!j.url) throw new Error('อัปโหลดลายเซ็นไม่สำเร็จ: ' + (j.error || 'unknown'));
+  return j.url;
+}
+
 async function saveSignatureImage(base64Data, filenamePrefix) {
+  if (UPLOAD_URL) return saveViaAppsScript_(base64Data, filenamePrefix);
   const folderId = await getOrCreateFolder();
   const raw = base64Data.split(',')[1] || base64Data;
   const buffer = Buffer.from(raw, 'base64');
