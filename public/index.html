@@ -984,8 +984,28 @@ function renderItems(){
     if(!st.checked){
       var hint=document.createElement('div');
       hint.style.cssText='font-size:11px;color:var(--er);font-weight:600;margin-top:8px;';
-      hint.textContent = '* กรุณาสแกน QR/บาร์โค้ดที่ขวดของรายการนี้ก่อน ระบบจะยืนยันและนับจำนวนให้อัตโนมัติ';
+      hint.textContent = hasQr
+        ? '* กรุณาสแกน QR/บาร์โค้ดที่ขวดของรายการนี้ก่อน ระบบจะยืนยันและนับจำนวนให้อัตโนมัติ (หากสแกนไม่ได้ ใช้ช่องยืนยันด้วยมือด้านล่าง)'
+        : '* รายการนี้ไม่มี QR/บาร์โค้ด กรุณานับจำนวนจริงแล้วกดยืนยันด้วยมือ';
       card.appendChild(hint);
+
+      /* ยืนยันด้วยมือ: รายการที่ไม่มี QR (ปกติ) หรือสแกนไม่ได้ (ต้องใส่หมายเหตุ) */
+      var man=document.createElement('div');
+      man.style.cssText='background:var(--warn-lt);border-radius:10px;padding:10px 12px;margin-top:10px;';
+      man.innerHTML =
+        '<div style="font-size:12px;font-weight:700;color:var(--warn);margin-bottom:6px;">'+(hasQr?'สแกนไม่ได้? ยืนยันด้วยมือ (ต้องใส่หมายเหตุด้านบน)':'ยืนยันจำนวนด้วยมือ')+'</div>'+
+        '<div style="display:flex;gap:8px;align-items:center;">'+
+          '<input type="number" inputmode="numeric" min="0" class="input manual-qty" id="manualQty_'+idx+'" value="'+(entered?esc(st.actualQty):it.qty)+'" style="flex:0 0 90px;"/>'+
+          '<span style="font-size:12px;">'+esc(unit)+'</span>'+
+          '<button class="btn-mini btn-manual-confirm" data-idx="'+idx+'" style="margin-left:auto;">✓ ยืนยันการนับ</button>'+
+        '</div>';
+      card.appendChild(man);
+    } else if(!st.qrVerified){
+      var undo=document.createElement('div');
+      undo.className='link-text';
+      undo.textContent='↺ ยกเลิกการยืนยัน (นับ '+st.actualQty+' '+unit+')';
+      undo.onclick=function(){ st.checked=false; st.checkedAt=''; st.actualQty=null; saveLocalDraft_(); renderItems(); updateProgress(); };
+      card.appendChild(undo);
     }
 
     var codeReqToggle = document.createElement('div');
@@ -1023,6 +1043,17 @@ function renderItems(){
 
   container.querySelectorAll('.btn-scan-qr').forEach(function(btn){
     btn.onclick=function(){ openQrScan(this.dataset.idx); };
+  });
+  container.querySelectorAll('.btn-manual-confirm').forEach(function(btn){
+    btn.onclick=function(){
+      var i=this.dataset.idx, it=STATE.items[i], st=STATE.itemState[i];
+      var q=document.getElementById('manualQty_'+i).value;
+      if(q===''||isNaN(Number(q))||Number(q)<0){ alert('กรุณากรอกจำนวนที่นับได้'); return; }
+      var needQr = it.productCodes && it.productCodes.length && it.productCodes[0]!=='-';
+      if(needQr && !String(st.remark||'').trim()){ alert('สแกนไม่ได้ กรุณาระบุหมายเหตุ เช่น ป้ายขาด/สแกนไม่ติด'); return; }
+      st.actualQty=Number(q); st.checked=true; st.checkedAt=new Date().toISOString();
+      saveLocalDraft_(); renderItems(); updateProgress();
+    };
   });
   container.querySelectorAll('.btn-rescan-qr').forEach(function(btn){
     btn.onclick=function(){ openQrScan(this.dataset.idx); };
