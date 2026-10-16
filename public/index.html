@@ -1502,6 +1502,48 @@ function getScanFormatsToSupport(){
 }
 
 /* ============================================================
+   [แก้บั๊กหลัก: เห็นบาร์โค้ดชัดในกล้องแต่ไม่ถอดรหัสเลย]
+   สาเหตุ (ตรวจจากซอร์ส html5-qrcode 2.3.8): ไลบรารีตัดเฉพาะพื้นที่ในกรอบสแกนจากภาพวิดีโอ แล้ว "ย่อ" ลง
+   แคนวาสที่มีขนาดเท่ากรอบเป็นหน่วยพิกเซลหน้าจอ (CSS px) — ตามค่า barcodeQrbox() คือไม่เกิน ~260x62 px
+   ไม่ว่ากล้องจะส่งภาพ 1080p มาก็ตาม ทำให้ Code128 ที่ยาว ~13 ตัวอักษร (เช่น 01121-2026-13) เหลือแค่
+   ~1.3 พิกเซลต่อเส้นบาร์โค้ดหนึ่งหน่วย ตัวถอดรหัสอ่านไม่ออกแม้ภาพบนจอจะคมชัด
+   (ทดสอบจำลองด้วย ZXing: แคนวาส 260 และ 400 px อ่านไม่ได้ / 640 px ขึ้นไปอ่านได้ทุกรหัส)
+   ฟังก์ชันนี้แทนที่ลูปสแกนของไลบรารี (foreverScan) ให้ตัดกรอบเดิมแต่คงความละเอียดจริงของกล้อง
+   (จำกัดกว้างสุด 1280 px กันเครื่องช้า) — ตำแหน่ง/ขนาดกรอบบนจอ ไม่เปลี่ยน
+   ถ้าโครงสร้างภายในไลบรารีไม่ตรงที่คาดไว้ จะถอยกลับไปใช้ลูปเดิมของไลบรารีโดยอัตโนมัติ */
+var SCAN_MAX_CANVAS_W = 1280;
+function patchHighResScan_(scanner){
+  if(!scanner || typeof scanner.foreverScan !== 'function') return;
+  var originalForeverScan = scanner.foreverScan;
+  scanner.foreverScan = function(internalConfig, onOk, onErr){
+    var self = this;
+    if(!self.qrRegion || !self.context || !self.canvasElement || typeof self.scanContext !== 'function' || typeof self.getTimeoutFps !== 'function'){
+      return originalForeverScan.apply(self, arguments);
+    }
+    if(!self.shouldScan || !self.renderedCamera) return;
+    var next = function(){
+      self.foreverScanTimeout = setTimeout(function(){
+        self.foreverScan(internalConfig, onOk, onErr);
+      }, self.getTimeoutFps(internalConfig.fps));
+    };
+    try{
+      var video = self.renderedCamera.getSurface();
+      if(!video || !video.videoWidth || !video.clientWidth){ next(); return; } /* วิดีโอยังไม่พร้อม */
+      var wr = video.videoWidth / video.clientWidth;
+      var hr = video.videoHeight / video.clientHeight;
+      var r = self.qrRegion;
+      var sx = r.x * wr, sy = r.y * hr, sw = r.width * wr, sh = r.height * hr;
+      var k = Math.min(1, SCAN_MAX_CANVAS_W / sw);
+      var cw = Math.max(1, Math.round(sw * k)), ch = Math.max(1, Math.round(sh * k));
+      var canvas = self.canvasElement;
+      if(canvas.width !== cw || canvas.height !== ch){ canvas.width = cw; canvas.height = ch; }
+      self.context.drawImage(video, sx, sy, sw, sh, 0, 0, cw, ch);
+    }catch(e){ next(); return; }
+    self.scanContext(onOk, onErr).then(next, next);
+  };
+}
+
+/* ============================================================
    เสียงติ๊ด + ภาพเช็คถูก✓เด้ง + ปุ่มไฟฉาย — ใช้ร่วมกันทั้ง 3 โหมดสแกน
    ============================================================ */
 var _scanAudioCtx = null;
@@ -1679,6 +1721,7 @@ function startQrScanner(){
     }
     try{
       qrScanner = new Html5Qrcode('qrReaderBox', { formatsToSupport: getScanFormatsToSupport(), verbose: false });
+      patchHighResScan_(qrScanner);
       startScannerSimple_(
         qrScanner,
         { fps: 10, qrbox: barcodeQrbox, videoConstraints: SCAN_VIDEO_CONSTRAINTS, disableFlip: true },
@@ -1815,6 +1858,7 @@ function startContinuousScanner(){
     }
     try{
       cScanScanner = new Html5Qrcode('cScanReaderBox', { formatsToSupport: getScanFormatsToSupport(), verbose: false });
+      patchHighResScan_(cScanScanner);
       startScannerSimple_(
         cScanScanner,
         { fps: 10, qrbox: barcodeQrbox, videoConstraints: SCAN_VIDEO_CONSTRAINTS, disableFlip: true },
@@ -2026,6 +2070,7 @@ function startRscanScanner(){
     }
     try{
       RSCAN.scanner = new Html5Qrcode('rscanReaderBox', { formatsToSupport: getScanFormatsToSupport(), verbose: false });
+      patchHighResScan_(RSCAN.scanner);
       startScannerSimple_(
         RSCAN.scanner,
         { fps: 10, qrbox: barcodeQrbox, videoConstraints: SCAN_VIDEO_CONSTRAINTS, disableFlip: true },
