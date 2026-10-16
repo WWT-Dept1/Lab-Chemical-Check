@@ -78,7 +78,9 @@ async function getMasterItemsWithRow_() {
       code: String(r[0] || '-'), name: String(r[1]), manufacturer: String(r[2] || ''),
       productCodes: String(r[3] || '').split(';').filter(x => x),
       qty: Number(r[4]) || 0, note: String(r[5] || ''),
-      unit: String(r[6] || '') || CONFIG.DEFAULT_UNIT
+      unit: String(r[6] || '') || CONFIG.DEFAULT_UNIT,
+      /* คอลัมน์ H (checkbox): FALSE = ไม่ต้องสแกน QR, TRUE/ว่าง = ต้องสแกน */
+      requireQr: !(r[7] === false || String(r[7] == null ? '' : r[7]).trim().toUpperCase() === 'FALSE' || r[7] === 0)
     });
   }
   return out;
