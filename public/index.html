@@ -1015,7 +1015,7 @@ function renderItems(){
       var hint=document.createElement('div');
       hint.style.cssText='font-size:11px;color:var(--er);font-weight:600;margin-top:8px;';
       hint.textContent = hasQr
-        ? '* กรุณาสแกน QR/บาร์โค้ดที่ขวดของรายการนี้ก่อน ระบบจะยืนยันและนับจำนวนให้อัตโนมัติ (หากสแกนไม่ได้ ใช้ช่องยืนยันด้วยมือด้านล่าง)'
+        ? '* กรุณาสแกน QR/บาร์โค้ดที่ขวดของรายการนี้ก่อน ระบบจะยืนยันและนับจำนวนให้อัตโนมัติ (ถ้าสแกนไม่ได้จริงๆ ใช้ลิงก์ "ตรวจสอบด้วยมือ" ด้านล่าง)'
         : '* รายการนี้ไม่มี QR/บาร์โค้ด กรุณานับจำนวนจริงแล้วกดยืนยันด้วยมือ';
       card.appendChild(hint);
 
@@ -1039,7 +1039,27 @@ function renderItems(){
           '<span style="font-size:12px;">'+esc(unit)+'</span>'+
           '<button class="btn-mini btn-manual-confirm" data-idx="'+idx+'" style="margin-left:auto;">✓ ยืนยันการนับ</button>'+
         '</div>';
-      card.appendChild(man);
+      if(hasQr && !st.manualOpen){
+        /* ตรวจสอบด้วยมือ: ซ่อนไว้ ต้องกดลิงก์เองก่อนจึงจะเห็น */
+        var emg=document.createElement('div');
+        emg.className='link-text';
+        emg.style.cssText='font-size:12px;opacity:.8;margin-top:10px;';
+        emg.textContent='✋ ตรวจสอบด้วยมือ';
+        emg.onclick=function(){
+          if(confirm('ระบบหลักคือสแกน QR ที่ขวด\nใช้ตรวจสอบด้วยมือเฉพาะกรณีสแกนไม่ได้จริงๆ (เช่น ป้ายขาด/สแกนไม่ติด) และต้องใส่หมายเหตุ\n\nต้องการตรวจสอบด้วยมือใช่หรือไม่?')){ st.manualOpen=true; renderItems(); }
+        };
+        card.appendChild(emg);
+      } else {
+        if(hasQr){
+          var cls=document.createElement('div');
+          cls.className='link-text';
+          cls.style.cssText='font-size:12px;margin-top:10px;';
+          cls.textContent='↩ กลับไปใช้การสแกน';
+          cls.onclick=function(){ st.manualOpen=false; renderItems(); };
+          card.appendChild(cls);
+        }
+        card.appendChild(man);
+      }
     } else if(!st.qrVerified){
       var undo=document.createElement('div');
       undo.className='link-text';
