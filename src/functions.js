@@ -28,6 +28,15 @@ function nowIso() { return new Date().toISOString(); }
    ensureSheets_ : สร้างชีทที่จำเป็นถ้ายังไม่มี (เรียกครั้งเดียวตอน boot ก็พอ
    แต่คงพฤติกรรมเดิมไว้โดยเช็คทุกครั้งที่เรียกฟังก์ชันหลัก)
    ============================================================ */
+/** เติมหัวคอลัมน์ (1-based) ถ้ายังไม่มี — ใช้กับชีทเดิมที่สร้างก่อนเพิ่มคอลัมน์ goneCodes */
+async function ensureHeaderCol_(sheetName, colIndex, title) {
+  const rows = await db.getDataRange(sheetName);
+  const header = (rows && rows[0]) || [];
+  if (header.length < colIndex || !header[colIndex - 1]) {
+    await db.setCell(sheetName, 1, colIndex, title);
+  }
+}
+
 let ensured = false;
 async function ensureSheets_() {
   if (ensured) return; // เช็คครั้งเดียวต่อการรันโปรเซส พอสำหรับ use case นี้
@@ -43,7 +52,9 @@ async function ensureSheets_() {
   }
   if (names.indexOf(CONFIG.SHEET_ITEMS) === -1) {
     await db.createSheet(CONFIG.SHEET_ITEMS,
-      ['submissionId', 'code', 'name', 'manufacturer', 'expectedQty', 'actualQty', 'openBottles', 'remark', 'hasDiscrepancy', 'unit', 'usedQty', 'remainingApprox', 'checkedAt', 'qrCode']);
+      ['submissionId', 'code', 'name', 'manufacturer', 'expectedQty', 'actualQty', 'openBottles', 'remark', 'hasDiscrepancy', 'unit', 'usedQty', 'remainingApprox', 'checkedAt', 'qrCode', 'goneCodes']);
+  } else {
+    await ensureHeaderCol_(CONFIG.SHEET_ITEMS, 15, 'goneCodes'); // ชีทเดิม: เติมหัวคอลัมน์ใหม่
   }
   if (names.indexOf(CONFIG.SHEET_EDITREQ) === -1) {
     await db.createSheet(CONFIG.SHEET_EDITREQ,
@@ -166,7 +177,8 @@ async function submitChecklist(payload) {
         (it.openBottles || []).join(';'), it.remark || '', hasDisc,
         it.unit || CONFIG.DEFAULT_UNIT, Number(it.usedQty) || 0, it.remainingApprox || '',
         it.checkedAt ? new Date(it.checkedAt).toISOString() : '',
-        it.qrCode || ''
+        it.qrCode || '',
+        (it.goneCodes || []).join(';')
       ];
     });
     await db.appendRows(CONFIG.SHEET_ITEMS, rows);
@@ -225,7 +237,8 @@ async function getSubmissionDetail(pin, submissionId) {
         usedQty: Number(r[10]) || 0,
         remainingApprox: String(r[11] || ''),
         checkedAt: thaiDate(r[12]),
-        qrCode: String(r[13] || '')
+        qrCode: String(r[13] || ''),
+        goneCodes: String(r[14] || '').split(';').filter(x => x)
       });
     }
   }
@@ -316,8 +329,10 @@ async function ensureArchiveSheet_(monthKey) {
     await db.createSheet(sheetName, [
       'submissionId', 'submittedAt', 'employeeName', 'reviewerName', 'reviewedAt',
       'itemCode', 'itemName', 'manufacturer', 'expectedQty', 'actualQty',
-      'openBottles', 'remark', 'hasDiscrepancy', 'unit', 'usedQty', 'remainingApprox', 'checkedAt', 'qrCode'
+      'openBottles', 'remark', 'hasDiscrepancy', 'unit', 'usedQty', 'remainingApprox', 'checkedAt', 'qrCode', 'goneCodes'
     ]);
+  } else {
+    await ensureHeaderCol_(sheetName, 19, 'goneCodes');
   }
   return sheetName;
 }
@@ -360,7 +375,7 @@ async function archiveSubmission_(submissionId, reviewedAt) {
       rowsToAppend.push([
         submissionId, submittedAt, employeeName, reviewerName, reviewedAt,
         r[1], r[2], r[3], r[4], r[5], r[6], r[7], r[8],
-        r[9] || CONFIG.DEFAULT_UNIT, Number(r[10]) || 0, r[11] || '', r[12] || '', r[13] || ''
+        r[9] || CONFIG.DEFAULT_UNIT, Number(r[10]) || 0, r[11] || '', r[12] || '', r[13] || '', r[14] || ''
       ]);
     }
   }
@@ -417,7 +432,8 @@ async function getMonthlyRemainingSummary(monthKey) {
           hasDiscrepancy: Boolean(row[12]),
           unit: String(row[13] || '') || CONFIG.DEFAULT_UNIT,
           usedQty: Number(row[14]) || 0,
-          remainingApprox: String(row[15] || '')
+          remainingApprox: String(row[15] || ''),
+          goneCodes: String(row[18] || '').split(';').filter(x => x)
         };
       }
     }
@@ -434,6 +450,7 @@ async function getMonthlyRemainingSummary(monthKey) {
       openBottles: found ? found.openBottles : [],
       usedQty: found ? found.usedQty : 0,
       remainingApprox: found ? found.remainingApprox : '',
+      goneCodes: found ? found.goneCodes : [],
       remark: (found && found.remark) ? found.remark : it.note,
       hasDiscrepancy: found ? found.hasDiscrepancy : false,
       checked: !!found
