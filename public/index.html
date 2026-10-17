@@ -986,18 +986,20 @@ function renderItems(){
       card.appendChild(reasonWrap);
 
       /* เลือกรหัสขวดที่หมด/หาย/เสียหาย เพื่อให้หน้าสรุปรู้ว่ารหัสไหนไม่มีแล้ว */
-      var goneReasons = ['ใช้หมดแล้ว','สูญหาย','ชำรุด/เสียหาย'];
-      if(goneReasons.indexOf(st.reason)>-1 && it.productCodes && it.productCodes.length && it.productCodes[0]!=='-'){
-        var need = Math.max(Number(it.qty) - Number(st.actualQty), 0);
+      var hasCodes = it.productCodes && it.productCodes.length && it.productCodes[0]!=='-';
+      if(hasCodes && Number(st.actualQty) < Number(it.qty)){
+        var need = Number(it.qty) - Number(st.actualQty);
+        var goneLbl = (st.reason && st.reason!=='อื่นๆ' && st.reason!=='รับเข้าใหม่') ? st.reason : 'หมด/หาย';
         var gl=document.createElement('div'); gl.className='chips-label';
-        gl.textContent='แตะเลือกรหัสขวดที่ '+st.reason+' (เลือกแล้ว '+st.goneCodes.length+' / ควรเป็น '+need+')';
+        gl.textContent='แตะเลือกรหัสขวดที่'+goneLbl+' (เลือกแล้ว '+st.goneCodes.length+' / ต้องเป็น '+need+')';
         card.appendChild(gl);
         var gr=document.createElement('div'); gr.className='chips-row';
         it.productCodes.forEach(function(pc){
+          if(st.scannedCodes.indexOf(pc)>-1) return; /* รหัสที่ยืนยันว่ามีอยู่ ไม่ใช่ขวดที่หมด */
           var isGone = st.goneCodes.indexOf(pc)>-1;
           var ch=document.createElement('div'); ch.className='chip'+(isGone?' gone':'');
           ch.innerHTML='<span class="chip-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>'+
-            '<span class="chip-code">'+esc(pc)+'</span>'+(isGone?'<span class="chip-tag">'+esc(st.reason)+'</span>':'');
+            '<span class="chip-code">'+esc(pc)+'</span>'+(isGone?'<span class="chip-tag">'+esc(goneLbl)+'</span>':'');
           ch.onclick=function(){
             var i=st.goneCodes.indexOf(pc);
             if(i>-1) st.goneCodes.splice(i,1); else st.goneCodes.push(pc);
@@ -1020,10 +1022,20 @@ function renderItems(){
       /* ยืนยันด้วยมือ: รายการที่ไม่มี QR (ปกติ) หรือสแกนไม่ได้ (ต้องใส่หมายเหตุ) */
       var man=document.createElement('div');
       man.style.cssText='background:var(--warn-lt);border-radius:10px;padding:10px 12px;margin-top:10px;';
-      man.innerHTML =
+      var manCoded = hasQr && it.productCodes && it.productCodes.length && it.productCodes[0]!=='-';
+      var manChips = '';
+      if(manCoded){
+        manChips = '<div style="font-size:11.5px;color:var(--text-soft);margin-bottom:6px;">แตะเลือกรหัสขวดที่ <b>ยังมีอยู่จริง</b> (นับจากรหัสที่เลือก) '+
+          '<span class="man-all" data-idx="'+idx+'" style="text-decoration:underline;cursor:pointer;margin-left:6px;">เลือกทั้งหมด</span></div><div class="chips-row" style="margin-bottom:8px;">'+
+          it.productCodes.map(function(pc){
+            var on = st.scannedCodes.indexOf(pc)>-1;
+            return '<div class="chip man-chip'+(on?' open':'')+'" data-idx="'+idx+'" data-pc="'+esc(pc)+'"><span class="chip-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span><span class="chip-code">'+esc(pc)+'</span>'+(on?'<span class="chip-tag">มีอยู่</span>':'')+'</div>';
+          }).join('')+'</div>';
+      }
+      man.innerHTML = manChips +
         '<div style="font-size:12px;font-weight:700;color:var(--warn);margin-bottom:6px;">'+(hasQr?'สแกนไม่ได้? ยืนยันด้วยมือ (ต้องใส่หมายเหตุด้านบน)':'ยืนยันจำนวนด้วยมือ')+'</div>'+
         '<div style="display:flex;gap:8px;align-items:center;">'+
-          '<input type="number" inputmode="numeric" min="0" class="input manual-qty" id="manualQty_'+idx+'" value="'+(entered?esc(st.actualQty):it.qty)+'" style="flex:0 0 90px;"/>'+
+          '<input type="number" inputmode="numeric" min="0" class="input manual-qty" id="manualQty_'+idx+'" value="'+(manCoded?st.scannedCodes.length:(entered?esc(st.actualQty):it.qty))+'"'+(manCoded?' readonly':'')+' style="flex:0 0 90px;"/>'+
           '<span style="font-size:12px;">'+esc(unit)+'</span>'+
           '<button class="btn-mini btn-manual-confirm" data-idx="'+idx+'" style="margin-left:auto;">✓ ยืนยันการนับ</button>'+
         '</div>';
@@ -1072,10 +1084,23 @@ function renderItems(){
   container.querySelectorAll('.btn-scan-qr').forEach(function(btn){
     btn.onclick=function(){ openQrScan(this.dataset.idx); };
   });
+  container.querySelectorAll('.man-chip').forEach(function(ch){
+    ch.onclick=function(){
+      var st=STATE.itemState[this.dataset.idx], pc=this.dataset.pc, k=st.scannedCodes.indexOf(pc);
+      if(k>-1) st.scannedCodes.splice(k,1); else st.scannedCodes.push(pc);
+      st.goneCodes = st.goneCodes.filter(function(g){ return st.scannedCodes.indexOf(g)===-1; });
+      saveLocalDraft_(); renderItems();
+    };
+  });
+  container.querySelectorAll('.man-all').forEach(function(a){
+    a.onclick=function(){ var i=this.dataset.idx; STATE.itemState[i].scannedCodes = STATE.items[i].productCodes.slice(); saveLocalDraft_(); renderItems(); };
+  });
   container.querySelectorAll('.btn-manual-confirm').forEach(function(btn){
     btn.onclick=function(){
       var i=this.dataset.idx, it=STATE.items[i], st=STATE.itemState[i];
       var q=document.getElementById('manualQty_'+i).value;
+      var coded = it.requireQr!==false && it.productCodes && it.productCodes.length && it.productCodes[0]!=='-';
+      if(coded){ q = st.scannedCodes.length; if(q===0 && !confirm('ยังไม่ได้เลือกรหัสที่มีอยู่เลย = ไม่เหลือสารเคมีรายการนี้ ใช่หรือไม่?')) return; }
       if(q===''||isNaN(Number(q))||Number(q)<0){ alert('กรุณากรอกจำนวนที่นับได้'); return; }
       var needQr = it.requireQr!==false && it.productCodes && it.productCodes.length && it.productCodes[0]!=='-';
       if(needQr && !String(st.remark||'').trim()){ alert('สแกนไม่ได้ กรุณาระบุหมายเหตุ เช่น ป้ายขาด/สแกนไม่ติด'); return; }
@@ -1099,7 +1124,7 @@ function renderItems(){
     sel.onchange=function(){
       var i=this.dataset.idx, it=STATE.items[i], st=STATE.itemState[i];
       st.reason = this.value;
-      if(['ใช้หมดแล้ว','สูญหาย','ชำรุด/เสียหาย'].indexOf(st.reason)>-1 && !st.goneCodes.length && st.scannedCodes.length && it.productCodes){
+      if(!st.goneCodes.length && st.scannedCodes.length && it.productCodes){
         var need = Math.max(Number(it.qty) - Number(st.actualQty), 0);
         var guess = it.productCodes.filter(function(pc){ return st.scannedCodes.indexOf(pc)===-1; });
         if(guess.length===need) st.goneCodes = guess; /* เติมให้เฉพาะเมื่อจำนวนที่ไม่ได้สแกนตรงกับที่ขาดพอดี ผู้ใช้แก้ได้ */
@@ -2487,11 +2512,16 @@ document.getElementById('btnRscanSave').onclick = function(){
 document.getElementById('btnSubmit').onclick=function(){
   var uncheckedCount = Object.keys(STATE.itemState).filter(function(k){ return !STATE.itemState[k].checked; }).length;
   if(uncheckedCount>0){ alert('กรุณายืนยันการตรวจนับให้ครบทุกรายการก่อนส่งใบตรวจนับ (ยังเหลืออีก '+uncheckedCount+' รายการ)'); return; }
-  var needGone = STATE.items.filter(function(it, idx){
+  var bad = null;
+  STATE.items.forEach(function(it, idx){
+    if(bad) return;
     var st = STATE.itemState[idx];
-    return ['ใช้หมดแล้ว','สูญหาย','ชำรุด/เสียหาย'].indexOf(st.reason)>-1 && it.productCodes && it.productCodes.length && it.productCodes[0]!=='-' && !st.goneCodes.length;
+    if(!(it.productCodes && it.productCodes.length && it.productCodes[0]!=='-')) return;
+    var short = Number(it.qty) - Number(st.actualQty);
+    if(st.scannedCodes.length !== Number(st.actualQty)){ bad = it.name+': จำนวนที่นับ ('+st.actualQty+') ไม่ตรงกับรหัสที่ยืนยันว่ามีอยู่ ('+st.scannedCodes.length+') กรุณาเลือก/สแกนรหัสให้ครบ'; }
+    else if(short>0 && st.goneCodes.length !== short){ bad = it.name+': ขาด '+short+' ขวด ต้องเลือกรหัสที่หมด/หายให้ครบ '+short+' รหัส (เลือกไว้ '+st.goneCodes.length+')'; }
   });
-  if(needGone.length){ alert('กรุณาเลือกรหัสขวดที่หมด/หาย/เสียหาย ให้ครบ (รายการ: '+needGone[0].name+')'); return; }
+  if(bad){ alert(bad); return; }
   var btn=this; btn.disabled=true; btn.textContent='กำลังส่ง...';
   var items = STATE.items.map(function(it, idx){
     var st = STATE.itemState[idx];
