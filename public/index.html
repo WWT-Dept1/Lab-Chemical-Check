@@ -299,6 +299,11 @@ textarea.input{resize:vertical; min-height:64px; line-height:1.5;}
 .code-pill{display:inline-block; font-family:var(--mono); font-size:10.5px; padding:2px 6px; border-radius:5px;
   background:var(--border-soft); color:var(--text-soft); margin:1px 2px 1px 0; white-space:nowrap;}
 .code-pill.open{background:var(--primary); color:#fff; font-weight:700;}
+.code-pill.gone{background:var(--er-lt); color:var(--er); text-decoration:line-through; font-weight:700;}
+.chip.gone{background:var(--er-lt); color:var(--er); border-color:var(--er);}
+.chip.gone .chip-box{background:var(--er); border-color:transparent;}
+.chip.gone .chip-box svg{opacity:1;}
+.chip.gone .chip-tag{background:#fff; color:var(--er);}
 
 /* ---------- สแกนบาร์โค้ดรับเข้าสารเคมี (Scan-to-Receive) ---------- */
 .btn-receive-scan{flex:1; padding:11px; border-radius:11px; border:none; font-family:'Prompt',sans-serif; font-weight:700;
@@ -835,7 +840,7 @@ document.getElementById('todayDateText').textContent = thaiDateStr();
 google.script.run.withSuccessHandler(function(items){
   STATE.items = items;
   items.forEach(function(it, idx){
-    STATE.itemState[idx] = { actualQty: null, openBottles: [], remark: it.note || '', remainingApprox: '', reason:'', reasonOther:'', checked: false, checkedAt: '', qrVerified: false, qrCode: '', scannedCodes: [] };
+    STATE.itemState[idx] = { actualQty: null, openBottles: [], goneCodes: [], remark: it.note || '', remainingApprox: '', reason:'', reasonOther:'', checked: false, checkedAt: '', qrVerified: false, qrCode: '', scannedCodes: [] };
   });
   offerLocalDraftRestore_();
   renderCatTabs();
@@ -979,6 +984,29 @@ function renderItems(){
         '<select class="input reason-select" data-idx="'+idx+'">'+opts+'</select>'+
         (st.reason==='อื่นๆ' ? '<input type="text" class="input reason-other" data-idx="'+idx+'" placeholder="ระบุเหตุผลอื่นๆ" value="'+esc(st.reasonOther)+'"/>' : '');
       card.appendChild(reasonWrap);
+
+      /* เลือกรหัสขวดที่หมด/หาย/เสียหาย เพื่อให้หน้าสรุปรู้ว่ารหัสไหนไม่มีแล้ว */
+      var goneReasons = ['ใช้หมดแล้ว','สูญหาย','ชำรุด/เสียหาย'];
+      if(goneReasons.indexOf(st.reason)>-1 && it.productCodes && it.productCodes.length && it.productCodes[0]!=='-'){
+        var need = Math.max(Number(it.qty) - Number(st.actualQty), 0);
+        var gl=document.createElement('div'); gl.className='chips-label';
+        gl.textContent='แตะเลือกรหัสขวดที่ '+st.reason+' (เลือกแล้ว '+st.goneCodes.length+' / ควรเป็น '+need+')';
+        card.appendChild(gl);
+        var gr=document.createElement('div'); gr.className='chips-row';
+        it.productCodes.forEach(function(pc){
+          var isGone = st.goneCodes.indexOf(pc)>-1;
+          var ch=document.createElement('div'); ch.className='chip'+(isGone?' gone':'');
+          ch.innerHTML='<span class="chip-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>'+
+            '<span class="chip-code">'+esc(pc)+'</span>'+(isGone?'<span class="chip-tag">'+esc(st.reason)+'</span>':'');
+          ch.onclick=function(){
+            var i=st.goneCodes.indexOf(pc);
+            if(i>-1) st.goneCodes.splice(i,1); else st.goneCodes.push(pc);
+            saveLocalDraft_(); renderItems();
+          };
+          gr.appendChild(ch);
+        });
+        card.appendChild(gr);
+      }
     }
 
     if(!st.checked){
@@ -1068,7 +1096,16 @@ function renderItems(){
     };
   });
   container.querySelectorAll('.reason-select').forEach(function(sel){
-    sel.onchange=function(){ STATE.itemState[this.dataset.idx].reason = this.value; renderItems(); scheduleAutoSaveDraft(); };
+    sel.onchange=function(){
+      var i=this.dataset.idx, it=STATE.items[i], st=STATE.itemState[i];
+      st.reason = this.value;
+      if(['ใช้หมดแล้ว','สูญหาย','ชำรุด/เสียหาย'].indexOf(st.reason)>-1 && !st.goneCodes.length && st.scannedCodes.length && it.productCodes){
+        var need = Math.max(Number(it.qty) - Number(st.actualQty), 0);
+        var guess = it.productCodes.filter(function(pc){ return st.scannedCodes.indexOf(pc)===-1; });
+        if(guess.length===need) st.goneCodes = guess; /* เติมให้เฉพาะเมื่อจำนวนที่ไม่ได้สแกนตรงกับที่ขาดพอดี ผู้ใช้แก้ได้ */
+      }
+      renderItems(); scheduleAutoSaveDraft();
+    };
   });
   container.querySelectorAll('.reason-other').forEach(function(inp){
     inp.oninput=function(){ STATE.itemState[this.dataset.idx].reasonOther = this.value; scheduleAutoSaveDraft(); };
@@ -1144,7 +1181,7 @@ function buildDraftStateObject(){
   var obj = {};
   STATE.items.forEach(function(it, idx){
     var st = STATE.itemState[idx];
-    obj[itemKey(it)] = { actualQty: st.actualQty, openBottles: st.openBottles, remark: st.remark, remainingApprox: st.remainingApprox, reason: st.reason, reasonOther: st.reasonOther, checked: st.checked, checkedAt: st.checkedAt, qrVerified: st.qrVerified, qrCode: st.qrCode, scannedCodes: st.scannedCodes };
+    obj[itemKey(it)] = { actualQty: st.actualQty, openBottles: st.openBottles, goneCodes: st.goneCodes, remark: st.remark, remainingApprox: st.remainingApprox, reason: st.reason, reasonOther: st.reasonOther, checked: st.checked, checkedAt: st.checkedAt, qrVerified: st.qrVerified, qrCode: st.qrCode, scannedCodes: st.scannedCodes };
   });
   return obj;
 }
@@ -1154,7 +1191,7 @@ function applyDraftStateObject(obj){
     if(saved){
       STATE.itemState[idx] = {
         actualQty: (saved.actualQty!==undefined && saved.actualQty!==null && saved.actualQty!=='') ? saved.actualQty : null,
-        openBottles: saved.openBottles || [], remark: saved.remark || '', remainingApprox: saved.remainingApprox || '',
+        openBottles: saved.openBottles || [], goneCodes: saved.goneCodes || [], remark: saved.remark || '', remainingApprox: saved.remainingApprox || '',
         reason: saved.reason || '', reasonOther: saved.reasonOther || '', checked: !!saved.checked, checkedAt: saved.checkedAt || '',
         qrVerified: !!saved.qrVerified, qrCode: saved.qrCode || '', scannedCodes: saved.scannedCodes || []
       };
@@ -2450,11 +2487,16 @@ document.getElementById('btnRscanSave').onclick = function(){
 document.getElementById('btnSubmit').onclick=function(){
   var uncheckedCount = Object.keys(STATE.itemState).filter(function(k){ return !STATE.itemState[k].checked; }).length;
   if(uncheckedCount>0){ alert('กรุณายืนยันการตรวจนับให้ครบทุกรายการก่อนส่งใบตรวจนับ (ยังเหลืออีก '+uncheckedCount+' รายการ)'); return; }
+  var needGone = STATE.items.filter(function(it, idx){
+    var st = STATE.itemState[idx];
+    return ['ใช้หมดแล้ว','สูญหาย','ชำรุด/เสียหาย'].indexOf(st.reason)>-1 && it.productCodes && it.productCodes.length && it.productCodes[0]!=='-' && !st.goneCodes.length;
+  });
+  if(needGone.length){ alert('กรุณาเลือกรหัสขวดที่หมด/หาย/เสียหาย ให้ครบ (รายการ: '+needGone[0].name+')'); return; }
   var btn=this; btn.disabled=true; btn.textContent='กำลังส่ง...';
   var items = STATE.items.map(function(it, idx){
     var st = STATE.itemState[idx];
     return { code: it.code, name: it.name, manufacturer: it.manufacturer, expectedQty: it.qty, actualQty: st.actualQty,
-      openBottles: st.openBottles, remark: composeRemark(st), remainingApprox: st.remainingApprox, unit: it.unit, checked: st.checked, checkedAt: st.checkedAt || '', qrCode: st.qrCode || '' };
+      openBottles: st.openBottles, goneCodes: st.goneCodes || [], scannedCodes: st.scannedCodes || [], remark: composeRemark(st), remainingApprox: st.remainingApprox, unit: it.unit, checked: st.checked, checkedAt: st.checkedAt || '', qrCode: st.qrCode || '' };
   });
   google.script.run.withSuccessHandler(function(){
     clearLocalDraft_(); LOCAL_DRAFT_READY = false;
@@ -2613,7 +2655,9 @@ function renderMonthDetail(data){
       var rowCls = it.hasDiscrepancy ? 'disc-row' : (!it.checked ? 'unchecked-row' : '');
       var codesHtml = '-';
       if(it.productCodes && it.productCodes.length && it.productCodes[0]!=='-'){
-        codesHtml = it.productCodes.map(function(pc){ return '<span class="code-pill">'+esc(pc)+'</span>'; }).join('');
+        var gone = it.goneCodes || [];
+        codesHtml = it.productCodes.map(function(pc){ return '<span class="code-pill'+(gone.indexOf(pc)>-1?' gone':'')+'">'+esc(pc)+'</span>'; }).join('');
+        if(gone.length) codesHtml += '<div style="font-size:10.5px;color:var(--er);font-weight:700;margin-top:3px;">หมด/หาย '+gone.length+' ขวด (ขีดฆ่า)</div>';
       }
       var openHtml = (it.openBottles && it.openBottles.length) ? it.openBottles.map(function(pc){ return '<span class="code-pill open">'+esc(pc)+'</span>'; }).join('') : '<span style="color:var(--text-faint);">ไม่มีขวดเปิดใช้</span>';
       var qtyHtml = it.checked ? (it.actualQty+' '+esc(it.unit||'')) : (it.docQty + ' <span class="unchecked-tag">(ยังไม่ตรวจเดือนนี้)</span>');
