@@ -9,6 +9,7 @@ const CONFIG = {
   SHEET_EDITREQ: 'EditRequests',
   SHEET_DRAFTS: 'Drafts',
   SHEET_RECEIVING: 'ReceivingLogs', // <-- เพิ่มระบบรับเข้า (Receiving)
+  SHEET_ISSUE: 'IssueLogs',         // <-- ระบบเบิกใช้/ตัดยอดคงเหลือ
   ARCHIVE_PREFIX: 'ตรวจนับ_',
   TIMEZONE: 'Asia/Bangkok',
   REVIEWER_PIN: process.env.REVIEWER_PIN || '1212312121',
@@ -63,6 +64,10 @@ async function ensureSheets_() {
   if (names.indexOf(CONFIG.SHEET_DRAFTS) === -1) {
     await db.createSheet(CONFIG.SHEET_DRAFTS, ['employeeName', 'updatedAt', 'itemsStateJson']);
   }
+  if (names.indexOf(CONFIG.SHEET_ISSUE) === -1) {
+    await db.createSheet(CONFIG.SHEET_ISSUE,
+      ['issueId', 'issuedAt', 'employeeName', 'itemCode', 'itemName', 'issueQty', 'purpose', 'previousQty', 'newQty', 'issuedDate']);
+  }
   ensured = true;
 }
 
@@ -90,6 +95,8 @@ async function getMasterItemsWithRow_() {
       productCodes: String(r[3] || '').split(';').filter(x => x),
       qty: Number(r[4]) || 0, note: String(r[5] || ''),
       unit: String(r[6] || '') || CONFIG.DEFAULT_UNIT,
+      /* คอลัมน์ I: จุดแจ้งเตือนใกล้หมด (เหลือไม่เกินค่านี้ = ใกล้หมด) ว่าง/0 = ไม่ตั้งแจ้งเตือน */
+      minQty: Number(r[8]) || 0,
       /* คอลัมน์ H (checkbox): FALSE = ไม่ต้องสแกน QR, TRUE/ว่าง = ต้องสแกน */
       requireQr: !(r[7] === false || String(r[7] == null ? '' : r[7]).trim().toUpperCase() === 'FALSE' || r[7] === 0)
     });
@@ -553,6 +560,11 @@ async function adminAddItem(pin, item) {
     await db.appendRow(CONFIG.SHEET_MASTER,
       [item.code || '-', item.name, item.manufacturer || '', (item.productCodes || []).join(';'),
         Number(item.qty) || 0, item.note || '', item.unit || CONFIG.DEFAULT_UNIT]);
+    if (Number(item.minQty) > 0) {
+      /* เขียนจุดแจ้งเตือนลงคอลัมน์ I ของแถวที่เพิ่งเพิ่ม (คอลัมน์ H ปล่อยว่าง = ต้องสแกน QR ตามเดิม) */
+      const mRows = await db.getDataRange(CONFIG.SHEET_MASTER);
+      await db.setCell(CONFIG.SHEET_MASTER, mRows.length, 9, Number(item.minQty));
+    }
     return getMasterItemsWithRow_();
   });
 }
@@ -568,6 +580,9 @@ async function adminUpdateItem(pin, rowIndex, item) {
       item.code || '-', item.name, item.manufacturer || '', (item.productCodes || []).join(';'),
       Number(item.qty) || 0, item.note || '', item.unit || CONFIG.DEFAULT_UNIT
     ]]);
+    if (item.minQty !== undefined) {
+      await db.setCell(CONFIG.SHEET_MASTER, rowIndex, 9, Number(item.minQty) > 0 ? Number(item.minQty) : '');
+    }
     return getMasterItemsWithRow_();
   });
 }
@@ -812,6 +827,100 @@ async function receiveChemicalScan(payload) {
   });
 }
 
+/* ============================================================
+   Stock balance (ระบบสารเคมีคงเหลือ) — อ้างอิงยอดจากชีท MasterItems (คอลัมน์ qty)
+   - รับเข้า (Receiving) เพิ่มยอด / เบิกใช้ (Issue) ลดยอด ทั้งคู่เขียนกลับที่ MasterItems
+   - getStockBalance เป็นหน้าสาธารณะ (อ่านอย่างเดียว) ไม่ต้องใช้ PIN
+   ============================================================ */
+function stockKey_(code, name) {
+  const c = String(code == null ? '' : code).trim();
+  return (c && c !== '-') ? c : '-|' + String(name || '').trim().toLowerCase();
+}
+
+async function getStockBalance() {
+  await ensureSheets_();
+  const master = await getMasterItemsWithRow_();
+  const names = await db.listSheetNames();
+
+  const lastRecv = {};
+  if (names.indexOf(CONFIG.SHEET_RECEIVING) > -1) {
+    const rows = await db.getDataRange(CONFIG.SHEET_RECEIVING);
+    for (let i = 1; i < rows.length; i++) {
+      const r = rows[i];
+      const key = stockKey_(r[3], r[4]);
+      const at = String(r[1] || '');
+      if (!lastRecv[key] || at > lastRecv[key].at) {
+        lastRecv[key] = { at, qty: Number(r[5]) || 0, date: String(r[9] || '') || thaiDate(at), expiry: String(r[11] || '') };
+      }
+    }
+  }
+  const lastIssue = {};
+  if (names.indexOf(CONFIG.SHEET_ISSUE) > -1) {
+    const rows = await db.getDataRange(CONFIG.SHEET_ISSUE);
+    for (let i = 1; i < rows.length; i++) {
+      const r = rows[i];
+      const key = stockKey_(r[3], r[4]);
+      const at = String(r[1] || '');
+      if (!lastIssue[key] || at > lastIssue[key].at) {
+        lastIssue[key] = { at, qty: Number(r[5]) || 0, date: String(r[9] || '') || thaiDate(at), by: String(r[2] || '') };
+      }
+    }
+  }
+
+  let outCount = 0, lowCount = 0;
+  const items = master.map(it => {
+    const status = it.qty <= 0 ? 'out' : ((it.minQty > 0 && it.qty <= it.minQty) ? 'low' : 'ok');
+    if (status === 'out') outCount++; else if (status === 'low') lowCount++;
+    const key = stockKey_(it.code, it.name);
+    return {
+      rowIndex: it.rowIndex, code: it.code, name: it.name, manufacturer: it.manufacturer,
+      unit: it.unit, qty: it.qty, minQty: it.minQty, status,
+      lotCount: it.productCodes.filter(c => c !== '-').length,
+      lastReceived: lastRecv[key] || null,
+      lastIssued: lastIssue[key] || null
+    };
+  });
+
+  return {
+    items,
+    totals: { itemCount: items.length, outCount, lowCount, okCount: items.length - outCount - lowCount },
+    updatedAt: thaiDate(nowIso())
+  };
+}
+
+/* เบิกใช้สารเคมี (ตัดยอดคงเหลือ) — พนักงานทั่วไปใช้ได้ ไม่ต้องใช้ PIN (เหมือนรับเข้าแบบสแกน)
+   payload = { employeeName, itemCode, itemName, qty, purpose } */
+async function issueChemical(payload) {
+  await ensureSheets_();
+  if (!payload || !String(payload.employeeName || '').trim()) throw new Error('กรุณาระบุชื่อ-สกุลผู้เบิก');
+  const qty = Number(payload.qty);
+  if (!isFinite(qty) || qty <= 0) throw new Error('จำนวนที่เบิกต้องมากกว่า 0');
+  const employeeName = String(payload.employeeName).trim();
+  const code = String(payload.itemCode || '-').trim() || '-';
+  const name = String(payload.itemName || '').trim();
+
+  return mutex.runExclusive(async () => {
+    const mRows = await db.getDataRange(CONFIG.SHEET_MASTER);
+    let rowIdx = -1;
+    for (let i = 1; i < mRows.length; i++) {
+      if (String(mRows[i][0] || '-').trim() === code && String(mRows[i][1] || '').trim() === name) { rowIdx = i + 1; break; }
+    }
+    if (rowIdx === -1) throw new Error('ไม่พบรายการนี้ใน MasterItems (อาจถูกแก้ไขหรือลบ กรุณารีเฟรชหน้า)');
+
+    const current = Number(mRows[rowIdx - 1][4]) || 0;
+    if (qty > current) throw new Error('จำนวนที่เบิก (' + qty + ') มากกว่ายอดคงเหลือ (' + current + ')');
+    const newQty = Math.round((current - qty) * 1000000) / 1000000;
+
+    await db.setCell(CONFIG.SHEET_MASTER, rowIdx, 5, newQty);
+    const issueId = 'ISS' + Date.now();
+    const now = nowIso();
+    await db.appendRow(CONFIG.SHEET_ISSUE, [
+      issueId, now, employeeName, code, name, qty, String(payload.purpose || '').trim(), current, newQty, thaiDate(now)
+    ]);
+    return { success: true, issueId, newQty };
+  });
+}
+
 module.exports = {
   getMasterItems, saveDraft, getDraft, submitChecklist,
   getPendingSubmissions, getSubmissionDetail, updateSubmissionItemDetail, approveSubmission,
@@ -820,5 +929,7 @@ module.exports = {
   adminGetItems, adminAddItem, adminUpdateItem, adminDeleteItem,
   receiveChemical, // <-- รับเข้าทีละรายการ (ฟอร์มเดิม)
   receiveChemicalBatch, // <-- รับเข้าแบบสแกนบาร์โค้ดหลายรายการทีเดียว (ฝั่งแอดมิน ต้องใช้ PIN)
-  receiveChemicalScan // <-- รับเข้าแบบสแกนกล้องหน้างาน (พนักงานทั่วไป ไม่ต้องใช้ PIN, มีวันที่รับเข้า/วันที่เปิด)
+  receiveChemicalScan, // <-- รับเข้าแบบสแกนกล้องหน้างาน (พนักงานทั่วไป ไม่ต้องใช้ PIN, มีวันที่รับเข้า/วันที่เปิด)
+  getStockBalance, // <-- หน้าสารเคมีคงเหลือ (อ่านจาก MasterItems)
+  issueChemical // <-- เบิกใช้/ตัดยอดคงเหลือ
 };
