@@ -430,6 +430,8 @@ textarea.input{resize:vertical; min-height:64px; line-height:1.5;}
   <div class="mode-switch">
     <button class="mode-btn" id="btnGoReceive">📥 รับเข้า</button>
     <button class="mode-btn" id="btnGoSummary">📊 สรุปคงเหลือ</button>
+    <!-- ปุ่มสำหรับดูยอดสารเคมีคงเหลือ (วางไว้ใน class="mode-switch") -->
+    <button class="mode-btn" id="btnGoBeautifulStock" style="background: linear-gradient(135deg, #0c7d68, #074a3e); color: white; border: none; box-shadow: 0 4px 10px rgba(12, 125, 104, 0.3);">✨ ยอดคงเหลือ</button>
     <button class="mode-btn" id="btnGoBackend">⚙ ADMIN</button>
   </div>
 </div>
@@ -767,6 +769,31 @@ textarea.input{resize:vertical; min-height:64px; line-height:1.5;}
       <input type="text" class="input" id="receiveRemark" placeholder="เช่น สั่งซื้อลอตใหม่ PO-2026-001"/>
     </div>
     <button class="btn-primary btn-block" id="btnReceiveSave" style="margin-top:16px;">ยืนยันการรับเข้า</button>
+  </div>
+</div>
+
+<!-- ===== Modal: สารเคมีคงเหลือแบบสวยงาม (แยกอิสระ ไม่กวนระบบเดิม) ===== -->
+<div class="modal-overlay" id="modalBeautifulStock" style="z-index: 9999;">
+  <div class="modal-box modal-box-xl" style="background: #f4f6f5; padding: 0; overflow: hidden; display: flex; flex-direction: column; border-radius: 16px;">
+    <!-- ส่วนหัว -->
+    <div style="background: linear-gradient(135deg, #0c7d68, #074a3e); padding: 20px 24px; color: white; position: relative; flex-shrink: 0; border-bottom: 4px solid #35e6ab;">
+      <button class="modal-close" id="closeBeautifulStock" style="background: rgba(255,255,255,0.2); color: white; top: 20px; right: 20px; width: 32px; height: 32px; border-radius: 10px;">✕</button>
+      <div style="font-size: 20px; font-weight: 800; margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
+        รายการสารเคมีคงเหลือ
+      </div>
+      <div style="font-size: 13px; opacity: 0.85; font-family: var(--mono);" id="beautifulStockSub">กำลังโหลดข้อมูลล่าสุด...</div>
+    </div>
+    
+    <!-- ช่องค้นหา -->
+    <div style="padding: 16px 20px 0; background: #f4f6f5;">
+      <input type="text" id="searchBeautifulStock" class="input" placeholder="🔍 ค้นหาชื่อสารเคมี หรือ รหัสช่อง..." style="background: white; border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border: 1px solid var(--border-soft); width: 100%; padding: 12px 16px;">
+    </div>
+
+    <!-- ส่วนเนื้อหา -->
+    <div id="beautifulStockContent" style="padding: 16px 20px; overflow-y: auto; flex: 1; min-height: 300px;">
+      <div class="loading-dots">กำลังโหลด...</div>
+    </div>
   </div>
 </div>
 
@@ -3056,6 +3083,129 @@ document.getElementById('btnReceiveSave').onclick = function() {
   }).receiveChemical(BE.pin, payload);
 };
 
+/* ============================================================
+   ฟังก์ชันสารเคมีคงเหลือแบบสวยงาม (ทำงานแยกอิสระ)
+   ============================================================ */
+(function() {
+  var stockData = [];
+
+  document.getElementById('btnGoBeautifulStock').onclick = function() {
+    document.getElementById('modalBeautifulStock').classList.add('open');
+    document.getElementById('beautifulStockContent').innerHTML = '<div class="loading-dots" style="margin-top:40px;">กำลังโหลดข้อมูลสารเคมี...</div>';
+    document.getElementById('beautifulStockSub').textContent = 'กำลังซิงค์ข้อมูลกับเซิร์ฟเวอร์...';
+    document.getElementById('searchBeautifulStock').value = '';
+
+    // โหลดประวัติเดือนล่าสุดเพื่อดึงสถานะขวดเปิด/ขวดหาย มาจับคู่กับยอดปัจจุบัน
+    google.script.run.withSuccessHandler(function(months) {
+      if (!months || !months.length) {
+        google.script.run.withSuccessHandler(function(items) {
+          stockData = items.map(function(it) {
+            return { code: it.code, name: it.name, manufacturer: it.manufacturer, productCodes: it.productCodes, unit: it.unit, docQty: it.qty, openBottles: [], goneCodes: [] };
+          });
+          renderBeautifulStock();
+          document.getElementById('beautifulStockSub').textContent = 'อ้างอิงจากฐานข้อมูลหลัก (ยังไม่มีประวัติตรวจนับ)';
+        }).withFailureHandler(onError).getMasterItems();
+        return;
+      }
+      var latestMonth = months[0];
+      google.script.run.withSuccessHandler(function(data) {
+        stockData = data.items || [];
+        renderBeautifulStock();
+        document.getElementById('beautifulStockSub').textContent = 'ข้อมูลการเปิดใช้ อ้างอิงจากรอบตรวจนับ: ' + latestMonth.label;
+      }).withFailureHandler(onError).getMonthlyRemainingSummary(latestMonth.monthKey);
+    }).withFailureHandler(onError).getArchiveMonths();
+  };
+
+  document.getElementById('closeBeautifulStock').onclick = function() {
+    document.getElementById('modalBeautifulStock').classList.remove('open');
+  };
+
+  document.getElementById('searchBeautifulStock').addEventListener('input', function() {
+    renderBeautifulStock(this.value.trim().toLowerCase());
+  });
+
+  function renderBeautifulStock(searchQuery) {
+    var el = document.getElementById('beautifulStockContent');
+    if (!stockData || !stockData.length) {
+      el.innerHTML = '<div class="empty-state">ไม่มีรายการสารเคมี</div>';
+      return;
+    }
+
+    var html = '';
+    var count = 0;
+
+    stockData.forEach(function(it) {
+      if (searchQuery) {
+        var matchName = it.name.toLowerCase().indexOf(searchQuery) > -1;
+        var matchCode = it.code.toLowerCase().indexOf(searchQuery) > -1;
+        if (!matchName && !matchCode) return;
+      }
+      count++;
+
+      var codes = it.productCodes && it.productCodes[0] !== '-' ? it.productCodes : [];
+      var open = it.openBottles || [];
+      var gone = it.goneCodes || [];
+      
+      // คัดเฉพาะรหัสที่ยังมีอยู่จริง (หักที่สูญหายออกไป)
+      var remainingCodes = codes.filter(function(c) { return gone.indexOf(c) === -1; });
+      
+      var codesHtml = '';
+      if (remainingCodes.length > 0) {
+        codesHtml = '<div style="margin-top: 14px; display: flex; flex-wrap: wrap; gap: 8px;">';
+        remainingCodes.forEach(function(c) {
+          var isOpen = open.indexOf(c) > -1;
+          if (isOpen) {
+            // ป้ายขวดเปิดใช้ (สีส้มเหลือง)
+            codesHtml += '<span style="background: #fff8eb; color: #b7791f; border: 1.5px solid #f6e0b5; padding: 6px 10px; border-radius: 8px; font-size: 11.5px; font-weight: 700; font-family: var(--mono); box-shadow: 0 2px 4px rgba(183,121,31,0.1);"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="vertical-align:-2px; margin-right:4px;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>' + esc(c) + ' (เปิดอยู่)</span>';
+          } else {
+            // ป้ายขวดปกติ (สีเขียวหลัก)
+            codesHtml += '<span style="background: #f0f7f5; color: var(--primary-dk); border: 1.5px solid #cce8e1; padding: 6px 10px; border-radius: 8px; font-size: 11.5px; font-weight: 700; font-family: var(--mono);"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="vertical-align:-2px; margin-right:4px;"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>' + esc(c) + '</span>';
+          }
+        });
+        codesHtml += '</div>';
+      } else if (codes.length > 0) {
+        codesHtml = '<div style="margin-top: 10px; font-size: 12px; color: var(--er); font-weight: 700; background: var(--er-lt); padding: 6px 10px; border-radius: 8px; display: inline-block;">ไม่มีขวดคงเหลือ (ถูกใช้หมด/สูญหาย)</div>';
+      } else {
+        codesHtml = '<div style="margin-top: 10px; font-size: 11px; color: var(--text-faint);">* ไม่มีรหัสบาร์โค้ดสำหรับรายการนี้</div>';
+      }
+
+      var currentQty = it.docQty; // ยอดล่าสุดจากหลังบ้าน
+
+      html += '<div style="background: white; border: 1px solid var(--border-soft); border-radius: 16px; padding: 18px; margin-bottom: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">';
+      html += '<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;">';
+      
+      html += '<div style="flex: 1; min-width: 0;">';
+      html += '<div style="display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 11px; color: var(--primary-dk); font-weight: 800; background: var(--primary-lt); padding: 4px 8px; border-radius: 6px; margin-bottom: 6px; letter-spacing: 0.5px;">🏷️ ' + esc(it.code) + '</div>';
+      html += '<div style="font-size: 16px; font-weight: 800; color: var(--text); line-height: 1.3;">' + esc(it.name) + '</div>';
+      html += '<div style="font-size: 12.5px; color: var(--text-faint); margin-top: 3px;">' + esc(it.manufacturer || '-') + '</div>';
+      html += '</div>';
+      
+      var qtyColor = currentQty > 0 ? 'var(--ok)' : 'var(--er)';
+      var qtyBg = currentQty > 0 ? 'var(--ok-lt)' : 'var(--er-lt)';
+      html += '<div style="text-align: center; background: ' + qtyBg + '; border: 2px solid ' + qtyColor + '; color: ' + qtyColor + '; padding: 8px 14px; border-radius: 12px; flex-shrink: 0; min-width: 80px;">';
+      html += '<div style="font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">คงเหลือ</div>';
+      html += '<div style="font-size: 22px; font-weight: 800; font-family: var(--mono); line-height: 1.1; margin-top: 2px;">' + currentQty + '</div>';
+      html += '<div style="font-size: 11px; font-weight: 700; margin-top: 1px;">' + esc(it.unit || 'ขวด') + '</div>';
+      html += '</div>';
+
+      html += '</div>';
+      
+      html += codesHtml;
+      
+      if (it.remainingApprox) {
+        html += '<div style="margin-top: 14px; font-size: 12px; color: #a86518; background: #fffaf0; padding: 8px 12px; border-radius: 8px; border-left: 4px solid #a86518; font-weight: 600;">ℹ️ ปริมาณเหลือ(ขวดที่เปิด): <span style="color:#5c6a5c;">' + esc(it.remainingApprox) + '</span></div>';
+      }
+      
+      html += '</div>';
+    });
+
+    if (count === 0) {
+      html = '<div class="empty-state">ไม่พบสารเคมีที่ค้นหา</div>';
+    }
+
+    el.innerHTML = html;
+  }
+})();
 </script>
 </body>
 </html>
