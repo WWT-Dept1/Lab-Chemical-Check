@@ -850,6 +850,8 @@ function itemKey(it){ return it.code+'|'+it.name; }
 function fmtDate(str){
   var d=new Date(str);
   if(isNaN(d.getTime())) return str;
+  /* [แก้วันที่ปี 3112] ข้อมูลเก่าบางแถวเก็บปีเป็น พ.ศ. อยู่แล้ว (เช่น 2569) พอ toLocaleDateString('th-TH') บวก 543 ซ้ำจึงได้ 3112
+     ปี ค.ศ. จริงไม่มีทางเกิน 2400 → ถ้าเกินให้ถือว่าเป็น พ.ศ. แล้วลบ 543 ก่อนแสดง */
   if(d.getFullYear() > 2400){ d = new Date(d.getTime()); d.setFullYear(d.getFullYear() - 543); }
   return d.toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'numeric'})+' '+d.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});
 }
@@ -1015,6 +1017,7 @@ function renderItems(){
         (st.reason==='อื่นๆ' ? '<input type="text" class="input reason-other" data-idx="'+idx+'" placeholder="ระบุเหตุผลอื่นๆ" value="'+esc(st.reasonOther)+'"/>' : '');
       card.appendChild(reasonWrap);
 
+      /* เลือกรหัสขวดที่หมด/หาย/เสียหาย เพื่อให้หน้าสรุปรู้ว่ารหัสไหนไม่มีแล้ว */
       var hasCodes = it.productCodes && it.productCodes.length && it.productCodes[0]!=='-';
       if(hasCodes && Number(st.actualQty) < Number(it.qty)){
         var need = Number(it.qty) - Number(st.actualQty);
@@ -1024,7 +1027,7 @@ function renderItems(){
         card.appendChild(gl);
         var gr=document.createElement('div'); gr.className='chips-row';
         it.productCodes.forEach(function(pc){
-          if(st.scannedCodes.indexOf(pc)>-1) return;
+          if(st.scannedCodes.indexOf(pc)>-1) return; /* รหัสที่ยืนยันว่ามีอยู่ ไม่ใช่ขวดที่หมด */
           var isGone = st.goneCodes.indexOf(pc)>-1;
           var ch=document.createElement('div'); ch.className='chip'+(isGone?' gone':'');
           ch.innerHTML='<span class="chip-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>'+
@@ -1048,6 +1051,7 @@ function renderItems(){
         : '* รายการนี้ไม่มี QR/บาร์โค้ด กรุณานับจำนวนจริงแล้วกดยืนยันด้วยมือ';
       card.appendChild(hint);
 
+      /* ยืนยันด้วยมือ: รายการที่ไม่มี QR (ปกติ) หรือสแกนไม่ได้ (ต้องใส่หมายเหตุ) */
       var man=document.createElement('div');
       man.style.cssText='background:var(--warn-lt);border-radius:10px;padding:10px 12px;margin-top:10px;';
       var manCoded = hasQr && it.productCodes && it.productCodes.length && it.productCodes[0]!=='-';
@@ -1068,6 +1072,7 @@ function renderItems(){
           '<button class="btn-mini btn-manual-confirm" data-idx="'+idx+'" style="margin-left:auto;">✓ ยืนยันการนับ</button>'+
         '</div>';
       if(hasQr && !st.manualOpen){
+        /* ตรวจสอบด้วยมือ: ซ่อนไว้ ต้องกดลิงก์เองก่อนจึงจะเห็น */
         var emg=document.createElement('div');
         emg.className='link-text';
         emg.style.cssText='font-size:12px;opacity:.8;margin-top:10px;';
@@ -1174,7 +1179,7 @@ function renderItems(){
       if(!st.goneCodes.length && st.scannedCodes.length && it.productCodes){
         var need = Math.max(Number(it.qty) - Number(st.actualQty), 0);
         var guess = it.productCodes.filter(function(pc){ return st.scannedCodes.indexOf(pc)===-1; });
-        if(guess.length===need) st.goneCodes = guess; 
+        if(guess.length===need) st.goneCodes = guess; /* เติมให้เฉพาะเมื่อจำนวนที่ไม่ได้สแกนตรงกับที่ขาดพอดี ผู้ใช้แก้ได้ */
       }
       renderItems(); scheduleAutoSaveDraft();
     };
@@ -1929,8 +1934,6 @@ document.getElementById('qrManualInput').addEventListener('keydown', function(e)
 
 /* ============================================================
    สแกนต่อเนื่อง (โหมดยิงเร็วแบบห้างสรรพสินค้า)
-   กล้องเปิดค้างไว้ สแกนเจอปุ๊บ ระบบค้นหาว่าตรงกับสารตัวไหนเองอัตโนมัติ
-   (ไม่ต้องเลือกรายการก่อนแบบโหมดเดิม) แล้วนับจำนวนขวดที่สแกนแล้วให้อัตโนมัติ
    ============================================================ */
 var cScanScanner = null;
 var cScanLastCode = null;
@@ -2315,4 +2318,673 @@ function renderRscanBatch(){
       if(act==='inc'){ RSCAN.batch[i].qty += 1; }
       else if(act==='dec'){ RSCAN.batch[i].qty = Math.max(1, RSCAN.batch[i].qty - 1); }
       else if(act==='remove'){ RSCAN.batch.splice(i,1); }
-      else if(act==='toggleopen
+      else if(act==='toggleopen'){ RSCAN.batch[i].opened = !RSCAN.batch[i].opened; }
+      renderRscanBatch();
+    };
+  });
+}
+document.getElementById('btnGoReceive').onclick = function(){
+  showView('receive');
+  openScanReceive();
+};
+document.getElementById('btnExitReceive').onclick = function(){
+  showView('emp');
+};
+document.getElementById('rscanManualInput').addEventListener('keydown', function(e){
+  if(e.key==='Enter'){
+    var v = this.value.trim();
+    if(v){ handleRscanResult(v); this.value=''; }
+  }
+});
+document.getElementById('btnRscanSave').onclick = function(){
+  var empName = document.getElementById('rscanEmpName').value.trim();
+  var receivedDate = document.getElementById('rscanReceivedDate').value || todayIsoDate_();
+  if(!empName){ alert('กรุณาระบุชื่อผู้รับเข้า'); return; }
+  if(!RSCAN.batch.length){ alert('ยังไม่มีรายการที่สแกน'); return; }
+
+  var payload = {
+    employeeName: empName,
+    receivedDate: receivedDate,
+    items: RSCAN.batch.map(function(b){
+      return { itemCode: b.code, itemName: b.name, qty: b.qty, opened: b.opened, openedDate: b.opened ? receivedDate : '', expiryDate: b.expiryDate || '', newProductCodes: b.newProductCodes || [] };
+    })
+  };
+
+  var btn = this;
+  btn.disabled = true; btn.textContent = 'กำลังบันทึกข้อมูล...';
+
+  google.script.run.withSuccessHandler(function(res){
+    btn.disabled = false; btn.textContent = '✓ บันทึกการรับเข้าทั้งหมด';
+    var failed = (res.results||[]).filter(function(r){ return !r.success; });
+    var okCount = res.receivedCount || 0;
+    var msg = '✅ บันทึกการรับเข้าสำเร็จ '+okCount+' รายการ';
+    if(failed.length){ msg += '\n⚠ ไม่สำเร็จ '+failed.length+' รายการ: '+failed.map(function(f){return f.itemCode+' ('+f.error+')';}).join(', '); }
+    alert(msg);
+    RSCAN.batch = [];
+    renderRscanBatch();
+    document.getElementById('rscanEmpName').value = '';
+    
+    google.script.run.withSuccessHandler(function(items){ STATE.items = items; renderCatTabs(); renderItems(); }).withFailureHandler(function(){}).getMasterItems();
+  }).withFailureHandler(function(err){
+    btn.disabled = false; btn.textContent = '✓ บันทึกการรับเข้าทั้งหมด';
+    onError(err);
+  }).receiveChemicalScan(payload);
+};
+
+/* ============================================================
+   ส่งใบตรวจนับ
+   ============================================================ */
+document.getElementById('btnSubmit').onclick=function(){
+  var uncheckedCount = Object.keys(STATE.itemState).filter(function(k){ return !STATE.itemState[k].checked; }).length;
+  if(uncheckedCount>0){ alert('กรุณายืนยันการตรวจนับให้ครบทุกรายการก่อนส่งใบตรวจนับ (ยังเหลืออีก '+uncheckedCount+' รายการ)'); return; }
+  var bad = null;
+  STATE.items.forEach(function(it, idx){
+    if(bad) return;
+    var st = STATE.itemState[idx];
+    if(!(it.productCodes && it.productCodes.length && it.productCodes[0]!=='-')) return;
+    var short = Number(it.qty) - Number(st.actualQty);
+    if(st.scannedCodes.length !== Number(st.actualQty)){ bad = it.name+': จำนวนที่นับ ('+st.actualQty+') ไม่ตรงกับรหัสที่ยืนยันว่ามีอยู่ ('+st.scannedCodes.length+') กรุณาเลือก/สแกนรหัสให้ครบ'; }
+    else if(short>0 && st.goneCodes.length !== short){ bad = it.name+': ขาด '+short+' ขวด ต้องเลือกรหัสที่หมด/หายให้ครบ '+short+' รหัส (เลือกไว้ '+st.goneCodes.length+')'; }
+  });
+  if(bad){ alert(bad); return; }
+  var btn=this; btn.disabled=true; btn.textContent='กำลังส่ง...';
+  var items = STATE.items.map(function(it, idx){
+    var st = STATE.itemState[idx];
+    return { code: it.code, name: it.name, manufacturer: it.manufacturer, expectedQty: it.qty, actualQty: st.actualQty,
+      openBottles: st.openBottles, goneCodes: st.goneCodes || [], scannedCodes: st.scannedCodes || [], remark: composeRemark(st), remainingApprox: st.remainingApprox, unit: it.unit, checked: st.checked, checkedAt: st.checkedAt || '', qrCode: st.qrCode || '' };
+  });
+  google.script.run.withSuccessHandler(function(){
+    clearLocalDraft_(); LOCAL_DRAFT_READY = false;
+    document.getElementById('modalSuccess').classList.add('open');
+  }).withFailureHandler(function(err){ onError(err); btn.disabled=false; btn.textContent='ส่งใบตรวจนับ'; })
+  .submitChecklist({ employeeName: document.getElementById('employeeName').value.trim(), signatureBase64: STATE.employeeSignature, items: items });
+};
+document.getElementById('btnSuccessClose').onclick=function(){ window.location.reload(); };
+
+/* ============================================================
+   สลับหน้า: พนักงาน <-> หลังบ้าน
+   ============================================================ */
+var CURRENT_VIEW = 'emp';
+function showView(name){
+  if(CURRENT_VIEW === 'receive' && name !== 'receive'){ stopRscanScanner(); }
+  CURRENT_VIEW = name;
+  document.getElementById('viewEmployee').classList.toggle('hidden', name!=='emp');
+  document.getElementById('viewSummary').classList.toggle('hidden', name!=='summary');
+  document.getElementById('viewBackendGate').classList.toggle('hidden', name!=='gate');
+  document.getElementById('viewBackend').classList.toggle('hidden', name!=='backend');
+  document.getElementById('viewReceive').classList.toggle('hidden', name!=='receive');
+}
+document.getElementById('btnGoSummary').onclick=function(){
+  showView('summary');
+  loadPublicSummaryMonths();
+};
+document.getElementById('btnExitSummary').onclick=function(){ showView('emp'); };
+document.getElementById('btnGoBackend').onclick=function(){
+  showView('gate');
+  document.getElementById('gatePinInput').value='';
+  document.getElementById('gatePinError').textContent='';
+  setTimeout(function(){ document.getElementById('gatePinInput').focus(); },200);
+};
+document.getElementById('btnGateBack').onclick=function(){ showView('emp'); };
+document.getElementById('btnExitBackend').onclick=function(){ BE.pin=''; showView('emp'); };
+document.getElementById('gatePinInput').addEventListener('keydown', function(e){ if(e.key==='Enter') submitGatePin(); });
+document.getElementById('btnGatePinConfirm').onclick=submitGatePin;
+
+function submitGatePin(){
+  var pin = document.getElementById('gatePinInput').value.trim();
+  if(!pin){ document.getElementById('gatePinError').textContent='กรุณากรอกรหัส PIN'; return; }
+  var btn = document.getElementById('btnGatePinConfirm');
+  btn.disabled=true; btn.textContent='กำลังตรวจสอบ...';
+  google.script.run.withSuccessHandler(function(items){
+    btn.disabled=false; btn.textContent='เข้าสู่ระบบ';
+    BE.pin = pin; BE.master = items;
+    showView('backend');
+    setActiveBeTab('dash');
+    loadDashboard();
+    google.script.run.withSuccessHandler(function(list){ BE.pending=list; updatePendingBadge(); addPendingNote_(); }).withFailureHandler(function(){}).getPendingSubmissions(pin);
+    google.script.run.withSuccessHandler(function(list){ BE.editRequests=list; updateReqBadge(list.length); }).withFailureHandler(function(){}).getEditRequests(pin);
+  }).withFailureHandler(function(){
+    btn.disabled=false; btn.textContent='เข้าสู่ระบบ';
+    document.getElementById('gatePinError').textContent='รหัส PIN ไม่ถูกต้อง';
+  }).adminGetItems(pin);
+}
+
+/* ============================================================
+   Backend tabs
+   ============================================================ */
+document.querySelectorAll('.be-tab').forEach(function(tab){
+  tab.onclick=function(){ setActiveBeTab(this.dataset.tab); };
+});
+function setActiveBeTab(name){
+  BE.activeTab = name;
+  document.querySelectorAll('.be-tab').forEach(function(t){ t.classList.toggle('active', t.dataset.tab===name); });
+  document.getElementById('beTabDash').classList.toggle('hidden', name!=='dash');
+  document.getElementById('beTabPending').classList.toggle('hidden', name!=='pending');
+  document.getElementById('beTabMaster').classList.toggle('hidden', name!=='master');
+  if(name==='pending') loadPending();
+  if(name==='master') renderAdminList();
+}
+
+function updatePendingBadge(){
+  var total = BE.pending.length + (BE.editRequests? BE.editRequests.length : 0);
+  document.getElementById('statPendingCount').textContent = BE.pending.length;
+  var b=document.getElementById('pendingBadge');
+  if(total){ b.textContent=total; b.classList.remove('hidden'); } else b.classList.add('hidden');
+}
+function updateReqBadge(count){
+  document.getElementById('statReqCount').textContent = count;
+  updatePendingBadge();
+}
+
+/* ---------- Dashboard ---------- */
+function loadDashboard(){
+  document.getElementById('statItemCount').textContent = BE.master.length;
+  loadArchiveMonths();
+}
+function addPendingNote_(){
+  var host = document.getElementById('archiveContent');
+  if(!host) return;
+  var old = document.getElementById('pendingSheetsNote'); if(old) old.remove();
+  var n = (BE.pending||[]).length;
+  if(!n) return;
+  var note = document.createElement('div');
+  note.id = 'pendingSheetsNote';
+  note.style.cssText = 'background:var(--warn-lt);border:1px solid rgba(192,122,31,.28);border-radius:12px;padding:10px 12px;margin-bottom:10px;font-size:12.5px;font-weight:600;color:var(--warn);';
+  note.textContent = '⚠ มีใบตรวจนับรออนุมัติอีก '+n+' ใบ ยังไม่รวมในสรุปด้านล่าง (สรุปรายเดือนนับเฉพาะใบที่อนุมัติแล้ว) — ไปที่แท็บ "รอตรวจสอบ"';
+  host.insertBefore(note, host.firstChild);
+}
+function loadArchiveMonths(){
+  var el = document.getElementById('archiveContent');
+  el.innerHTML = '<div class="loading-dots">กำลังโหลด...</div>';
+  google.script.run.withSuccessHandler(function(months){ renderArchiveMonths(months, 'archiveContent'); addPendingNote_(); }).withFailureHandler(onError).getArchiveMonths();
+}
+function loadPublicSummaryMonths(){
+  var el = document.getElementById('publicSummaryContent');
+  el.innerHTML = '<div class="loading-dots">กำลังโหลด...</div>';
+  google.script.run.withSuccessHandler(function(months){ renderArchiveMonths(months, 'publicSummaryContent'); }).withFailureHandler(onError).getArchiveMonths();
+}
+function renderArchiveMonths(months, targetId){
+  var el = document.getElementById(targetId || 'archiveContent');
+  if(!months.length){ el.innerHTML='<div class="empty-state">ยังไม่มีข้อมูลที่อนุมัติแล้ว</div>'; return; }
+  el.innerHTML='';
+  months.forEach(function(m){
+    var card=document.createElement('div');
+    card.className='month-card';
+    card.innerHTML =
+      '<div><div class="m-label">'+esc(m.label)+'</div>'+
+      '<div class="m-meta">'+m.submissionCount+' ใบตรวจนับ &middot; '+m.itemCount+' รายการ'+
+      (m.discrepancyCount>0 ? ' &middot; <span style="color:var(--er);">⚠ '+m.discrepancyCount+' ไม่ตรง</span>' : '')+
+      '</div></div><div class="list-action">ดู ➔</div>';
+    card.onclick=function(){ openMonthDetail(m.monthKey, m.label); };
+    el.appendChild(card);
+  });
+}
+function openMonthDetail(monthKey, label){
+  document.getElementById('monthDetailTitle').textContent = 'สารเคมีคงเหลือ: ' + label;
+  document.getElementById('monthDetailSub').textContent = 'กำลังโหลด...';
+  document.getElementById('monthDetailContent').innerHTML = '<div class="loading-dots">กำลังโหลด...</div>';
+  document.getElementById('modalMonthDetail').classList.add('open');
+  google.script.run.withSuccessHandler(renderMonthDetail).withFailureHandler(onError).getMonthlyRemainingSummary(monthKey);
+}
+document.getElementById('closeMonthDetail').onclick=function(){ document.getElementById('modalMonthDetail').classList.remove('open'); };
+function renderMonthDetail(data){
+  var sub = document.getElementById('monthDetailSub');
+  var el = document.getElementById('monthDetailContent');
+  if(!data.items || !data.items.length){ sub.textContent = 'ไม่มีข้อมูล'; el.innerHTML='<div class="empty-state">ไม่มีข้อมูล</div>'; return; }
+  sub.textContent = 'ตรวจนับแล้ว '+data.totals.checkedCount+'/'+data.totals.itemCount+' รายการ'+
+    (data.totals.discrepancyCount>0 ? (' &middot; ⚠ ไม่ตรงเอกสาร '+data.totals.discrepancyCount+' รายการ') : ' – ครบถ้วนทุกรายการ');
+  var cats = [], grouped = {};
+  data.items.forEach(function(it){ var c = categoryOf(it.code); if(!grouped[c]){ grouped[c]=[]; cats.push(c); } grouped[c].push(it); });
+  var html = '<div class="stat-row">'+
+    '<div class="stat-chip"><div class="s-num">'+data.totals.itemCount+'</div><div class="s-lbl">รายการทั้งหมด</div></div>'+
+    '<div class="stat-chip"><div class="s-num">'+data.totals.checkedCount+'</div><div class="s-lbl">ตรวจนับแล้ว</div></div>'+
+    '<div class="stat-chip warn"><div class="s-num">'+data.totals.discrepancyCount+'</div><div class="s-lbl">ไม่ตรงกับเอกสาร</div></div>'+
+  '</div>';
+  html += '<div class="summary-table-wrap"><table class="summary-table"><thead><tr>'+
+    '<th>ตำแหน่ง</th><th>รายการชื่อสารเคมี/วัสดุ</th><th>ยี่ห้อ</th><th>Product Code (ทั้งหมด)</th>'+
+    '<th>จำนวนคงเหลือจริง</th><th>ขวดที่เปิดใช้อยู่</th><th>เหลือประมาณ (ขวดเปิด)</th><th>หมายเหตุ</th>'+
+  '</tr></thead><tbody>';
+  cats.forEach(function(c){
+    html += '<tr class="cat-row"><td colspan="7">'+esc(c)+'</td></tr>';
+    grouped[c].forEach(function(it){
+      var rowCls = it.hasDiscrepancy ? 'disc-row' : (!it.checked ? 'unchecked-row' : '');
+      var codesHtml = '-';
+      if(it.productCodes && it.productCodes.length && it.productCodes[0]!=='-'){
+        var gone = it.goneCodes || [];
+        codesHtml = it.productCodes.map(function(pc){ return '<span class="code-pill'+(gone.indexOf(pc)>-1?' gone':'')+'">'+esc(pc)+'</span>'; }).join('');
+        if(gone.length) codesHtml += '<div style="font-size:10.5px;color:var(--er);font-weight:700;margin-top:3px;">หมด/หาย '+gone.length+' ขวด (ขีดฆ่า)</div>';
+      }
+      var openHtml = (it.openBottles && it.openBottles.length) ? it.openBottles.map(function(pc){ return '<span class="code-pill open">'+esc(pc)+'</span>'; }).join('') : '<span style="color:var(--text-faint);">ไม่มีขวดเปิดใช้</span>';
+      var qtyHtml = it.checked ? (it.actualQty+' '+esc(it.unit||'')) : (it.docQty + ' <span class="unchecked-tag">(ยังไม่ตรวจเดือนนี้)</span>');
+      html += '<tr class="'+rowCls+'">'+
+        '<td class="col-code">'+esc(it.code)+'</td>'+
+        '<td class="col-name">'+esc(it.name)+'</td>'+
+        '<td>'+esc(it.manufacturer)+'</td>'+
+        '<td>'+codesHtml+'</td>'+
+        '<td class="col-qty">'+qtyHtml+'</td>'+
+        '<td>'+openHtml+'</td>'+
+        '<td>'+esc(it.remainingApprox||'-')+'</td>'+
+        '<td>'+esc(it.remark||'-')+'</td>'+
+      '</tr>';
+    });
+  });
+  html += '</tbody></table></div>';
+  el.innerHTML = html;
+}
+
+/* ---------- รอตรวจสอบ / อนุมัติ ---------- */
+function loadPending(){
+  document.getElementById('pendingContent').innerHTML='<div class="loading-dots">กำลังโหลด...</div>';
+  google.script.run.withSuccessHandler(function(list){
+    BE.pending=list; updatePendingBadge();
+    google.script.run.withSuccessHandler(function(reqs){ BE.editRequests=reqs; updateReqBadge(reqs.length); renderPending(); })
+      .withFailureHandler(onError).getEditRequests(BE.pin);
+  }).withFailureHandler(onError).getPendingSubmissions(BE.pin);
+}
+function tsFromId_(id){ var m=String(id).match(/(\d+)$/); return m ? Number(m[1]) : 0; }
+function prependPendingBar_(el){
+  var bar=document.createElement('div');
+  bar.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11.5px;color:var(--text-faint);margin:0 2px 6px;';
+  var t=new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  var info=document.createElement('span');
+  info.textContent='เซิร์ฟเวอร์ส่งมา: ใบตรวจนับ '+BE.pending.length+' ใบ · คำขอแก้ไข '+BE.editRequests.length+' รายการ (โหลดเมื่อ '+t+')';
+  var btn=document.createElement('button');
+  btn.className='btn-mini'; btn.textContent='🔄 รีเฟรช';
+  btn.onclick=function(){ loadPending(); };
+  bar.appendChild(info); bar.appendChild(btn);
+  el.insertBefore(bar, el.firstChild);
+  if(BE.pending.length){
+    var det=document.createElement('div');
+    det.style.cssText='font-size:10.5px;color:var(--text-faint);margin:0 2px 8px;line-height:1.5;word-break:break-all;';
+    det.textContent='ใบที่ได้รับ: '+BE.pending.map(function(x){ return (x.employeeName||'?')+' | '+x.submissionId+' | '+(x.status||'-')+' | '+x.submittedAt; }).join('  ///  ');
+    el.insertBefore(det, bar.nextSibling);
+  }
+}
+function renderPending(){
+  var el=document.getElementById('pendingContent');
+  var merged = BE.pending.map(function(s){ return { kind:'submission', ts: tsFromId_(s.submissionId), data:s }; })
+    .concat(BE.editRequests.map(function(r){ return { kind:'request', ts: tsFromId_(r.requestId), data:r }; }));
+  merged.sort(function(a,b){ if(a.kind!==b.kind) return a.kind==='submission' ? -1 : 1; return b.ts - a.ts; });
+  if(!merged.length){ el.innerHTML='<div class=\"empty-state\">ไม่มีรายการรอตรวจสอบ 🎉</div>'; prependPendingBar_(el); return; }
+  el.innerHTML='';
+  var subCount = BE.pending.length, reqCount = BE.editRequests.length, lastKind = '';
+  merged.forEach(function(m){
+    try{
+    if(m.kind !== lastKind){
+      lastKind = m.kind;
+      var hd = document.createElement('div');
+      hd.style.cssText = 'font-size:13px;font-weight:800;color:var(--text-soft);margin:14px 2px 8px;';
+      hd.textContent = m.kind==='submission' ? ('📋 ใบตรวจนับรออนุมัติ ('+subCount+') — อนุมัติแล้วจึงนับเข้าสรุปรายเดือน') : ('✏ คำขอแก้ไขรหัส/รายละเอียด ('+reqCount+')');
+      el.appendChild(hd);
+    }
+    if(m.kind==='submission'){
+      var sub=m.data;
+      var card=document.createElement('div');
+      card.className='list-row';
+      card.innerHTML =
+        '<div class="list-info">'+
+          '<div class="list-name">📋 '+esc(sub.employeeName)+'</div>'+
+          '<div class="list-meta">ส่งเมื่อ '+fmtDate(sub.submittedAt)+' &middot; '+(sub.itemCount||0)+' รายการ'+
+          (sub.discrepancyCount>0 ? ' &middot; <span style="color:var(--er);font-weight:700;">⚠ '+sub.discrepancyCount+' ไม่ตรง</span>' : ' &middot; <span style="color:var(--ok);font-weight:700;">✓ ครบถ้วน</span>')+
+          '</div></div><div class="list-action">ตรวจสอบ/อนุมัติ ➔</div>';
+      card.onclick=function(){ openReviewDetail(sub.submissionId); };
+      el.appendChild(card);
+    } else {
+      var req=m.data;
+      var box=document.createElement('div');
+      box.className='detail-item disc';
+      var typeLabel = req.type==='code_change' ? 'ขอแก้ไขรหัสสินค้า' : 'ขอแก้ไขรายละเอียด';
+      var html = '<div class="detail-item-name">✏ '+esc(typeLabel)+' &middot; '+esc(req.itemCode)+' '+esc(req.itemName)+'</div>'+
+        '<div class="detail-item-row"><span>โดย: <b>'+esc(req.requesterName)+'</b></span><span>'+fmtDate(req.requestedAt)+'</span></div>';
+      if(req.type==='code_change'){
+        if(req.addCodes.length) html += '<div class="detail-item-row"><span>เพิ่ม: <b>'+esc(req.addCodes.join(', '))+'</b></span>'+(req.addReason? ' <span>เหตุผล: '+esc(req.addReason)+'</span>':'')+'</div>';
+        if(req.removeCodes.length) html += '<div class="detail-item-row"><span>ลบ: <b>'+esc(req.removeCodes.join(', '))+'</b></span>'+(req.removeReason? ' <span>เหตุผล: '+esc(req.removeReason)+'</span>':'')+'</div>';
+      }
+      if(req.requestNote) html += '<div class="detail-item-row"><span>หมายเหตุ: '+esc(req.requestNote)+'</span></div>';
+      html += '<div style="display:flex;gap:8px;margin-top:8px;"><button class="btn-ghost req-reject" data-id="'+req.requestId+'" style="flex:1;">ปฏิเสธ</button>'+
+        '<button class="btn-primary req-approve" data-id="'+req.requestId+'" style="flex:1;">อนุมัติ</button></div>';
+      box.innerHTML = html;
+      el.appendChild(box);
+    }
+    }catch(err){
+      var bad=document.createElement('div');
+      bad.className='list-row';
+      bad.style.cssText='border-color:var(--er);background:var(--er-lt);cursor:default;';
+      var raw=''; try{ raw=JSON.stringify(m.data).slice(0,300); }catch(e2){}
+      bad.textContent='⚠ แสดงรายการนี้ไม่ได้ ('+(err&&err.message?err.message:err)+') '+raw;
+      el.appendChild(bad);
+    }
+  });
+  prependPendingBar_(el);
+  el.querySelectorAll('.req-approve').forEach(function(btn){ btn.onclick=function(){ resolveReq(this.dataset.id,'approve'); }; });
+  el.querySelectorAll('.req-reject').forEach(function(btn){ btn.onclick=function(){ resolveReq(this.dataset.id,'reject'); }; });
+}
+function resolveReq(requestId, action){
+  google.script.run.withSuccessHandler(function(list){
+    BE.editRequests=list; updateReqBadge(list.length); renderPending();
+    if(action==='approve'){ google.script.run.withSuccessHandler(function(items){ BE.master=items; }).adminGetItems(BE.pin); }
+  }).withFailureHandler(onError).resolveEditRequest(BE.pin, requestId, action);
+}
+function openReviewDetail(submissionId){
+  document.getElementById('detailItemsContent').innerHTML='<div class="loading-dots">กำลังโหลด...</div>';
+  document.getElementById('modalReviewDetail').classList.add('open');
+  google.script.run.withSuccessHandler(function(detail){ BE.currentDetail=detail; renderReviewDetail(detail); })
+    .withFailureHandler(onError).getSubmissionDetail(BE.pin, submissionId);
+}
+document.getElementById('closeReviewDetail').onclick=function(){ document.getElementById('modalReviewDetail').classList.remove('open'); };
+
+function renderReviewDetail(detail){
+  document.getElementById('detailEmployeeName').textContent = 'พนักงาน: ' + detail.employeeName;
+  document.getElementById('detailMeta').textContent = 'เวลาส่ง: '+fmtDate(detail.submittedAt);
+  var canEditDirectly = (detail.status !== 'ตรวจสอบแล้ว');
+  var itemsEl=document.getElementById('detailItemsContent');
+  itemsEl.innerHTML='';
+  if(detail.status!=='ตรวจสอบแล้ว'){
+    var jump=document.createElement('div');
+    jump.className='link-text';
+    jump.style.cssText='margin:0 0 10px;font-weight:700;';
+    jump.textContent='⬇ ไปที่ปุ่มลงลายเซ็นและอนุมัติ';
+    jump.onclick=function(){ var t=document.getElementById('detailApproveSection'); if(t) t.scrollIntoView({behavior:'smooth',block:'center'}); };
+    itemsEl.appendChild(jump);
+  }
+  detail.items.forEach(function(it, idx){
+    var row=document.createElement('div');
+    row.className='detail-item'+(it.hasDiscrepancy?' disc':'');
+    row.innerHTML =
+      '<div class="detail-item-name">'+esc(it.code)+' &middot; '+esc(it.name)+'</div>'+
+      '<div class="detail-item-row"><span>เอกสาร: <b>'+it.expectedQty+'</b></span><span>นับได้จริง: <b>'+it.actualQty+'</b></span></div>'+
+      (it.checkedAt? '<div class="detail-item-row"><span>เวลาตรวจเช็ค: <b>'+esc(it.checkedAt)+'</b></span></div>' : '')+
+      (it.qrCode? '<div class="detail-item-row"><span>สแกนยืนยันรหัส: <b>'+esc(it.qrCode)+'</b></span></div>' : '')+
+      (it.remainingApprox? '<div class="detail-item-row"><span>เหลือประมาณ (ขวดเปิด): '+esc(it.remainingApprox)+'</span></div>' : '')+
+      (it.remark? '<div class="detail-item-row"><span>หมายเหตุ: '+esc(it.remark)+'</span></div>' : '')+
+      (canEditDirectly ? '<div class="link-text link-edit-item" data-idx="'+idx+'">✎ แก้ไขรายการนี้</div>' : '')+
+      '<div class="detail-item-edit hidden" id="editBox_'+idx+'">'+
+        '<div class="field-row"><label>ชื่อรายการ</label><input type="text" class="input" id="editName_'+idx+'" value="'+esc(it.name)+'"/></div>'+
+        '<div class="field-row"><label>ผู้ผลิต</label><input type="text" class="input" id="editMfr_'+idx+'" value="'+esc(it.manufacturer)+'"/></div>'+
+        '<div class="field-row"><label>จำนวนนับได้จริง</label><input type="number" min="0" class="input" id="editQty_'+idx+'" value="'+it.actualQty+'"/></div>'+
+        '<div class="field-row"><label>เหลือประมาณ (ขวดเปิด)</label><input type="text" class="input" id="editRemaining_'+idx+'" value="'+esc(it.remainingApprox||'')+'"/></div>'+
+        '<div class="field-row"><label>หมายเหตุ</label><input type="text" class="input" id="editRemark_'+idx+'" value="'+esc(it.remark)+'"/></div>'+
+        '<button class="btn-mini btn-save-item-edit" data-idx="'+idx+'" style="margin-top:8px;">บันทึกการแก้ไข</button>'+
+      '</div>';
+    itemsEl.appendChild(row);
+  });
+  itemsEl.querySelectorAll('.link-edit-item').forEach(function(link){
+    link.onclick=function(){ document.getElementById('editBox_'+this.dataset.idx).classList.toggle('hidden'); };
+  });
+  itemsEl.querySelectorAll('.btn-save-item-edit').forEach(function(btn){
+    btn.onclick=function(){
+      var idx=this.dataset.idx, it=detail.items[idx];
+      var newData = { name: document.getElementById('editName_'+idx).value.trim(), manufacturer: document.getElementById('editMfr_'+idx).value.trim(),
+        actualQty: document.getElementById('editQty_'+idx).value, remark: document.getElementById('editRemark_'+idx).value.trim(),
+        remainingApprox: document.getElementById('editRemaining_'+idx).value.trim() };
+      var thisBtn=this; thisBtn.disabled=true; thisBtn.textContent='กำลังบันทึก...';
+      google.script.run.withSuccessHandler(function(freshDetail){ BE.currentDetail=freshDetail; renderReviewDetail(freshDetail); })
+        .withFailureHandler(function(err){ thisBtn.disabled=false; thisBtn.textContent='บันทึกการแก้ไข'; onError(err); })
+        .updateSubmissionItemDetail(BE.pin, detail.submissionId, it.code, it.name, newData);
+    };
+  });
+
+  var approveEl = document.getElementById('detailApproveSection');
+  if(detail.status==='ตรวจสอบแล้ว'){
+    approveEl.innerHTML = '<div style="text-align:center;padding:12px;border-radius:12px;background:var(--ok-lt);color:var(--ok);font-weight:700;font-size:13px;">✓ ตรวจสอบและอนุมัติแล้วโดย '+esc(detail.reviewerName)+'</div>';
+  } else {
+    approveEl.innerHTML =
+      '<div class="field-row"><label>ชื่อ-สกุลผู้ตรวจสอบ</label><input type="text" class="input" id="reviewerName" placeholder="พิมพ์ชื่อ-นามสกุล"/></div>'+
+      '<button class="btn-primary btn-block" id="btnOpenReviewerSign" style="margin-top:10px;">ลงลายเซ็นและอนุมัติ</button>';
+    document.getElementById('btnOpenReviewerSign').onclick=function(){
+      var nm=document.getElementById('reviewerName').value.trim();
+      if(!nm){ alert('กรุณาระบุชื่อผู้ตรวจสอบ'); return; }
+      BE.reviewerName = nm;
+      document.getElementById('modalSignReviewer').classList.add('open');
+      if(!reviewerSigPad){ reviewerSigPad=makeSigPad('sigCanvasReviewer','sigHintReviewer'); } else reviewerSigPad.resize();
+    };
+  }
+}
+document.getElementById('closeSignReviewer').onclick=function(){ document.getElementById('modalSignReviewer').classList.remove('open'); };
+document.getElementById('clearSigReviewer').onclick=function(){ reviewerSigPad.clear(); };
+document.getElementById('saveSigReviewer').onclick=function(){
+  if(reviewerSigPad.isEmpty()){ alert('กรุณาวาดลายเซ็นก่อน'); return; }
+  var sig = reviewerSigPad.toDataURL();
+  var btn=this; btn.disabled=true; btn.textContent='กำลังบันทึก...';
+  google.script.run.withSuccessHandler(function(){
+    btn.disabled=false; btn.textContent='ยืนยันลายเซ็น';
+    document.getElementById('modalSignReviewer').classList.remove('open');
+    document.getElementById('modalReviewDetail').classList.remove('open');
+    loadPending(); loadArchiveMonths();
+  }).withFailureHandler(function(err){ onError(err); btn.disabled=false; btn.textContent='ยืนยันลายเซ็น'; })
+  .approveSubmission(BE.pin, BE.currentDetail.submissionId, BE.reviewerName, sig);
+};
+
+/* ---------- รายการหลัก (Master items) ---------- */
+function renderAdminList(){
+  google.script.run.withSuccessHandler(function(items){
+    BE.master = items;
+    document.getElementById('statItemCount').textContent = items.length;
+    var el = document.getElementById('adminListContent');
+    el.innerHTML='';
+    if(!items.length){ el.innerHTML='<div class="empty-state">ยังไม่มีรายการ แตะ "+ เพิ่มรายการใหม่" ด้านบน</div>'; return; }
+    items.forEach(function(it){
+      var row=document.createElement('div');
+      row.className='list-row';
+      row.style.cursor='default';
+      row.innerHTML =
+        '<div class="list-info"><div class="list-name">'+esc(it.code)+' &middot; '+esc(it.name)+'</div>'+
+        '<div class="list-meta">'+esc(it.manufacturer||'-')+' &middot; คงเหลือตามเอกสาร '+it.qty+' '+esc(it.unit||'')+'</div></div>'+
+        '<div style="display:flex;gap:6px;flex-shrink:0;">'+
+        '<button class="btn-ghost" style="padding:7px 10px; color:var(--ok); font-weight:bold;" data-action="receive" data-row="'+it.rowIndex+'" title="รับเข้าสารเคมี">📥</button>'+
+        '<button class="btn-ghost" style="padding:7px 10px;" data-action="edit" data-row="'+it.rowIndex+'">✎</button>'+
+        '<button class="btn-ghost" style="padding:7px 10px;" data-action="delete" data-row="'+it.rowIndex+'">🗑</button></div>';
+      el.appendChild(row);
+    });
+    el.querySelectorAll('[data-action]').forEach(function(btn){
+      btn.onclick=function(e){
+        e.stopPropagation();
+        var rowIndex = Number(this.dataset.row), action=this.dataset.action;
+        var item = BE.master.find(function(x){ return x.rowIndex===rowIndex; });
+        if(!item) return;
+        
+        if(action==='edit'){ openAdminEdit(item); } 
+        else if(action==='receive'){ openReceiveModal(item); }
+        else { adminDeleteFlow(item); }
+      };
+    });
+  }).withFailureHandler(onError).adminGetItems(BE.pin);
+}
+document.getElementById('btnAdminAddNew').onclick=function(){ openAdminEdit(null); };
+document.getElementById('closeAdminEdit').onclick=function(){ document.getElementById('modalAdminEdit').classList.remove('open'); };
+function openAdminEdit(item){
+  BE.editingRowIndex = item ? item.rowIndex : null;
+  document.getElementById('adminEditTitle').textContent = item ? 'แก้ไขรายการ' : 'เพิ่มรายการใหม่';
+  document.getElementById('adminFieldCode').value = item ? item.code : '';
+  document.getElementById('adminFieldName').value = item ? item.name : '';
+  document.getElementById('adminFieldMfr').value = item ? item.manufacturer : '';
+  document.getElementById('adminFieldCodes').value = item ? (item.productCodes||[]).join(', ') : '';
+  document.getElementById('adminFieldQty').value = item ? item.qty : 0;
+  document.getElementById('adminFieldUnit').value = item ? (item.unit||'ขวด') : 'ขวด';
+  document.getElementById('adminFieldNote').value = item ? item.note : '';
+  document.getElementById('btnAdminDeleteConfirm').classList.toggle('hidden', !item);
+  document.getElementById('modalAdminEdit').classList.add('open');
+}
+function readAdminForm_(){
+  return {
+    code: document.getElementById('adminFieldCode').value.trim() || '-',
+    name: document.getElementById('adminFieldName').value.trim(),
+    manufacturer: document.getElementById('adminFieldMfr').value.trim(),
+    productCodes: document.getElementById('adminFieldCodes').value.split(',').map(function(s){ return s.trim(); }).filter(function(s){ return s; }),
+    qty: Number(document.getElementById('adminFieldQty').value) || 0,
+    unit: document.getElementById('adminFieldUnit').value.trim() || 'ขวด',
+    note: document.getElementById('adminFieldNote').value.trim()
+  };
+}
+document.getElementById('btnAdminSave').onclick=function(){
+  var payload = readAdminForm_();
+  if(!payload.name){ alert('กรุณาระบุชื่อรายการ'); return; }
+  var btn=this; btn.disabled=true; btn.textContent='กำลังบันทึก...';
+  function onSaved(){ btn.disabled=false; btn.textContent='บันทึก'; document.getElementById('modalAdminEdit').classList.remove('open'); renderAdminList(); }
+  function onSaveError(err){ btn.disabled=false; btn.textContent='บันทึก'; onError(err); }
+  if(BE.editingRowIndex){
+    google.script.run.withSuccessHandler(onSaved).withFailureHandler(onSaveError).adminUpdateItem(BE.pin, BE.editingRowIndex, payload);
+  } else {
+    google.script.run.withSuccessHandler(onSaved).withFailureHandler(onSaveError).adminAddItem(BE.pin, payload);
+  }
+};
+document.getElementById('btnAdminDeleteConfirm').onclick=function(){
+  var item = BE.master.find(function(x){ return x.rowIndex===BE.editingRowIndex; });
+  if(!item) return;
+  if(!confirm('ยืนยันการลบ "'+item.name+'" ?')) return;
+  var btn=this; btn.disabled=true; btn.textContent='กำลังลบ...';
+  google.script.run.withSuccessHandler(function(){ btn.disabled=false; btn.textContent='ลบรายการนี้'; document.getElementById('modalAdminEdit').classList.remove('open'); renderAdminList(); })
+    .withFailureHandler(function(err){ btn.disabled=false; btn.textContent='ลบรายการนี้'; onError(err); }).adminDeleteItem(BE.pin, BE.editingRowIndex);
+};
+function adminDeleteFlow(item){
+  if(!confirm('ยืนยันการลบ "'+item.name+'" ?')) return;
+  google.script.run.withSuccessHandler(function(){ renderAdminList(); }).withFailureHandler(onError).adminDeleteItem(BE.pin, item.rowIndex);
+}
+
+/* ---------- ระบบรับเข้าสารเคมี (Receiving) ---------- */
+var receiveTargetItem = null;
+
+function openReceiveModal(item) {
+  receiveTargetItem = item;
+  document.getElementById('receiveItemTitle').innerHTML = 
+    '<b>' + esc(item.code) + '</b> &middot; ' + esc(item.name) + 
+    '<br><span style="color:var(--text-faint);">ยอดคงเหลือปัจจุบัน: ' + item.qty + ' ' + esc(item.unit||'ขวด') + '</span>';
+  
+  document.getElementById('receiveEmpName').value = '';
+  document.getElementById('receiveQty').value = '';
+  document.getElementById('receiveRemark').value = '';
+  document.getElementById('modalReceive').classList.add('open');
+}
+
+document.getElementById('closeReceive').onclick = function() { 
+  document.getElementById('modalReceive').classList.remove('open'); 
+};
+
+document.getElementById('btnReceiveSave').onclick = function() {
+  if (!receiveTargetItem) return;
+  var empName = document.getElementById('receiveEmpName').value.trim();
+  var qty = Number(document.getElementById('receiveQty').value);
+  var remark = document.getElementById('receiveRemark').value.trim();
+
+  if (!empName) { alert('กรุณาระบุชื่อผู้รับเข้า'); return; }
+  if (!qty || qty <= 0) { alert('กรุณาระบุจำนวนที่รับเข้า (ต้องมากกว่า 0)'); return; }
+
+  var payload = {
+    itemCode: receiveTargetItem.code,
+    itemName: receiveTargetItem.name,
+    employeeName: empName,
+    receiveQty: qty,
+    remark: remark
+  };
+
+  var btn = this; 
+  btn.disabled = true; 
+  btn.textContent = 'กำลังบันทึกข้อมูล...';
+
+  google.script.run.withSuccessHandler(function(res) {
+    btn.disabled = false; 
+    btn.textContent = 'ยืนยันการรับเข้า';
+    document.getElementById('modalReceive').classList.remove('open');
+    alert('✅ รับเข้าสำเร็จ!\nสารเคมี: ' + payload.itemName + '\nยอดใหม่: ' + res.newQty);
+    renderAdminList(); 
+    loadDashboard();   
+  }).withFailureHandler(function(err) {
+    btn.disabled = false; 
+    btn.textContent = 'ยืนยันการรับเข้า';
+    onError(err);
+  }).receiveChemical(BE.pin, payload);
+};
+
+/* ============================================================
+   ฟังก์ชันสารเคมีคงเหลือแบบสวยงาม (ตามดีไซน์ที่แนบมาเป๊ะๆ แยกอิสระ)
+   ============================================================ */
+(function() {
+  var stockData = [];
+
+  var btnGo = document.getElementById('btnGoBeautifulStock');
+  if(btnGo) {
+    btnGo.onclick = function() {
+      document.getElementById('modalBeautifulStock').classList.add('open');
+      document.getElementById('beautifulStockContent').innerHTML = '<div class="loading-dots" style="margin-top:40px;">กำลังโหลดข้อมูลสารเคมี...</div>';
+      document.getElementById('beautifulStockSub').textContent = 'กำลังซิงค์ข้อมูล...';
+      document.getElementById('searchBeautifulStock').value = '';
+
+      google.script.run.withSuccessHandler(function(months) {
+        if (!months || !months.length) {
+          google.script.run.withSuccessHandler(function(items) {
+            stockData = items.map(function(it) {
+              return { code: it.code, name: it.name, manufacturer: it.manufacturer, productCodes: it.productCodes, unit: it.unit, docQty: it.qty, openBottles: [], goneCodes: [] };
+            });
+            renderBeautifulStock();
+            document.getElementById('beautifulStockSub').textContent = 'ข้อมูลจากฐานข้อมูลหลัก (ยังไม่มีประวัติตรวจนับ)';
+          }).withFailureHandler(onError).getMasterItems();
+          return;
+        }
+        var latestMonth = months[0];
+        google.script.run.withSuccessHandler(function(data) {
+          stockData = data.items || [];
+          renderBeautifulStock();
+          document.getElementById('beautifulStockSub').textContent = 'ข้อมูลการเปิดใช้ อ้างอิงจากรอบตรวจนับ: ' + latestMonth.label;
+        }).withFailureHandler(onError).getMonthlyRemainingSummary(latestMonth.monthKey);
+      }).withFailureHandler(onError).getArchiveMonths();
+    };
+  }
+
+  var closeBtn = document.getElementById('closeBeautifulStock');
+  if(closeBtn) {
+    closeBtn.onclick = function() {
+      document.getElementById('modalBeautifulStock').classList.remove('open');
+    };
+  }
+
+  var searchInp = document.getElementById('searchBeautifulStock');
+  if(searchInp) {
+    searchInp.addEventListener('input', function() {
+      renderBeautifulStock(this.value.trim().toLowerCase());
+    });
+  }
+
+  function renderBeautifulStock(searchQuery) {
+    var el = document.getElementById('beautifulStockContent');
+    if (!stockData || !stockData.length) {
+      el.innerHTML = '<div class="empty-state">ไม่มีรายการสารเคมี</div>';
+      return;
+    }
+
+    var html = '';
+    var count = 0;
+
+    stockData.forEach(function(it) {
+      if (searchQuery) {
+        var matchName = it.name.toLowerCase().indexOf(searchQuery) > -1;
+        var matchCode = it.code.toLowerCase().indexOf(searchQuery) > -1;
+        if (!matchName && !matchCode) return;
+      }
+      count++;
+
+      var codes = it.productCodes && it.productCodes[0] !== '-' ? it.productCodes : [];
+      var open = it.openBottles || [];
+      var gone = it.goneCodes || [];
+      
+      var remainingCodes = codes.filter(function(c) { return gone.indexOf(c) === -1; });
+      var currentQty = it.docQty; 
+      
+      var codesHtml = '';
+      if (remainingCodes.length > 0) {
+        codesHtml = '<div style="margin-top: 16px; display: flex; flex-wrap: wrap; gap: 8px;">';
+        remainingCodes.forEach(function(c) {
+          if (open.indexOf(c) > -1) {
+            codesHtml += '<span style="border: 1.5px solid #f3d9a8; background: var(--warn-lt); padding: 6px 10px; border-radius: 8px; font-size: 11.5px; font-family: var(--mono); color: var(--warn); font-weight: 700; display: inline-flex; align-items: center; gap: 4px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>' + esc(c) + ' (เปิดอยู่)</span>';
+          } else {
+            codesHtml += '<span style="border: 1.5px solid var(--border); background: #fff; padding: 6px 10px; border-radius: 8px; font-size: 11.5px; font-family: var(--mono); color: var(--text-soft); font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">' + esc(c) + '</span>';
+          }
+        });
+        codesHtml += '</div>';
+      } else if (codes.length > 0) {
+        codesHtml = '<div style="margin-top: 16px; font-size: 11px; color: var(--er); font-weight: 700; background: var(--er-lt); padding: 6px 10px; border-radius: 8px; display: inline-block;">หมด/สูญหาย</div>';
+      }
+
+      var remHtml = '';
+      if (it.remainingApprox) {
+        remHtml = '<div style="margin-top: 16px; background: #fdfaf0; border-left: 4px solid var(--warn); border-radius: 8px; padding: 10px 14px; font-size: 12px; font-weight: 600; color: var(--text-soft); display: flex; align-items: center; gap: 8px;"><span style="color: #4b92d6; font-size:16px;">ℹ️</span> <span><span style="color: var(--warn); font-weight: 700;">ปริมาณเหลือ(ขวดที่เปิด):</span> ' + esc(it.remainingApprox) + '</span></div>';
+      }
